@@ -1,0 +1,17 @@
+umap-learn
+jupyterlab
+pacmap
+nb_black
+pandas
+matplotlib
+seaborn
+ipywidgets
+openTSNE
+cython
+ncvis
+trimap
+pymde
+flake8
+isort
+pylint
+
