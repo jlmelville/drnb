@@ -5,6 +5,10 @@ def create_embedder(method, embed_kwargs=None):
         import drnb.embed.ncvis
 
         ctor = drnb.embed.ncvis.NCVis
+    elif method == "pymde":
+        import drnb.embed.pymde
+
+        ctor = drnb.embed.pymde.Pymde
     elif method == "randproj":
         import drnb.embed.randproj
 

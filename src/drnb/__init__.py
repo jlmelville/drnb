@@ -1,8 +1,6 @@
 import numpy as np
 import pacmap
-import pymde
 import sklearn
-import torch
 import umap
 
 from drnb.embed import create_embedder
@@ -346,63 +344,6 @@ def pca(
 
     if do_plot:
         plot_embedded(embedded, y, plot_kwargs)
-
-    return embedded
-
-
-# PyMDE
-
-
-def pymde_nbrs(
-    x,
-    y=None,
-    n_neighbors=None,
-    do_plot=True,
-    plot_kwargs=None,
-    seed=None,
-):
-    x, y = get_xy(x, y)
-    x = torch.from_numpy(x)
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    if seed is not None:
-        pymde.seed(seed)
-    embedder = pymde.preserve_neighbors(
-        x, device=device, embedding_dim=2, n_neighbors=n_neighbors
-    )
-    embedded = embedder.embed().cpu().data.numpy()
-
-    if do_plot:
-        plot_embedded(embedded, y, plot_kwargs)
-
-    return embedded
-
-
-def pymde_data(
-    name,
-    plot_kwargs=None,
-    export=False,
-    export_dir="pymde",
-    seed=None,
-    n_neighbors=None,
-    repickle=False,
-    suffix=None,
-    x=None,
-    y=None,
-):
-
-    x, y = get_xy_data(name, x, y, repickle=repickle)
-
-    embedded = pymde_nbrs(
-        x,
-        y=y,
-        n_neighbors=n_neighbors,
-        plot_kwargs=plot_kwargs,
-        seed=seed,
-    )
-
-    if export:
-        export_coords(embedded, name, export_dir, suffix)
 
     return embedded
 
