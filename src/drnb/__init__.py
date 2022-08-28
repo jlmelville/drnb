@@ -20,13 +20,12 @@ def embed_data(
     x=None,
     y=None,
     import_kwargs=None,
-    embed_kwargs=None,
     plot=True,
     export=False,
 ):
     importer = create_importer(x, import_kwargs)
     exporter = create_exporter(method, export)
-    embedder = create_embedder(method, embed_kwargs)
+    embedder = create_embedder(method)
     plotter = create_plotter(plot)
 
     x, y = importer.import_data(name, x, y)

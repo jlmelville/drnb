@@ -134,13 +134,14 @@ import drnb
 
 iris_randproj = nb.embed_data(
     name="iris",
-    method="randproj",
-    embed_kwargs=dict(seed=42),
+    method=("randproj", dict(seed=42)),
     export=dict(create_sub_dir=True),
 )
 ```
 
-The coordinates are returned in case you want to do something with them.
+The coordinates are returned in case you want to do something with them. If you don't want to pass
+any extra options to the `method`, you can just pass the name of the method directly, e.g.
+`method="randproj"`.
 
 #### Writing extra data
 
@@ -151,8 +152,7 @@ data is stored under a key that will be used as a further suffix if exporting is
 ```python
 iris_densmap = nb.embed_data(
     "iris",
-    method="densmap",
-    embed_kwargs=dict(output_dens=True),
+    method=("densmap", dict(output_dens=True))
     export=dict(export_dir="dmaprad"),
 )
 iris_densmap.keys()

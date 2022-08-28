@@ -1,5 +1,11 @@
 # pylint: disable=import-outside-toplevel
 def create_embedder(method, embed_kwargs=None):
+    if isinstance(method, tuple):
+        if len(method) != 2:
+            raise ValueError("Unexpected format for method")
+        embed_kwargs = method[1]
+        method = method[0]
+
     if embed_kwargs is None:
         embed_kwargs = {}
 
