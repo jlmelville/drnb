@@ -1,4 +1,4 @@
-from drnb.embed import create_embedder
+from drnb.embed import create_embedder, get_embedder_name
 from drnb.io import create_exporter, create_importer
 from drnb.plot import create_plotter
 
@@ -24,7 +24,7 @@ def embed_data(
     export=False,
 ):
     importer = create_importer(x, import_kwargs)
-    exporter = create_exporter(method, export)
+    exporter = create_exporter(get_embedder_name(method), export)
     embedder = create_embedder(method)
     plotter = create_plotter(plot)
 

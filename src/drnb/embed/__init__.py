@@ -40,3 +40,11 @@ def create_embedder(method, embed_kwargs=None):
 
     embedder = ctor(**embed_kwargs)
     return embedder
+
+
+def get_embedder_name(method):
+    if isinstance(method, tuple):
+        if len(method) != 2:
+            raise ValueError("Unexpected format for method")
+        return method[0]
+    return method
