@@ -15,6 +15,8 @@ def create_embedder(method, embed_kwargs=None):
         from drnb.embed.tsvd import Tsvd as ctor
     elif method == "trimap":
         from drnb.embed.trimap import Trimap as ctor
+    elif method == "umap":
+        from drnb.embed.umap import Umap as ctor
     else:
         raise ValueError(f"Unknown method {method}")
 
