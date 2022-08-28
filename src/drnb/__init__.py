@@ -1,10 +1,8 @@
 import ncvis
 import numpy as np
-import openTSNE
 import pacmap
 import pymde
 import sklearn
-import sklearn.random_projection
 import torch
 import trimap
 import umap
@@ -447,54 +445,6 @@ def trimap_embed(
         n_dims=2,
     )
     embedded = embedder.fit_transform(x)
-
-    if do_plot:
-        plot_embedded(embedded, y, plot_kwargs)
-
-    return embedded
-
-
-# t-SNE
-
-
-def tsne_data(
-    name,
-    plot_kwargs=None,
-    export=False,
-    export_dir="pca",
-    seed=None,
-    repickle=False,
-    suffix=None,
-    x=None,
-    y=None,
-):
-
-    x, y = get_xy_data(name, x, y, repickle=repickle)
-
-    embedded = tsne_embed(
-        x,
-        y=y,
-        plot_kwargs=plot_kwargs,
-        seed=seed,
-    )
-
-    if export:
-        export_coords(embedded, name, export_dir, suffix)
-
-    return embedded
-
-
-def tsne_embed(
-    x,
-    y=None,
-    do_plot=True,
-    plot_kwargs=None,
-    seed=None,
-):
-    x, y = get_xy(x, y)
-
-    embedder = openTSNE.TSNE(n_components=2, random_state=seed)
-    embedded = embedder.fit(x)
 
     if do_plot:
         plot_embedded(embedded, y, plot_kwargs)

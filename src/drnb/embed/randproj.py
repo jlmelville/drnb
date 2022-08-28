@@ -6,7 +6,7 @@ import sklearn.random_projection
 
 @dataclass
 class RandProj:
-    seed: int = True
+    seed: int = None
 
     @classmethod
     def new(cls, **kwargs):

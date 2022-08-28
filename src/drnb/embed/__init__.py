@@ -4,6 +4,11 @@ def create_embedder(method, embed_kwargs=None):
         import drnb.embed.randproj
 
         ctor = drnb.embed.randproj.RandProj
+    elif method == "tsne":
+        # pylint: disable=import-outside-toplevel
+        import drnb.embed.tsne
+
+        ctor = drnb.embed.tsne.Tsne
     else:
         raise ValueError(f"Unknown method {method}")
 
