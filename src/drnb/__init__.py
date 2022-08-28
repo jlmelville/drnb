@@ -558,7 +558,22 @@ def embed_data(
     export=False,
     export_kwargs=None,
 ):
+    importer = create_importer(x, import_kwargs)
+    exporter = create_exporter(method, export, export_kwargs)
+    embedder = create_embedder(method, embed_kwargs)
+    plotter = create_plotter(plot, plot_kwargs)
 
+    x, y = importer.import_data(name, x, y)
+    if hasattr(x, "to_numpy"):
+        x = x.to_numpy()
+    embedded = embedder.embed(x)
+    plotter.plot(embedded, y)
+    exporter.export(name=name, coords=embedded)
+
+    return embedded
+
+
+def create_importer(x=None, import_kwargs=None):
     if x is None:
         importer_cls = DatasetImporter
     else:
@@ -568,7 +583,10 @@ def embed_data(
         import_kwargs = {}
 
     importer = importer_cls.new(**import_kwargs)
+    return importer
 
+
+def create_exporter(method, export=False, export_kwargs=None):
     if export:
         exporter_cls = CsvExporter
     else:
@@ -580,7 +598,10 @@ def embed_data(
         export_kwargs["export_dir"] = method
 
     exporter = exporter_cls.new(**export_kwargs)
+    return exporter
 
+
+def create_embedder(method, embed_kwargs=None):
     if method == "randproj":
         # pylint: disable=import-outside-toplevel
         import drnb.embed.randproj
@@ -588,24 +609,21 @@ def embed_data(
         ctor = drnb.embed.randproj.RandProj
     else:
         raise ValueError(f"Unknown method {method}")
-    embedder = ctor(**embed_kwargs)
 
+    if embed_kwargs is None:
+        embed_kwargs = {}
+
+    embedder = ctor(**embed_kwargs)
+    return embedder
+
+
+def create_plotter(plot=True, plot_kwargs=None):
     if plot:
         plotter_cls = SeabornPlotter
     else:
         plotter_cls = NoPlotter
     if plot_kwargs is None:
         plot_kwargs = {}
+
     plotter = plotter_cls.new(**plot_kwargs)
-
-    x, y = importer.import_data(name, x, y)
-    if hasattr(x, "to_numpy"):
-        x = x.to_numpy()
-
-    embedded = embedder.embed(x)
-
-    plotter.plot(embedded, y)
-
-    exporter.export(name=name, coords=embedded)
-
-    return embedded
+    return plotter
