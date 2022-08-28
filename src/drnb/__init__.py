@@ -1,4 +1,3 @@
-import ncvis
 import numpy as np
 import pacmap
 import pymde
@@ -444,49 +443,6 @@ def trimap_embed(
     embedder = trimap.TRIMAP(
         n_dims=2,
     )
-    embedded = embedder.fit_transform(x)
-
-    if do_plot:
-        plot_embedded(embedded, y, plot_kwargs)
-
-    return embedded
-
-
-## NCVis
-
-
-def ncvis_data(
-    name,
-    plot_kwargs=None,
-    export=False,
-    export_dir="pca",
-    seed=None,
-    n_neighbors=30,
-    repickle=False,
-    suffix=None,
-    x=None,
-    y=None,
-):
-
-    x, y = get_xy_data(name, x, y, repickle=repickle)
-
-    embedded = ncvis_embed(
-        x, y=y, plot_kwargs=plot_kwargs, seed=seed, n_neighbors=n_neighbors
-    )
-
-    if export:
-        export_coords(embedded, name, export_dir, suffix)
-
-    return embedded
-
-
-def ncvis_embed(x, y=None, do_plot=True, plot_kwargs=None, seed=None, n_neighbors=30):
-    x, y = get_xy(x, y)
-
-    kwargs = dict(n_neighbors=n_neighbors)
-    if isinstance(int, seed):
-        kwargs["random_seed"] = seed
-    embedder = ncvis.NCVis(**kwargs)
     embedded = embedder.fit_transform(x)
 
     if do_plot:
