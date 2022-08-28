@@ -18,7 +18,6 @@
     },
     "python.formatting.blackPath": "${workspaceFolder}/venv/bin/black",
     "python.formatting.provider": "black",
-    "python.languageServer": "None",
     "python.linting.enabled": true,
     "python.linting.flake8Args": [
         "--config",
