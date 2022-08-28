@@ -13,6 +13,8 @@ def create_embedder(method, embed_kwargs=None):
             embed_kwargs["n_neighbors"] = 30
     elif method == "ncvis":
         from drnb.embed.ncvis import NCVis as ctor
+    elif method == "pacmap":
+        from drnb.embed.pacmap import Pacmap as ctor
     elif method == "pca":
         from drnb.embed.pca import Pca as ctor
     elif method == "pymde":
