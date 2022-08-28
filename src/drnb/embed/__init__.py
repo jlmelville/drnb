@@ -1,7 +1,11 @@
 # pylint: disable=import-outside-toplevel
 def create_embedder(method, embed_kwargs=None):
     method = method.lower()
-    if method == "randproj":
+    if method == "ncvis":
+        import drnb.embed.ncvis
+
+        ctor = drnb.embed.ncvis.NCVis
+    elif method == "randproj":
         import drnb.embed.randproj
 
         ctor = drnb.embed.randproj.RandProj
@@ -9,10 +13,10 @@ def create_embedder(method, embed_kwargs=None):
         import drnb.embed.tsne
 
         ctor = drnb.embed.tsne.Tsne
-    elif method == "ncvis":
-        import drnb.embed.ncvis
+    elif method == "trimap":
+        import drnb.embed.trimap
 
-        ctor = drnb.embed.ncvis.NCVis
+        ctor = drnb.embed.trimap.Trimap
     else:
         raise ValueError(f"Unknown method {method}")
 

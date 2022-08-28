@@ -3,7 +3,6 @@ import pacmap
 import pymde
 import sklearn
 import torch
-import trimap
 import umap
 
 from drnb.embed import create_embedder
@@ -404,49 +403,6 @@ def pymde_data(
 
     if export:
         export_coords(embedded, name, export_dir, suffix)
-
-    return embedded
-
-
-# TriMAP
-
-
-def trimap_data(
-    name,
-    plot_kwargs=None,
-    export=False,
-    export_dir="pca",
-    repickle=False,
-    suffix=None,
-    x=None,
-    y=None,
-):
-
-    x, y = get_xy_data(name, x, y, repickle=repickle)
-
-    embedded = trimap_embed(x, y=y, plot_kwargs=plot_kwargs)
-
-    if export:
-        export_coords(embedded, name, export_dir, suffix)
-
-    return embedded
-
-
-def trimap_embed(
-    x,
-    y=None,
-    do_plot=True,
-    plot_kwargs=None,
-):
-    x, y = get_xy(x, y)
-
-    embedder = trimap.TRIMAP(
-        n_dims=2,
-    )
-    embedded = embedder.fit_transform(x)
-
-    if do_plot:
-        plot_embedded(embedded, y, plot_kwargs)
 
     return embedded
 
