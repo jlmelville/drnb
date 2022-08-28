@@ -9,19 +9,18 @@ import torch
 import trimap
 import umap
 
+from drnb.embed import create_embedder
 from drnb.eval import get_triplets, random_triplet_eval
 from drnb.io import (
-    CsvExporter,
-    DatasetImporter,
-    NoExporter,
-    XImporter,
+    create_exporter,
+    create_importer,
     export_coords,
     get_xy,
     get_xy_data,
     read_dataxy,
     write_csv,
 )
-from drnb.plot import NoPlotter, SeabornPlotter, plot_embedded, sns_embed_plot
+from drnb.plot import create_plotter, plot_embedded, sns_embed_plot
 from drnb.preprocess import center
 
 try:
@@ -571,59 +570,3 @@ def embed_data(
     exporter.export(name=name, coords=embedded)
 
     return embedded
-
-
-def create_importer(x=None, import_kwargs=None):
-    if x is None:
-        importer_cls = DatasetImporter
-    else:
-        importer_cls = XImporter
-
-    if import_kwargs is None:
-        import_kwargs = {}
-
-    importer = importer_cls.new(**import_kwargs)
-    return importer
-
-
-def create_exporter(method, export=False, export_kwargs=None):
-    if export:
-        exporter_cls = CsvExporter
-    else:
-        exporter_cls = NoExporter
-
-    if export_kwargs is None:
-        export_kwargs = dict(suffix=None, create_sub_dir=True, verbose=False)
-    if "export_dir" not in export_kwargs:
-        export_kwargs["export_dir"] = method
-
-    exporter = exporter_cls.new(**export_kwargs)
-    return exporter
-
-
-def create_embedder(method, embed_kwargs=None):
-    if method == "randproj":
-        # pylint: disable=import-outside-toplevel
-        import drnb.embed.randproj
-
-        ctor = drnb.embed.randproj.RandProj
-    else:
-        raise ValueError(f"Unknown method {method}")
-
-    if embed_kwargs is None:
-        embed_kwargs = {}
-
-    embedder = ctor(**embed_kwargs)
-    return embedder
-
-
-def create_plotter(plot=True, plot_kwargs=None):
-    if plot:
-        plotter_cls = SeabornPlotter
-    else:
-        plotter_cls = NoPlotter
-    if plot_kwargs is None:
-        plot_kwargs = {}
-
-    plotter = plotter_cls.new(**plot_kwargs)
-    return plotter

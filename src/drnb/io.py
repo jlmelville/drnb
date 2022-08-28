@@ -92,6 +92,19 @@ class DatasetImporter:
         return x, y
 
 
+def create_importer(x=None, import_kwargs=None):
+    if x is None:
+        importer_cls = DatasetImporter
+    else:
+        importer_cls = XImporter
+
+    if import_kwargs is None:
+        import_kwargs = {}
+
+    importer = importer_cls.new(**import_kwargs)
+    return importer
+
+
 def export_coords(
     embedded,
     name,
@@ -176,3 +189,18 @@ class CsvExporter:
             create_sub_dir=self.create_sub_dir,
             verbose=self.verbose,
         )
+
+
+def create_exporter(method, export=False, export_kwargs=None):
+    if export:
+        exporter_cls = CsvExporter
+    else:
+        exporter_cls = NoExporter
+
+    if export_kwargs is None:
+        export_kwargs = dict(suffix=None, create_sub_dir=True, verbose=False)
+    if "export_dir" not in export_kwargs:
+        export_kwargs["export_dir"] = method
+
+    exporter = exporter_cls.new(**export_kwargs)
+    return exporter

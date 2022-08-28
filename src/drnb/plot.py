@@ -46,6 +46,18 @@ class SeabornPlotter:
         )
 
 
+def create_plotter(plot=True, plot_kwargs=None):
+    if plot:
+        plotter_cls = SeabornPlotter
+    else:
+        plotter_cls = NoPlotter
+    if plot_kwargs is None:
+        plot_kwargs = {}
+
+    plotter = plotter_cls.new(**plot_kwargs)
+    return plotter
+
+
 def plot_embedded(embedded, y, plot_kwargs=None):
     if isinstance(embedded, tuple):
         coords = embedded[0]
