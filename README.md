@@ -73,9 +73,9 @@ No datasets are in this repo. You will have so source them for yourself.
 ### Reading
 
 ```python
-import drnb as nb
+import drnb.io as nbio
 
-irisx, irisy = nb.read_dataxy("iris")
+irisx, irisy = nbio.read_dataxy("iris")
 ```
 
 These are read in as [pandas](https://pandas.pydata.org/) dataframes. You can override `DATA_ROOT`
@@ -96,11 +96,12 @@ from above:
 
 ```python
 from sklearn.random_projection import SparseRandomProjection
+import drnb.plot as nbplot
 
 transformer = SparseRandomProjection(n_components=2)
 iris_randproj = transformer.fit_transform(irisx)
 
-nb.sns_embed_plot(iris_randproj, irisy)
+nbplot.sns_embed_plot(iris_randproj, irisy)
 ```
 
 ### Writing
@@ -119,7 +120,7 @@ DATA_ROOT/
 This is accomplished with:
 
 ```python
-nb.export_coords(iris_randproj, name="iris", export_dir="randproj")
+nbio.export_coords(iris_randproj, name="iris", export_dir="randproj")
 ```
 
 You can also over-ride `data_root` here too.
@@ -129,6 +130,8 @@ You can also over-ride `data_root` here too.
 All of the above example can be run in one go with:
 
 ```python
+import drnb
+
 iris_randproj = nb.embed_data(
     name="iris",
     method="randproj",
