@@ -10,8 +10,18 @@ import trimap
 import umap
 
 from drnb.eval import get_triplets, random_triplet_eval
-from drnb.io import export_coords, get_xy, get_xy_data, read_dataxy, write_csv
-from drnb.plot import plot_embedded, sns_embed_plot
+from drnb.io import (
+    CsvExporter,
+    DatasetImporter,
+    NoExporter,
+    XImporter,
+    export_coords,
+    get_xy,
+    get_xy_data,
+    read_dataxy,
+    write_csv,
+)
+from drnb.plot import NoPlotter, SeabornPlotter, plot_embedded, sns_embed_plot
 from drnb.preprocess import center
 
 try:
@@ -234,56 +244,6 @@ def densmap_data(
         x=x,
         y=y,
     )
-
-
-# Random Projections
-
-
-def randproj(
-    x,
-    y=None,
-    do_plot=True,
-    plot_kwargs=None,
-    seed=None,
-):
-    x, y = get_xy(x, y)
-
-    embedder = sklearn.random_projection.SparseRandomProjection(
-        random_state=seed, n_components=2
-    )
-    embedded = embedder.fit_transform(x)
-
-    if do_plot:
-        plot_embedded(embedded, y, plot_kwargs)
-
-    return embedded
-
-
-def randproj_data(
-    name,
-    plot_kwargs=None,
-    export=False,
-    export_dir="randproj",
-    seed=None,
-    repickle=False,
-    suffix=None,
-    x=None,
-    y=None,
-    create_sub_dir=True,
-):
-    x, y = get_xy_data(name, x, y, repickle=repickle)
-
-    embedded = randproj(
-        x,
-        y=y,
-        plot_kwargs=plot_kwargs,
-        seed=seed,
-    )
-
-    if export:
-        export_coords(embedded, name, export_dir, suffix, create_sub_dir=create_sub_dir)
-
-    return embedded
 
 
 # Truncated SVD
@@ -582,5 +542,70 @@ def ncvis_embed(x, y=None, do_plot=True, plot_kwargs=None, seed=None, n_neighbor
 
     if do_plot:
         plot_embedded(embedded, y, plot_kwargs)
+
+    return embedded
+
+
+def embed_data(
+    name,
+    method,
+    x=None,
+    y=None,
+    import_kwargs=None,
+    embed_kwargs=None,
+    plot=True,
+    plot_kwargs=None,
+    export=False,
+    export_kwargs=None,
+):
+
+    if x is None:
+        importer_cls = DatasetImporter
+    else:
+        importer_cls = XImporter
+
+    if import_kwargs is None:
+        import_kwargs = {}
+
+    importer = importer_cls.new(**import_kwargs)
+
+    if export:
+        exporter_cls = CsvExporter
+    else:
+        exporter_cls = NoExporter
+
+    if export_kwargs is None:
+        export_kwargs = dict(suffix=None, create_sub_dir=True, verbose=False)
+    if "export_dir" not in export_kwargs:
+        export_kwargs["export_dir"] = method
+
+    exporter = exporter_cls.new(**export_kwargs)
+
+    if method == "randproj":
+        # pylint: disable=import-outside-toplevel
+        import drnb.embed.randproj
+
+        ctor = drnb.embed.randproj.RandProj
+    else:
+        raise ValueError(f"Unknown method {method}")
+    embedder = ctor(**embed_kwargs)
+
+    if plot:
+        plotter_cls = SeabornPlotter
+    else:
+        plotter_cls = NoPlotter
+    if plot_kwargs is None:
+        plot_kwargs = {}
+    plotter = plotter_cls.new(**plot_kwargs)
+
+    x, y = importer.import_data(name, x, y)
+    if hasattr(x, "to_numpy"):
+        x = x.to_numpy()
+
+    embedded = embedder.embed(x)
+
+    plotter.plot(embedded, y)
+
+    exporter.export(name=name, coords=embedded)
 
     return embedded

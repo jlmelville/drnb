@@ -129,7 +129,13 @@ You can also over-ride `data_root` here too.
 All of the above example can be run in one go with:
 
 ```python
-iris_randproj = nb.randproj_data("iris", seed=42, export=True)
+iris_randproj = nb.embed_data(
+    name="iris",
+    method="randproj",
+    embed_kwargs=dict(seed=42),
+    export=True,
+    export_kwargs=dict(create_sub_dir=True),
+)
 ```
 
 The coordinates are returned in case you want to do something with them.

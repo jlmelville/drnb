@@ -1,6 +1,7 @@
 # Functions for reading and writing data
 
 import pickle
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -65,9 +66,30 @@ def get_xy(x, y):
     if y is None and isinstance(x, tuple) and len(x) == 2:
         y = x[1]
         x = x[0]
-    if hasattr(x, "to_numpy"):
-        x = x.to_numpy()
     return x, y
+
+
+class XImporter:
+    @classmethod
+    def new(cls, **kwargs):
+        return cls(**kwargs)
+
+    # pylint: disable=unused-argument
+    def import_data(self, name, x, y):
+        return get_xy(x, y)
+
+
+@dataclass
+class DatasetImporter:
+    repickle: bool = False
+
+    @classmethod
+    def new(cls, **kwargs):
+        return cls(**kwargs)
+
+    def import_data(self, name, x, y):
+        x, y = get_xy_data(name, x=None, y=None, repickle=self.repickle)
+        return x, y
 
 
 def export_coords(
@@ -118,3 +140,39 @@ def write_csv(
         np.savetxt(output_path, x, delimiter=",", fmt="%s")
     else:
         np.savetxt(output_path, x, delimiter=",")
+
+
+class NoExporter:
+    def __init__(self, **kwargs):
+        pass
+
+    @classmethod
+    def new(cls, **kwargs):
+        return cls(**kwargs)
+
+    def export(self, name, coords):
+        pass
+
+
+@dataclass
+class CsvExporter:
+    export_dir: str = None
+    data_path: str = None
+    suffix: str = None
+    create_sub_dir: bool = False
+    verbose: bool = False
+
+    @classmethod
+    def new(cls, **kwargs):
+        return cls(**kwargs)
+
+    def export(self, name, coords):
+        export_coords(
+            coords,
+            name,
+            export_dir=self.export_dir,
+            data_path=self.data_path,
+            suffix=self.suffix,
+            create_sub_dir=self.create_sub_dir,
+            verbose=self.verbose,
+        )

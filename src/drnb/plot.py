@@ -1,7 +1,59 @@
+import typing
+from dataclasses import dataclass
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+
+
+class NoPlotter:
+    @classmethod
+    def new(cls, **kwargs):
+        return cls(**kwargs)
+
+    def plot(self, embedded, y):
+        pass
+
+
+@dataclass
+class SeabornPlotter:
+    cex: int = 10
+    alpha_scale: float = 1.0
+    palette: typing.Any = None
+    title: str = ""
+    figsize: tuple = None
+    legend: bool = True
+
+    @classmethod
+    def new(cls, **kwargs):
+        return cls(**kwargs)
+
+    def plot(self, embedded, y):
+        if isinstance(embedded, tuple):
+            coords = embedded[0]
+        else:
+            coords = embedded
+        sns_embed_plot(
+            coords,
+            color_col=y,
+            cex=self.cex,
+            alpha_scale=self.alpha_scale,
+            palette=self.palette,
+            title=self.title,
+            figsize=self.figsize,
+            legend=self.legend,
+        )
+
+
+def plot_embedded(embedded, y, plot_kwargs=None):
+    if isinstance(embedded, tuple):
+        coords = embedded[0]
+    else:
+        coords = embedded
+    if plot_kwargs is None:
+        plot_kwargs = {}
+    sns_embed_plot(coords, y, **plot_kwargs)
 
 
 # https://stackoverflow.com/a/67001213
@@ -103,13 +155,3 @@ def sns_embed_plot(
             title=leg_title,
         )
         plt.tight_layout()
-
-
-def plot_embedded(embedded, y, plot_kwargs=None):
-    if isinstance(embedded, tuple):
-        coords = embedded[0]
-    else:
-        coords = embedded
-    if plot_kwargs is None:
-        plot_kwargs = {}
-    sns_embed_plot(coords, y, **plot_kwargs)
