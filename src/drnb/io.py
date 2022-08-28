@@ -69,6 +69,25 @@ def get_xy(x, y):
     return x, y
 
 
+def list_available_data(data_path=None, sub_dir="xy", with_y=False):
+    if data_path is None:
+        data_path = DATA_ROOT
+    if sub_dir is not None:
+        data_path = data_path / sub_dir
+
+    datasets = {x.stem for x in Path.glob(data_path, "*") if not x.stem.endswith("-y")}
+
+    if with_y:
+        # chop off the "-y" bit
+        y_stems = {
+            y.stem[:-2] for y in Path.glob(data_path, "*") if y.stem.endswith("-y")
+        }
+        # only keep items in datasets and y_stems
+        datasets &= y_stems
+
+    return sorted(datasets)
+
+
 class XImporter:
     @classmethod
     def new(cls, **kwargs):
