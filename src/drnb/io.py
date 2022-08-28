@@ -1,16 +1,21 @@
+# Functions for reading and writing data
+
 import pickle
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-DATASETS_PATH = Path.home() / "rdev" / "datasets"
-DATA_PATH = DATASETS_PATH / "py"
+DATA_ROOT = Path.home() / "rdev" / "datasets"
 
 
-def read_data(dataset, suffix=None, data_path=None, repickle=False, header=None):
+def read_data(
+    dataset, suffix=None, data_path=None, sub_dir="xy", repickle=False, header=None
+):
     if data_path is None:
-        data_path = DATA_PATH
+        data_path = DATA_ROOT
+    if sub_dir is not None:
+        data_path = data_path / sub_dir
     if suffix is not None:
         dataset_basename = f"{dataset}-{suffix}"
     else:
@@ -48,18 +53,6 @@ def read_dataxy(dataset, data_path=None, repickle=False):
     return (x, y)
 
 
-def export_coords(embedded, name, export_dir, suffix=None):
-    if isinstance(embedded, tuple):
-        coords = embedded[0]
-    else:
-        coords = embedded
-    if suffix is None:
-        suffix = export_dir
-    if not suffix[0] in ("-", "_"):
-        suffix = f"-{suffix}"
-    write_csv(coords, name=f"{name}{suffix}", sub_dir=export_dir)
-
-
 def get_xy_data(name, x=None, y=None, repickle=False):
     if x is None:
         x, y = read_dataxy(name, repickle=repickle)
@@ -77,11 +70,47 @@ def get_xy(x, y):
     return x, y
 
 
-def write_csv(x, name, data_path=None, sub_dir=None):
+def export_coords(
+    embedded,
+    name,
+    export_dir,
+    data_path=None,
+    suffix=None,
+    create_sub_dir=False,
+    verbose=False,
+):
+    if isinstance(embedded, tuple):
+        coords = embedded[0]
+    else:
+        coords = embedded
+    if suffix is None:
+        suffix = export_dir
+    if not suffix[0] in ("-", "_"):
+        suffix = f"-{suffix}"
+    write_csv(
+        coords,
+        name=f"{name}{suffix}",
+        data_path=data_path,
+        sub_dir=export_dir,
+        create_sub_dir=create_sub_dir,
+        verbose=verbose,
+    )
+
+
+def write_csv(
+    x, name, data_path=None, sub_dir=None, create_sub_dir=False, verbose=False
+):
     if data_path is None:
-        data_path = DATASETS_PATH
+        data_path = DATA_ROOT
     if sub_dir is not None:
         data_path = data_path / sub_dir
+    if not data_path.exists():
+        if create_sub_dir:
+            if verbose:
+                print(f"{data_path} does not exist, creating...")
+            data_path.mkdir(parents=False, exist_ok=False)
+        else:
+            raise FileNotFoundError(f"Missing directory {data_path}")
     if not name.endswith(".csv"):
         name = f"{name}.csv"
     output_path = data_path / name

@@ -4,6 +4,7 @@ import openTSNE
 import pacmap
 import pymde
 import sklearn
+import sklearn.random_projection
 import torch
 import trimap
 import umap
@@ -86,7 +87,6 @@ def pacmap_data(
         ),
         plot_kwargs=plot_kwargs,
     )
-    print(embedded.shape)
     if export_triplets:
         triplets = get_triplets(x, seed=seed)
         write_csv(
@@ -94,10 +94,10 @@ def pacmap_data(
         )
     else:
         triplets = None
-    if intermediates is not None and intermediates:
-        print(random_triplet_eval(x.to_numpy(), embedded[-1, :, :], triplets=triplets))
-    else:
-        print(random_triplet_eval(x.to_numpy(), embedded, triplets=triplets))
+    # if intermediates is not None and intermediates:
+    #     print(random_triplet_eval(x.to_numpy(), embedded[-1, :, :], triplets=triplets))
+    # else:
+    #     print(random_triplet_eval(x.to_numpy(), embedded, triplets=triplets))
 
     if suffix is None:
         suffix = export_dir
@@ -239,7 +239,7 @@ def densmap_data(
 # Random Projections
 
 
-def jl(
+def randproj(
     x,
     y=None,
     do_plot=True,
@@ -259,20 +259,21 @@ def jl(
     return embedded
 
 
-def jl_data(
+def randproj_data(
     name,
     plot_kwargs=None,
     export=False,
-    export_dir="jl",
+    export_dir="randproj",
     seed=None,
     repickle=False,
     suffix=None,
     x=None,
     y=None,
+    create_sub_dir=True,
 ):
     x, y = get_xy_data(name, x, y, repickle=repickle)
 
-    embedded = jl(
+    embedded = randproj(
         x,
         y=y,
         plot_kwargs=plot_kwargs,
@@ -280,7 +281,7 @@ def jl_data(
     )
 
     if export:
-        export_coords(embedded, name, export_dir, suffix)
+        export_coords(embedded, name, export_dir, suffix, create_sub_dir=create_sub_dir)
 
     return embedded
 
