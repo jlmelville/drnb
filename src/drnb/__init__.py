@@ -36,6 +36,6 @@ def embed_data(
         x = x.to_numpy()
     embedded = embedder.embed(x)
     plotter.plot(embedded, y)
-    exporter.export(name=name, coords=embedded)
+    exporter.export(name=name, embedded=embedded)
 
     return embedded

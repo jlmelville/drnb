@@ -143,6 +143,37 @@ iris_randproj = nb.embed_data(
 
 The coordinates are returned in case you want to do something with them.
 
+#### Writing extra data
+
+The embedding method will usually return a matrix of the coordinates. If more data has been
+specified to return, a `dict` is returned instead with the coordinates under the `coords` key. Other
+data is stored under a key that will be used as a further suffix if exporting is to be done:
+
+```python
+iris_densmap = nb.embed_data(
+    "iris",
+    method="densmap",
+    embed_kwargs=dict(output_dens=True),
+    export_kwargs=dict(export_dir="dmaprad"),
+    export=True,
+)
+iris_densmap.keys()
+```
+
+```python
+dict_keys(['coords', 'dens_ro', 'dens_re'])
+```
+
+Instead of exporting to the `densmap` directory, the file layout is:
+
+```text
+DATA_ROOT/
+  dmaprad/
+    iris-dmaprad.csv
+    iris-dmaprad-dens_ro.csv
+    iris-dmaprad-dens_re.csv
+```
+
 ## Notebook use
 
 Code is all in the `drnb` module. Probably the following is a good chunk to stick at the top of

@@ -32,6 +32,8 @@ class SeabornPlotter:
     def plot(self, embedded, y):
         if isinstance(embedded, tuple):
             coords = embedded[0]
+        elif isinstance(embedded, dict):
+            coords = embedded["coords"]
         else:
             coords = embedded
         sns_embed_plot(

@@ -105,23 +105,25 @@ def create_importer(x=None, import_kwargs=None):
     return importer
 
 
+def ensure_suffix(suffix, default_suffix):
+    if suffix is None:
+        suffix = default_suffix
+    if not suffix[0] in ("-", "_"):
+        suffix = f"-{suffix}"
+    return suffix
+
+
 def export_coords(
-    embedded,
+    coords,
     name,
     export_dir,
     data_path=None,
     suffix=None,
-    create_sub_dir=False,
+    create_sub_dir=True,
     verbose=False,
 ):
-    if isinstance(embedded, tuple):
-        coords = embedded[0]
-    else:
-        coords = embedded
-    if suffix is None:
-        suffix = export_dir
-    if not suffix[0] in ("-", "_"):
-        suffix = f"-{suffix}"
+    suffix = ensure_suffix(suffix, export_dir)
+
     write_csv(
         coords,
         name=f"{name}{suffix}",
@@ -133,7 +135,7 @@ def export_coords(
 
 
 def write_csv(
-    x, name, data_path=None, sub_dir=None, create_sub_dir=False, verbose=False
+    x, name, data_path=None, sub_dir=None, create_sub_dir=True, verbose=False
 ):
     if data_path is None:
         data_path = DATA_ROOT
@@ -163,7 +165,7 @@ class NoExporter:
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def export(self, name, coords):
+    def export(self, name, embedded):
         pass
 
 
@@ -172,14 +174,20 @@ class CsvExporter:
     export_dir: str = None
     data_path: str = None
     suffix: str = None
-    create_sub_dir: bool = False
+    create_sub_dir: bool = True
     verbose: bool = False
 
     @classmethod
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def export(self, name, coords):
+    def export(self, name, embedded):
+        if isinstance(embedded, dict):
+            coords = embedded["coords"]
+            self.export_extra(name, embedded)
+        else:
+            coords = embedded
+
         export_coords(
             coords,
             name,
@@ -189,6 +197,19 @@ class CsvExporter:
             create_sub_dir=self.create_sub_dir,
             verbose=self.verbose,
         )
+
+    def export_extra(self, name, embedded):
+        suffix = ensure_suffix(self.suffix, self.export_dir)
+        for extra_data_name, extra_data in embedded.items():
+            if extra_data_name == "coords":
+                continue
+            write_csv(
+                extra_data,
+                name=f"{name}{suffix}-{extra_data_name}",
+                sub_dir=self.export_dir,
+                data_path=self.data_path,
+                create_sub_dir=self.create_sub_dir,
+            )
 
 
 def create_exporter(method, export=False, export_kwargs=None):
