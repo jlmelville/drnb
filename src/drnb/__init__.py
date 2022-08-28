@@ -2,7 +2,7 @@ import numpy as np
 import pacmap
 
 from drnb.embed import create_embedder
-from drnb.eval import get_triplets, random_triplet_eval
+from drnb.eval import get_triplets
 from drnb.io import create_exporter, create_importer, read_dataxy, write_csv
 from drnb.plot import create_plotter, sns_embed_plot
 

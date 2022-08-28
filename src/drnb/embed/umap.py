@@ -36,12 +36,12 @@ def embed_umap(
     if isinstance(x, np.ndarray) and x.shape[0] == x.shape[1]:
         umap_kwargs["metric"] = "precomputed"
 
+    #         output_dens=densmap,
     embedder = umap.UMAP(
         random_state=seed,
         n_neighbors=n_neighbors,
         init=init,
         densmap=densmap,
-        output_dens=densmap,
         **umap_kwargs,
     )
     embedded = embedder.fit_transform(x)

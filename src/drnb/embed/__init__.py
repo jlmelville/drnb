@@ -1,7 +1,17 @@
 # pylint: disable=import-outside-toplevel
 def create_embedder(method, embed_kwargs=None):
+    if embed_kwargs is None:
+        embed_kwargs = {}
+
     method = method.lower()
-    if method == "ncvis":
+
+    if method == "densmap":
+        from drnb.embed.umap import Umap as ctor
+
+        embed_kwargs["densmap"] = True
+        if "n_neighbors" not in embed_kwargs:
+            embed_kwargs["n_neighbors"] = 30
+    elif method == "ncvis":
         from drnb.embed.ncvis import NCVis as ctor
     elif method == "pca":
         from drnb.embed.pca import Pca as ctor
@@ -19,9 +29,6 @@ def create_embedder(method, embed_kwargs=None):
         from drnb.embed.umap import Umap as ctor
     else:
         raise ValueError(f"Unknown method {method}")
-
-    if embed_kwargs is None:
-        embed_kwargs = {}
 
     embedder = ctor(**embed_kwargs)
     return embedder
