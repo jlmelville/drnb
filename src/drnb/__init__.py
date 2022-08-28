@@ -5,17 +5,8 @@ import umap
 
 from drnb.embed import create_embedder
 from drnb.eval import get_triplets, random_triplet_eval
-from drnb.io import (
-    create_exporter,
-    create_importer,
-    export_coords,
-    get_xy,
-    get_xy_data,
-    read_dataxy,
-    write_csv,
-)
-from drnb.plot import create_plotter, plot_embedded, sns_embed_plot
-from drnb.preprocess import center
+from drnb.io import create_exporter, create_importer, read_dataxy, write_csv
+from drnb.plot import create_plotter, sns_embed_plot
 
 try:
     from importlib.metadata import PackageNotFoundError, version
@@ -237,64 +228,6 @@ def densmap_data(
         x=x,
         y=y,
     )
-
-
-# Truncated SVD
-
-
-def tsvd_data(
-    name,
-    plot_kwargs=None,
-    export=False,
-    export_dir="tsvd",
-    seed=None,
-    repickle=False,
-    suffix=None,
-    x=None,
-    y=None,
-):
-    x, y = get_xy_data(name, x, y, repickle=repickle)
-
-    embedded = tsvd(
-        x,
-        y=y,
-        plot_kwargs=plot_kwargs,
-        seed=seed,
-    )
-
-    if export:
-        export_coords(embedded, name, export_dir, suffix)
-
-    return embedded
-
-
-def tsvd(
-    x,
-    y=None,
-    do_plot=True,
-    plot_kwargs=None,
-    seed=None,
-    n_oversamples=10,
-    n_iter=5,
-    power_iteration_normalizer="auto",
-):
-    x, y = get_xy(x, y)
-
-    x = center(x)
-
-    embedder = sklearn.decomposition.TruncatedSVD(
-        random_state=seed,
-        n_components=2,
-        n_oversamples=n_oversamples,
-        n_iter=n_iter,
-        power_iteration_normalizer=power_iteration_normalizer,
-    )
-    embedded = embedder.fit_transform(x)
-
-    if do_plot:
-        plot_embedded(embedded, y, plot_kwargs)
-
-    return embedded
 
 
 def embed_data(
