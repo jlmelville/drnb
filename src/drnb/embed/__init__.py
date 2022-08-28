@@ -2,25 +2,15 @@
 def create_embedder(method, embed_kwargs=None):
     method = method.lower()
     if method == "ncvis":
-        import drnb.embed.ncvis
-
-        ctor = drnb.embed.ncvis.NCVis
+        from drnb.embed.ncvis import NCVis as ctor
     elif method == "pymde":
-        import drnb.embed.pymde
-
-        ctor = drnb.embed.pymde.Pymde
+        from drnb.embed.pymde import Pymde as ctor
     elif method == "randproj":
-        import drnb.embed.randproj
-
-        ctor = drnb.embed.randproj.RandProj
+        from drnb.embed.randproj import RandProj as ctor
     elif method == "tsne":
-        import drnb.embed.tsne
-
-        ctor = drnb.embed.tsne.Tsne
+        from drnb.embed.tsne import Tsne as ctor
     elif method == "trimap":
-        import drnb.embed.trimap
-
-        ctor = drnb.embed.trimap.Trimap
+        from drnb.embed.trimap import Trimap as ctor
     else:
         raise ValueError(f"Unknown method {method}")
 
