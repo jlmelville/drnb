@@ -136,8 +136,7 @@ iris_randproj = nb.embed_data(
     name="iris",
     method="randproj",
     embed_kwargs=dict(seed=42),
-    export=True,
-    export_kwargs=dict(create_sub_dir=True),
+    export=dict(create_sub_dir=True),
 )
 ```
 
@@ -154,8 +153,7 @@ iris_densmap = nb.embed_data(
     "iris",
     method="densmap",
     embed_kwargs=dict(output_dens=True),
-    export_kwargs=dict(export_dir="dmaprad"),
-    export=True,
+    export=dict(export_dir="dmaprad"),
 )
 iris_densmap.keys()
 ```

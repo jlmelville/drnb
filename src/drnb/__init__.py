@@ -22,14 +22,12 @@ def embed_data(
     import_kwargs=None,
     embed_kwargs=None,
     plot=True,
-    plot_kwargs=None,
     export=False,
-    export_kwargs=None,
 ):
     importer = create_importer(x, import_kwargs)
-    exporter = create_exporter(method, export, export_kwargs)
+    exporter = create_exporter(method, export)
     embedder = create_embedder(method, embed_kwargs)
-    plotter = create_plotter(plot, plot_kwargs)
+    plotter = create_plotter(plot)
 
     x, y = importer.import_data(name, x, y)
     if hasattr(x, "to_numpy"):

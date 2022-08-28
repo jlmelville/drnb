@@ -49,6 +49,10 @@ class SeabornPlotter:
 
 
 def create_plotter(plot=True, plot_kwargs=None):
+    if isinstance(plot, dict):
+        plot_kwargs = plot
+        plot = True
+
     if plot:
         plotter_cls = SeabornPlotter
     else:

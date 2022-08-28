@@ -213,6 +213,10 @@ class CsvExporter:
 
 
 def create_exporter(method, export=False, export_kwargs=None):
+    if isinstance(export, dict):
+        export_kwargs = export
+        export = True
+
     if export:
         exporter_cls = CsvExporter
     else:
