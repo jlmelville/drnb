@@ -297,57 +297,6 @@ def tsvd(
     return embedded
 
 
-# PCA
-
-
-def pca_data(
-    name,
-    plot_kwargs=None,
-    export=False,
-    export_dir="pca",
-    seed=None,
-    repickle=False,
-    suffix=None,
-    x=None,
-    y=None,
-):
-
-    x, y = get_xy_data(name, x, y, repickle=repickle)
-
-    embedded = pca(
-        x,
-        y=y,
-        plot_kwargs=plot_kwargs,
-        seed=seed,
-    )
-
-    if export:
-        export_coords(embedded, name, export_dir, suffix)
-
-    return embedded
-
-
-def pca(
-    x,
-    y=None,
-    do_plot=True,
-    plot_kwargs=None,
-    seed=None,
-):
-    x, y = get_xy(x, y)
-
-    embedder = sklearn.decomposition.PCA(
-        random_state=seed,
-        n_components=2,
-    )
-    embedded = embedder.fit_transform(x)
-
-    if do_plot:
-        plot_embedded(embedded, y, plot_kwargs)
-
-    return embedded
-
-
 def embed_data(
     name,
     method,

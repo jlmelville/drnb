@@ -3,6 +3,8 @@ def create_embedder(method, embed_kwargs=None):
     method = method.lower()
     if method == "ncvis":
         from drnb.embed.ncvis import NCVis as ctor
+    elif method == "pca":
+        from drnb.embed.pca import Pca as ctor
     elif method == "pymde":
         from drnb.embed.pymde import Pymde as ctor
     elif method == "randproj":
