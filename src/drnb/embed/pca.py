@@ -2,27 +2,20 @@ from dataclasses import dataclass
 
 import sklearn.decomposition
 
+import drnb.embed
+
 
 @dataclass
-class Pca:
-    seed: int = None
-
-    @classmethod
-    def new(cls, **kwargs):
-        return cls(**kwargs)
-
+class Pca(drnb.embed.Embedder):
     def embed(self, x):
-        return embed_pca(x, seed=self.seed)
+        return embed_pca(x, self.embedder_kwds)
 
 
 def embed_pca(
     x,
-    seed=None,
+    embedder_kwds,
 ):
-    embedder = sklearn.decomposition.PCA(
-        random_state=seed,
-        n_components=2,
-    )
+    embedder = sklearn.decomposition.PCA(n_components=2, **embedder_kwds)
     embedded = embedder.fit_transform(x)
 
     return embedded

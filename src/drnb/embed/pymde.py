@@ -3,32 +3,28 @@ from dataclasses import dataclass
 import pymde
 import torch
 
+import drnb.embed
+
 
 @dataclass
-class Pymde:
-    n_neighbors: int = None
-    seed: int = None
-
-    @classmethod
-    def new(cls, **kwargs):
-        return cls(**kwargs)
-
+class Pymde(drnb.embed.Embedder):
     def embed(self, x):
-        return pymde_nbrs(x, n_neighbors=self.n_neighbors, seed=self.seed)
+        return embed_pymde_nbrs(x, self.embedder_kwds)
 
 
-def pymde_nbrs(
+def embed_pymde_nbrs(
     x,
-    n_neighbors=None,
-    seed=None,
+    embedder_kwds,
 ):
     x = torch.from_numpy(x)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    if seed is not None:
-        pymde.seed(seed)
+    if embedder_kwds.get("seed") is not None:
+        pymde.seed(embedder_kwds["seed"])
+        del embedder_kwds["seed"]
+
     embedder = pymde.preserve_neighbors(
-        x, device=device, embedding_dim=2, n_neighbors=n_neighbors
+        x, device=device, embedding_dim=2, **embedder_kwds
     )
     embedded = embedder.embed().cpu().data.numpy()
 

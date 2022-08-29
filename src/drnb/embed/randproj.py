@@ -3,25 +3,21 @@ from dataclasses import dataclass
 
 import sklearn.random_projection
 
+import drnb.embed
+
 
 @dataclass
-class RandProj:
-    seed: int = None
-
-    @classmethod
-    def new(cls, **kwargs):
-        return cls(**kwargs)
-
+class RandProj(drnb.embed.Embedder):
     def embed(self, x):
-        return randproj(x, seed=self.seed)
+        return embed_randproj(x, self.embedder_kwds)
 
 
-def randproj(
+def embed_randproj(
     x,
-    seed=None,
+    embedder_kwds,
 ):
     embedder = sklearn.random_projection.SparseRandomProjection(
-        random_state=seed, n_components=2
+        n_components=2, **embedder_kwds
     )
     embedded = embedder.fit_transform(x)
     return embedded

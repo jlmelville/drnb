@@ -98,7 +98,7 @@ from above:
 from sklearn.random_projection import SparseRandomProjection
 import drnb.plot as nbplot
 
-transformer = SparseRandomProjection(n_components=2)
+transformer = SparseRandomProjection(n_components=2, random_state=42)
 iris_randproj = transformer.fit_transform(irisx)
 
 nbplot.sns_embed_plot(iris_randproj, irisy)
@@ -134,7 +134,7 @@ import drnb
 
 iris_randproj = nb.embed_data(
     name="iris",
-    method=("randproj", dict(seed=42)),
+    method=("randproj", dict(random_state=42)),
     export=dict(create_sub_dir=True),
 )
 ```

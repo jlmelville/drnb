@@ -1,4 +1,5 @@
-from drnb.embed import create_embedder, get_embedder_name
+from drnb.embed import get_embedder_name
+from drnb.embed.factory import create_embedder
 from drnb.io import create_exporter, create_importer
 from drnb.plot import create_plotter
 

@@ -2,24 +2,17 @@ from dataclasses import dataclass
 
 import openTSNE
 
+import drnb.embed
+
 
 @dataclass
-class Tsne:
-    seed: int = None
-
-    @classmethod
-    def new(cls, **kwargs):
-        return cls(**kwargs)
-
+class Tsne(drnb.embed.Embedder):
     def embed(self, x):
-        return tsne_embed(x, seed=self.seed)
+        return embed_tsne(x, self.embedder_kwds)
 
 
-def tsne_embed(
-    x,
-    seed=None,
-):
-    embedder = openTSNE.TSNE(n_components=2, random_state=seed)
+def embed_tsne(x, embedder_kwds):
+    embedder = openTSNE.TSNE(n_components=2, **embedder_kwds)
     embedded = embedder.fit(x)
 
     return embedded
