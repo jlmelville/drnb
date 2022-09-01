@@ -1,4 +1,72 @@
+import abc
+from dataclasses import dataclass
+from typing import Iterable
+
 import numpy as np
+import scipy.stats
+from sklearn.decomposition import PCA
+
+from drnb.embed import get_coords
+from drnb.neighbors import pynndescent_nbrs, sklearn_nbrs
+
+
+class EmbeddingEval(abc.ABC):
+    def evaluate(self, X, coords):
+        pass
+
+
+@dataclass
+class RandomTripletEval(EmbeddingEval):
+    random_state: int = None
+    n_triplets_per_point: int = 5
+
+    def evaluate(self, X, coords):
+        rte = random_triplet_eval(
+            X,
+            coords,
+            random_state=self.random_state,
+            n_triplets_per_point=self.n_triplets_per_point,
+        )
+        return ("rte", rte)
+
+
+def create_evaluators(eval_metrics=None):
+    if eval_metrics is None:
+        return []
+
+    if not isinstance(eval_metrics, Iterable):
+        eval_metrics = [eval_metrics]
+
+    evaluators = []
+    for embed_eval in eval_metrics:
+        if isinstance(embed_eval, tuple):
+            if len(embed_eval) != 2:
+                raise ValueError("Bad format for eval spec")
+            embed_eval_name = embed_eval[0]
+            eval_kwds = embed_eval[1]
+        else:
+            embed_eval_name = embed_eval
+            eval_kwds = {}
+
+        embed_eval_name = embed_eval_name.lower()
+        if embed_eval_name == "gs":
+            ctor = GlobalScore
+        elif embed_eval_name == "rte":
+            ctor = RandomTripletEval
+        elif embed_eval_name == "rpc":
+            ctor = RandomPairCorrelEval
+        elif embed_eval_name == "nnp":
+            ctor = NbrPreservationEval
+        else:
+            raise ValueError(f"Unknown embed eval option '{embed_eval_name}'")
+        evaluators.append(ctor(**eval_kwds))
+
+    return evaluators
+
+
+def evaluate_embedding(evaluators, X, embedding):
+    coords = get_coords(embedding)
+    return [evaluator.evaluate(X, coords) for evaluator in evaluators]
 
 
 # https://github.com/YingfanWang/PaCMAP/blob/c7c45dbd0fec7736764d0e28203eb0e0515f3427/evaluation/evaluation.py
@@ -14,14 +82,7 @@ def random_triplet_eval(
             X, seed=random_state, n_triplets_per_point=n_triplets_per_point
         )
     else:
-        if (
-            len(triplets.shape) != 3
-            or triplets.shape[2] != 2
-            or triplets.shape[0] != n_obs
-        ):
-            raise ValueError(
-                f"triplets should have shape ({n_obs}, {n_triplets_per_point}, 2)"
-            )
+        validate_triplets(triplets, n_obs)
         n_triplets_per_point = triplets.shape[1]
 
     # 3D (Nx1x1) array where e.g. anchors[i][0][0] = i: [[[0]], [[1]], [[2]] ... [[n_obs]]]
@@ -59,3 +120,158 @@ def calc_distances(X, pairs):
 def calc_labels(X, pairs):
     distances = calc_distances(X, pairs)
     return distances[:, :, 0] < distances[:, :, 1]
+
+
+def validate_triplets(triplets, n_obs):
+    if len(triplets.shape) != 3 or triplets.shape[2] != 2 or triplets.shape[0] != n_obs:
+        raise ValueError(
+            f"triplets should have shape ({n_obs}, n_triplets_per_point, 2)"
+        )
+
+
+def triplets_to_pairs(triplets, n_obs):
+    anchors = np.arange(n_obs).reshape((-1, 1, 1))
+    return np.broadcast(anchors, triplets)
+
+
+def random_pair_correl_eval(
+    X, X_new, triplets=None, random_state=None, n_triplets_per_point=5
+):
+    n_obs = X.shape[0]
+    if triplets is None:
+        triplets = get_triplets(
+            X, seed=random_state, n_triplets_per_point=n_triplets_per_point
+        )
+    else:
+        validate_triplets(triplets, n_obs)
+        n_triplets_per_point = triplets.shape[1]
+
+    anchors = np.arange(n_obs).reshape((-1, 1, 1))
+    bpairs = np.broadcast(anchors, triplets)
+    d_X = calc_distances(X, bpairs)
+
+    bpairs = np.broadcast(anchors, triplets)
+    d_Xnew = calc_distances(X_new, bpairs)
+
+    return scipy.stats.pearsonr(d_X.flatten(), d_Xnew.flatten()).statistic
+
+
+@dataclass
+class RandomPairCorrelEval(EmbeddingEval):
+    random_state: int = None
+    n_triplets_per_point: int = 5
+
+    def evaluate(self, X, coords):
+        rpc = random_pair_correl_eval(
+            X,
+            coords,
+            random_state=self.random_state,
+            n_triplets_per_point=self.n_triplets_per_point,
+        )
+        return ("rpc", rpc)
+
+
+@dataclass
+class GlobalScore(EmbeddingEval):
+    def evaluate(self, X, coords):
+        gs = global_score(
+            X,
+            coords,
+        )
+        return ("gs", gs)
+
+
+# Used in Trimap: https://github.com/eamid/trimap/blob/master/trimap/trimap_.py
+def global_loss(X, Y):
+    X = X - np.mean(X, axis=0)
+    Y = Y - np.mean(Y, axis=0)
+    A = X.T @ (Y @ np.linalg.inv(Y.T @ Y))
+    return np.mean(np.power(X.T - A @ Y.T, 2))
+
+
+def global_score(X, Y):
+    n_dims = Y.shape[1]
+    Y_pca = PCA(n_components=n_dims).fit_transform(X)
+    gs_pca = global_loss(X, Y_pca)
+    gs_emb = global_loss(X, Y)
+    return np.exp(-(gs_emb - gs_pca) / gs_pca)
+
+
+def nn_accv(approx_indices, true_indices):
+    result = np.zeros(approx_indices.shape[0])
+    for i in range(approx_indices.shape[0]):
+        n_correct = np.intersect1d(approx_indices[i], true_indices[i]).shape[0]
+        result[i] = n_correct / true_indices.shape[1]
+    return result
+
+
+def nn_acc(approx_indices, true_indices):
+    return np.mean(nn_accv(approx_indices, true_indices))
+
+
+NBR_DEFAULTS = dict(
+    sklearn=dict(
+        algorithm="auto",
+        metric="minkowski",
+        n_jobs=-1,
+    ),
+    pynndescent=dict(
+        metric="euclidean",
+        metric_kwds=None,
+        random_state=42,
+        low_memory=True,
+        n_trees=None,
+        n_iters=None,
+        max_candidates=60,
+        n_jobs=-1,
+    ),
+    hnsw=dict(
+        metric="euclidean",
+        M=16,
+        ef_construction=200,
+        random_state=42,
+        n_jobs=-1,
+    ),
+)
+
+
+def nbr_pres(
+    X,
+    Y,
+    n_nbrs=15,
+    x_method="sklearn",
+    x_method_kwds=None,
+    y_method="sklearn",
+    y_method_kwds=None,
+):
+
+    xnn_func, x_method_kwds = create_nn_func(x_method, x_method_kwds)
+    ynn_func, y_method_kwds = create_nn_func(y_method, y_method_kwds)
+
+    Xnbrs = xnn_func(X, n_neighbors=n_nbrs, return_distance=False, **x_method_kwds)
+    Ynbrs = ynn_func(Y, n_neighbors=n_nbrs, return_distance=False, **y_method_kwds)
+
+    return nn_acc(Ynbrs, Xnbrs)
+
+
+def create_nn_func(nn_method, nn_method_kwds=None):
+    if nn_method == "sklearn":
+        nn_func = sklearn_nbrs
+    elif nn_method == "pynndescent":
+        nn_func = pynndescent_nbrs
+    elif nn_method == "pynndescent":
+        nn_func = pynndescent_nbrs
+    else:
+        raise ValueError(f"Unknown nearest neighbor method '{nn_method}'")
+    if nn_method_kwds is None:
+        nn_method_kwds = NBR_DEFAULTS[nn_method]
+    return nn_func, nn_method_kwds
+
+
+@dataclass
+class NbrPreservationEval(EmbeddingEval):
+    n_neighbors: int = 15
+
+    def evaluate(self, X, coords):
+        nnp = nbr_pres(X, coords, n_nbrs=self.n_neighbors)
+        return (f"nnp{self.n_neighbors}", nnp)
