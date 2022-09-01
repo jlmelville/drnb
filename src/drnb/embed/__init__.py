@@ -17,3 +17,13 @@ class Embedder(abc.ABC):
     @abc.abstractmethod
     def embed(self, x):
         pass
+
+
+def get_coords(embedded):
+    if isinstance(embedded, tuple):
+        coords = embedded[0]
+    elif isinstance(embedded, dict):
+        coords = embedded["coords"]
+    else:
+        coords = embedded
+    return coords

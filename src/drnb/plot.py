@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+from drnb.embed import get_coords
+
 
 class NoPlotter:
     @classmethod
@@ -30,12 +32,7 @@ class SeabornPlotter:
         return cls(**kwargs)
 
     def plot(self, embedded, y):
-        if isinstance(embedded, tuple):
-            coords = embedded[0]
-        elif isinstance(embedded, dict):
-            coords = embedded["coords"]
-        else:
-            coords = embedded
+        coords = get_coords(embedded)
         sns_embed_plot(
             coords,
             color_col=y,
