@@ -1,6 +1,7 @@
 import numpy as np
 import pynndescent
 import sklearn.metrics
+from annoy import AnnoyIndex
 from hnswlib import Index as HnswIndex
 from sklearn.neighbors import NearestNeighbors
 from sklearn.utils import check_random_state
@@ -14,7 +15,7 @@ def dmat(x):
     return sklearn.metrics.pairwise_distances(x)
 
 
-def sklearn_nbrs(
+def sklearn_neighbors(
     X,
     n_neighbors=15,
     algorithm="auto",
@@ -39,7 +40,7 @@ def sklearn_nbrs(
     return knn
 
 
-def pynndescent_nbrs(
+def pynndescent_neighbors(
     X,
     n_neighbors=15,
     metric="euclidean",
@@ -120,6 +121,63 @@ def hnsw_neighbors(
 
     # Query for kNN
     indices, distances = index.knn_query(X, k=n_neighbors + 1, num_threads=n_jobs)
+
+    if return_distance:
+        return indices, distances
+    return indices
+
+
+# also adapted from openTSNE
+def annoy_neighbors(
+    X,
+    n_neighbors=15,
+    metric="euclidean",
+    random_state=42,
+    n_trees=50,
+    search_k=-1,
+    n_jobs=-1,
+    return_distance=True,
+):
+    N = X.shape[0]
+
+    annoy_aliases = {
+        "cosine": "angular",
+        "l1": "manhattan",
+        "l2": "euclidean",
+        "taxicab": "manhattan",
+    }
+    metric = annoy_aliases.get(metric, "euclidean")
+
+    index = AnnoyIndex(X.shape[1], metric)
+
+    random_state = check_random_state(random_state)
+    index.set_seed(random_state.randint(np.iinfo(np.int32).max))
+
+    for i in range(N):
+        index.add_item(i, X[i])
+
+    index.build(n_trees, n_jobs=n_jobs)
+
+    # Return the nearest neighbors in the training set
+    distances = np.zeros((N, n_neighbors))
+    indices = np.zeros((N, n_neighbors)).astype(int)
+
+    def getnns(i):
+        indices_i, distances_i = index.get_nns_by_item(
+            i, n_neighbors, search_k=search_k, include_distances=True
+        )
+        indices[i] = indices_i
+        distances[i] = distances_i
+
+    if n_jobs == 1:
+        for i in range(N):
+            getnns(i)
+    else:
+        from joblib import Parallel, delayed  # pylint: disable=import-outside-toplevel
+
+        Parallel(n_jobs=n_jobs, require="sharedmem")(
+            delayed(getnns)(i) for i in range(N)
+        )
 
     if return_distance:
         return indices, distances

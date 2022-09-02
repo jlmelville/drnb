@@ -7,7 +7,12 @@ import scipy.stats
 from sklearn.decomposition import PCA
 
 from drnb.embed import get_coords
-from drnb.neighbors import pynndescent_nbrs, sklearn_nbrs
+from drnb.neighbors import (
+    annoy_neighbors,
+    hnsw_neighbors,
+    pynndescent_neighbors,
+    sklearn_neighbors,
+)
 
 
 class EmbeddingEval(abc.ABC):
@@ -232,6 +237,12 @@ NBR_DEFAULTS = dict(
         random_state=42,
         n_jobs=-1,
     ),
+    annoy=dict(
+        n_trees=50,
+        search_k=-1,
+        random_state=42,
+        n_jobs=-1,
+    ),
 )
 
 
@@ -256,11 +267,13 @@ def nbr_pres(
 
 def create_nn_func(nn_method, nn_method_kwds=None):
     if nn_method == "sklearn":
-        nn_func = sklearn_nbrs
+        nn_func = sklearn_neighbors
     elif nn_method == "pynndescent":
-        nn_func = pynndescent_nbrs
-    elif nn_method == "pynndescent":
-        nn_func = pynndescent_nbrs
+        nn_func = pynndescent_neighbors
+    elif nn_method == "hnsw":
+        nn_func = hnsw_neighbors
+    elif nn_method == "annoy":
+        nn_func = annoy_neighbors
     else:
         raise ValueError(f"Unknown nearest neighbor method '{nn_method}'")
     if nn_method_kwds is None:
