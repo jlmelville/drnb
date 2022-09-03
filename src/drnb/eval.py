@@ -7,12 +7,7 @@ import scipy.stats
 from sklearn.decomposition import PCA
 
 from drnb.embed import get_coords
-from drnb.neighbors import (
-    annoy_neighbors,
-    hnsw_neighbors,
-    pynndescent_neighbors,
-    sklearn_neighbors,
-)
+from drnb.neighbors import get_neighbors
 
 
 class EmbeddingEval(abc.ABC):
@@ -214,77 +209,46 @@ def nn_acc(approx_indices, true_indices):
     return np.mean(nn_accv(approx_indices, true_indices))
 
 
-NBR_DEFAULTS = dict(
-    sklearn=dict(
-        algorithm="auto",
-        metric="minkowski",
-        n_jobs=-1,
-    ),
-    pynndescent=dict(
-        metric="euclidean",
-        metric_kwds=None,
-        random_state=42,
-        low_memory=True,
-        n_trees=None,
-        n_iters=None,
-        max_candidates=60,
-        n_jobs=-1,
-    ),
-    hnsw=dict(
-        metric="euclidean",
-        M=16,
-        ef_construction=200,
-        random_state=42,
-        n_jobs=-1,
-    ),
-    annoy=dict(
-        n_trees=50,
-        search_k=-1,
-        random_state=42,
-        n_jobs=-1,
-    ),
-)
-
-
 def nbr_pres(
     X,
     Y,
     n_nbrs=15,
-    x_method="sklearn",
+    x_method="exact",
+    x_metric="euclidean",
     x_method_kwds=None,
-    y_method="sklearn",
+    y_method="exact",
+    y_metric="euclidean",
     y_method_kwds=None,
+    verbose=False,
 ):
 
-    xnn_func, x_method_kwds = create_nn_func(x_method, x_method_kwds)
-    ynn_func, y_method_kwds = create_nn_func(y_method, y_method_kwds)
-
-    Xnbrs = xnn_func(X, n_neighbors=n_nbrs, return_distance=False, **x_method_kwds)
-    Ynbrs = ynn_func(Y, n_neighbors=n_nbrs, return_distance=False, **y_method_kwds)
+    Xnbrs = get_neighbors(
+        X,
+        metric=x_metric,
+        n_neighbors=n_nbrs,
+        method=x_method,
+        return_distance=False,
+        method_kwds=x_method_kwds,
+        verbose=verbose,
+    )
+    Ynbrs = get_neighbors(
+        Y,
+        metric=y_metric,
+        n_neighbors=n_nbrs,
+        method=y_method,
+        return_distance=False,
+        method_kwds=y_method_kwds,
+        verbose=verbose,
+    )
 
     return nn_acc(Ynbrs, Xnbrs)
-
-
-def create_nn_func(nn_method, nn_method_kwds=None):
-    if nn_method == "sklearn":
-        nn_func = sklearn_neighbors
-    elif nn_method == "pynndescent":
-        nn_func = pynndescent_neighbors
-    elif nn_method == "hnsw":
-        nn_func = hnsw_neighbors
-    elif nn_method == "annoy":
-        nn_func = annoy_neighbors
-    else:
-        raise ValueError(f"Unknown nearest neighbor method '{nn_method}'")
-    if nn_method_kwds is None:
-        nn_method_kwds = NBR_DEFAULTS[nn_method]
-    return nn_func, nn_method_kwds
 
 
 @dataclass
 class NbrPreservationEval(EmbeddingEval):
     n_neighbors: int = 15
+    verbose: bool = False
 
     def evaluate(self, X, coords):
-        nnp = nbr_pres(X, coords, n_nbrs=self.n_neighbors)
+        nnp = nbr_pres(X, coords, n_nbrs=self.n_neighbors, verbose=self.verbose)
         return (f"nnp{self.n_neighbors}", nnp)
