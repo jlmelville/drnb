@@ -1,3 +1,4 @@
+import faiss
 import numpy as np
 import pynndescent
 import sklearn.metrics
@@ -92,11 +93,12 @@ def hnsw_neighbors(
 ):
 
     # adapted from openTSNE
+    # basically l2 or ip
+    # cosine = ip with normalization
     hnsw_space = {
         "cosine": "cosine",
         "dot": "ip",
         "euclidean": "l2",
-        "ip": "ip",
         "l2": "l2",
     }[metric]
 
@@ -123,6 +125,8 @@ def hnsw_neighbors(
     indices, distances = index.knn_query(X, k=n_neighbors + 1, num_threads=n_jobs)
 
     if return_distance:
+        if metric == "euclidean":
+            distances = np.sqrt(distances)
         return indices, distances
     return indices
 
@@ -139,16 +143,18 @@ def annoy_neighbors(
     return_distance=True,
 ):
     N = X.shape[0]
-
-    annoy_aliases = {
+    annoy_space = {
+        "angular": "angular",
+        "dot": "dot",
         "cosine": "angular",
         "l1": "manhattan",
-        "l2": "euclidean",
+        "manhattan": "manhattan",
         "taxicab": "manhattan",
-    }
-    metric = annoy_aliases.get(metric, "euclidean")
+        "l2": "euclidean",
+        "euclidean": "euclidean",
+    }[metric]
 
-    index = AnnoyIndex(X.shape[1], metric)
+    index = AnnoyIndex(X.shape[1], annoy_space)
 
     random_state = check_random_state(random_state)
     index.set_seed(random_state.randint(np.iinfo(np.int32).max))
@@ -181,6 +187,24 @@ def annoy_neighbors(
 
     if return_distance:
         return indices, distances
+    return indices
+
+
+def faiss_neighbors(
+    X,
+    n_neighbors=15,
+    return_distance=True,
+):
+    X = np.ascontiguousarray(X.astype(np.float32))
+
+    res = faiss.StandardGpuResources()
+    index_flat = faiss.IndexFlatL2(X.shape[1])
+    gpu_index_flat = faiss.index_cpu_to_gpu(res, 0, index_flat)
+    gpu_index_flat.add(X)
+
+    distances, indices = gpu_index_flat.search(X, n_neighbors)
+    if return_distance:
+        return indices, np.sqrt(distances)
     return indices
 
 
