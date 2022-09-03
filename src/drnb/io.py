@@ -392,6 +392,8 @@ def create_exporter(embed_method, export=False):
         exporter_cls = CsvExporter
     elif export == "none":
         exporter_cls = NoExporter
+    else:
+        raise ValueError(f"Unknown exporter type {export}")
 
     if export_kwargs is None:
         export_kwargs = dict(suffix=None, create_sub_dir=True, verbose=False)
