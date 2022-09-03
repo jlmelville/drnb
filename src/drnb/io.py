@@ -104,31 +104,29 @@ def read_data(
     raise FileNotFoundError(f"Data for {dataset} suffix={suffix} sub_dir={sub_dir}")
 
 
-def read_dataxy(dataset, data_path=None, sub_dir="xy", verbose=True):
-    x = read_data(
+def read_datax(dataset, data_path=None, sub_dir="xy", verbose=True):
+    return read_data(
         dataset, suffix="", data_path=data_path, sub_dir=sub_dir, verbose=verbose
     )
+
+
+def read_datay(dataset, data_path=None, sub_dir="xy", verbose=True, x=None):
     try:
         y = read_data(
             dataset, suffix="y", data_path=data_path, sub_dir=sub_dir, verbose=verbose
         )
     except FileNotFoundError:
+        if x is None:
+            x = read_data(
+                dataset, suffix="", data_path=data_path, sub_dir=sub_dir, verbose=False
+            )
         y = range(x.shape[0])
-    return (x, y)
+    return y
 
 
-def get_xy_data(name, x=None, y=None):
-    if x is None:
-        x, y = read_dataxy(name)
-    if y is None:
-        y = range(x.shape[0])
-    return x, y
-
-
-def get_xy(x, y):
-    if y is None and isinstance(x, tuple) and len(x) == 2:
-        y = x[1]
-        x = x[0]
+def read_dataxy(dataset, data_path=None, sub_dir="xy", verbose=True):
+    x = read_datax(dataset, data_path=data_path, sub_dir=sub_dir, verbose=verbose)
+    y = read_datay(dataset, data_path=data_path, sub_dir=sub_dir, verbose=verbose, x=x)
     return x, y
 
 
@@ -206,6 +204,16 @@ def list_available_data(data_path=None, sub_dir="xy", with_y=False):
     return sorted(datasets)
 
 
+# Handles case when data is already loaded
+# if x and y are separate, return them
+# if x is a tuple of two items, then split them into x and y
+def get_xy(x, y):
+    if y is None and isinstance(x, tuple) and len(x) == 2:
+        y = x[1]
+        x = x[0]
+    return x, y
+
+
 class XImporter:
     @classmethod
     def new(cls, **kwargs):
@@ -223,7 +231,7 @@ class DatasetImporter:
         return cls(**kwargs)
 
     def import_data(self, name, x, y):
-        x, y = get_xy_data(name, x=None, y=None)
+        x, y = read_dataxy(name)
         return x, y
 
 
