@@ -1,5 +1,6 @@
 # Functions for reading and writing data
 
+import collections.abc
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,56 +8,118 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from drnb.util import get_method_and_args
+
 DATA_ROOT = Path.home() / "rdev" / "datasets"
+DEBUG = False
 
 
-def read_data(
-    dataset, suffix=None, data_path=None, sub_dir="xy", repickle=False, header=None
-):
+def data_relative_path(path):
+    if not DEBUG and path.is_relative_to(DATA_ROOT):
+        return path.relative_to(DATA_ROOT)
+    return path
+
+
+def islisty(o):
+    return not isinstance(o, str) and isinstance(o, collections.abc.Iterable)
+
+
+def get_data_path(data_path=None, sub_dir=None, create_sub_dir=False, verbose=False):
     if data_path is None:
         data_path = DATA_ROOT
     if sub_dir is not None:
         data_path = data_path / sub_dir
+    if not data_path.exists():
+        if create_sub_dir:
+            if verbose:
+                print(
+                    f"Directory {data_relative_path(data_path)} "
+                    + "does not exist, creating..."
+                )
+            data_path.mkdir(parents=False, exist_ok=False)
+        else:
+            raise FileNotFoundError(f"Missing directory {data_path}")
+    return data_path
+
+
+def ensure_suffix(suffix, default_suffix=""):
+    if suffix is None:
+        suffix = default_suffix
+    if not suffix:
+        return suffix
+    if islisty(suffix):
+        return "".join(s if s[0] in ("-", "_") else f"-{s}" for s in suffix)
+    if not suffix[0] in ("-", "_"):
+        suffix = f"-{suffix}"
+    return suffix
+
+
+def ensure_file_extension(filename, ext):
+    # could be a Path
+    if not isinstance(filename, str):
+        filename = str(filename)
+    if not ext.startswith("."):
+        ext = f".{ext}"
+    if not filename.endswith(ext):
+        return f"{filename}{ext}"
+    return filename
+
+
+def get_data_file_path(
+    name,
+    ext,
+    suffix=None,
+    data_path=None,
+    sub_dir=None,
+    create_sub_dir=True,
+    verbose=False,
+):
+    data_path = get_data_path(data_path, sub_dir, create_sub_dir, verbose)
+    suffix = ensure_suffix(suffix, sub_dir)
     if suffix is not None:
-        dataset_basename = f"{dataset}-{suffix}"
-    else:
-        dataset_basename = dataset
-    pickle_name = f"{dataset_basename}.pickle"
-    pickle_path = data_path / pickle_name
+        name = f"{name}{suffix}"
+    name = ensure_file_extension(name, ext)
 
-    if pickle_path.exists() and not repickle:
-        with open(pickle_path, "rb") as f:
-            return pickle.load(f)
-    else:
-        csv_name = f"{dataset_basename}.csv"
-        csv_path = data_path / csv_name
-        if not csv_path.exists():
-            raise FileNotFoundError(csv_path)
-        data = pd.read_csv(csv_path, header=header)
-        with open(pickle_path, "wb") as f:
-            pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
-        return data
+    return data_path / name
 
 
-def read_dataxy(dataset, data_path=None, repickle=False):
-    header = None
-    x = read_data(dataset, data_path=data_path, repickle=repickle, header=header)
-    if np.any(x.dtypes.apply(pd.api.types.is_object_dtype)):
-        header = 0
-        print("X may have a header, retrying...")
-        x = read_data(dataset, data_path=data_path, repickle=True, header=header)
+def read_data(
+    dataset,
+    suffix=None,
+    data_path=None,
+    sub_dir="xy",
+    verbose=False,
+):
+    for reader_func in (read_npy, read_pickle, read_pandas_csv):
+        try:
+            return reader_func(
+                dataset,
+                suffix=suffix,
+                data_path=data_path,
+                sub_dir=sub_dir,
+                verbose=verbose,
+            )
+        except FileNotFoundError:
+            pass
+    raise FileNotFoundError(f"Data for {dataset} suffix={suffix} sub_dir={sub_dir}")
+
+
+def read_dataxy(dataset, data_path=None, sub_dir="xy", verbose=True):
+    x = read_data(
+        dataset, suffix="", data_path=data_path, sub_dir=sub_dir, verbose=verbose
+    )
     try:
         y = read_data(
-            dataset, "y", data_path=data_path, repickle=repickle, header=header
+            dataset, suffix="y", data_path=data_path, sub_dir=sub_dir, verbose=verbose
         )
     except FileNotFoundError:
         y = range(x.shape[0])
     return (x, y)
 
 
-def get_xy_data(name, x=None, y=None, repickle=False):
+def get_xy_data(name, x=None, y=None):
     if x is None:
-        x, y = read_dataxy(name, repickle=repickle)
+        x, y = read_dataxy(name)
     if y is None:
         y = range(x.shape[0])
     return x, y
@@ -67,6 +130,61 @@ def get_xy(x, y):
         y = x[1]
         x = x[0]
     return x, y
+
+
+def read_npy(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
+    data_file_path = get_data_file_path(
+        name,
+        ext="npy",
+        suffix=suffix,
+        data_path=data_path,
+        sub_dir=sub_dir,
+        create_sub_dir=False,
+        verbose=verbose,
+    )
+    if verbose:
+        print(f"Looking for npy format from {data_relative_path(data_file_path)}")
+    return np.load(data_file_path)
+
+
+def read_pickle(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
+    data_file_path = get_data_file_path(
+        name,
+        "pickle",
+        suffix=suffix,
+        data_path=data_path,
+        sub_dir=sub_dir,
+        create_sub_dir=False,
+        verbose=verbose,
+    )
+    if verbose:
+        print(f"Looking for pickle format from {data_relative_path(data_file_path)}")
+    with open(data_file_path, "rb") as f:
+        return pickle.load(f)
+
+
+def read_pandas_csv(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
+    data_file_path = get_data_file_path(
+        name,
+        "csv",
+        suffix=suffix,
+        data_path=data_path,
+        sub_dir=sub_dir,
+        create_sub_dir=False,
+        verbose=verbose,
+    )
+    if verbose:
+        print(
+            f"Looking for pandas csv format from {data_relative_path(data_file_path)}"
+        )
+
+    data = pd.read_csv(data_file_path, header=None)
+    if np.any(data.dtypes.apply(pd.api.types.is_object_dtype)):
+        header = 0
+        if verbose:
+            print("csv may have a header, retrying...")
+        return pd.read_csv(data_file_path, header=header)
+    return data
 
 
 def list_available_data(data_path=None, sub_dir="xy", with_y=False):
@@ -100,14 +218,12 @@ class XImporter:
 
 @dataclass
 class DatasetImporter:
-    repickle: bool = False
-
     @classmethod
     def new(cls, **kwargs):
         return cls(**kwargs)
 
     def import_data(self, name, x, y):
-        x, y = get_xy_data(name, x=None, y=None, repickle=self.repickle)
+        x, y = get_xy_data(name, x=None, y=None)
         return x, y
 
 
@@ -124,14 +240,6 @@ def create_importer(x=None, import_kwargs=None):
     return importer
 
 
-def ensure_suffix(suffix, default_suffix):
-    if suffix is None:
-        suffix = default_suffix
-    if not suffix[0] in ("-", "_"):
-        suffix = f"-{suffix}"
-    return suffix
-
-
 def export_coords(
     coords,
     name,
@@ -141,11 +249,10 @@ def export_coords(
     create_sub_dir=True,
     verbose=False,
 ):
-    suffix = ensure_suffix(suffix, export_dir)
-
     write_csv(
         coords,
-        name=f"{name}{suffix}",
+        name=name,
+        suffix=suffix,
         data_path=data_path,
         sub_dir=export_dir,
         create_sub_dir=create_sub_dir,
@@ -154,26 +261,58 @@ def export_coords(
 
 
 def write_csv(
-    x, name, data_path=None, sub_dir=None, create_sub_dir=True, verbose=False
+    x,
+    name,
+    suffix=None,
+    data_path=None,
+    sub_dir=None,
+    create_sub_dir=True,
+    verbose=False,
 ):
-    if data_path is None:
-        data_path = DATA_ROOT
-    if sub_dir is not None:
-        data_path = data_path / sub_dir
-    if not data_path.exists():
-        if create_sub_dir:
-            if verbose:
-                print(f"{data_path} does not exist, creating...")
-            data_path.mkdir(parents=False, exist_ok=False)
-        else:
-            raise FileNotFoundError(f"Missing directory {data_path}")
-    if not name.endswith(".csv"):
-        name = f"{name}.csv"
-    output_path = data_path / name
+    output_path = get_data_file_path(
+        name, ".csv", suffix, data_path, sub_dir, create_sub_dir, verbose
+    )
+    if verbose:
+        print(f"Writing csv format to {data_relative_path(output_path)}")
     if x.dtype is np.dtype(object) or x.dtype.kind == "U":
         np.savetxt(output_path, x, delimiter=",", fmt="%s")
     else:
         np.savetxt(output_path, x, delimiter=",")
+
+
+def write_npy(
+    x,
+    name,
+    suffix=None,
+    data_path=None,
+    sub_dir=None,
+    create_sub_dir=True,
+    verbose=False,
+):
+    output_path = get_data_file_path(
+        name, ".npy", suffix, data_path, sub_dir, create_sub_dir, verbose
+    )
+    if verbose:
+        print(f"Writing numpy format to {data_relative_path(output_path)}")
+    np.save(output_path, x)
+
+
+def write_pickle(
+    x,
+    name,
+    suffix=None,
+    data_path=None,
+    sub_dir=None,
+    create_sub_dir=True,
+    verbose=False,
+):
+    output_path = get_data_file_path(
+        name, ".pickle", suffix, data_path, sub_dir, create_sub_dir, verbose
+    )
+    if verbose:
+        print(f"Writing pickle format to {data_relative_path(output_path)}")
+    with open(output_path, "wb") as f:
+        pickle.dump(x, f, pickle.HIGHEST_PROTOCOL)
 
 
 class NoExporter:
@@ -224,27 +363,32 @@ class CsvExporter:
                 continue
             write_csv(
                 extra_data,
-                name=f"{name}{suffix}-{extra_data_name}",
+                name=name,
+                suffix=[suffix, extra_data_name],
                 sub_dir=self.export_dir,
                 data_path=self.data_path,
                 create_sub_dir=self.create_sub_dir,
+                verbose=self.verbose,
             )
 
 
-def create_exporter(method, export=False, export_kwargs=None):
-    if isinstance(export, dict):
-        export_kwargs = export
-        export = True
+def create_exporter(embed_method, export=False):
+    export, export_kwargs = get_method_and_args(export)
+    if isinstance(export, bool):
+        if export:
+            export = "csv"
+        else:
+            export = "none"
 
-    if export:
+    if export == "csv":
         exporter_cls = CsvExporter
-    else:
+    elif export == "none":
         exporter_cls = NoExporter
 
     if export_kwargs is None:
         export_kwargs = dict(suffix=None, create_sub_dir=True, verbose=False)
     if "export_dir" not in export_kwargs:
-        export_kwargs["export_dir"] = method
+        export_kwargs["export_dir"] = embed_method
 
     exporter = exporter_cls.new(**export_kwargs)
     return exporter
