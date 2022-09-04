@@ -107,13 +107,13 @@ def nbr_pres(
 @dataclass
 class NbrPreservationEval(EmbeddingEval):
     n_neighbors: int = 15  # can also be a list
-    metric: str = "euclidean"
-    method: str = "exact"
     verbose: bool = False
-    name: str = None  # needed only if neighbors need caching
 
     def evaluate(self, X, coords):
         nnps = nbr_pres(X, coords, n_nbrs=self.n_neighbors, verbose=self.verbose)
         if not islisty(self.n_neighbors):
             self.n_neighbors = [self.n_neighbors]
         return [(f"nnp{n_nbrs}", nnp) for n_nbrs, nnp in zip(self.n_neighbors, nnps)]
+
+    def __str__(self):
+        return f"Neighbor Preservation for n_neighbors: {self.n_neighbors}"

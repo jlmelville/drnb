@@ -20,6 +20,12 @@ class RandomTripletEval(EmbeddingEval):
         )
         return ("rte", rte)
 
+    def __str__(self):
+        return (
+            "Random Triplet Evaluation "
+            + f"num triplets per point: {self.n_triplets_per_point}"
+        )
+
 
 # https://github.com/YingfanWang/PaCMAP/blob/c7c45dbd0fec7736764d0e28203eb0e0515f3427/evaluation/evaluation.py
 def random_triplet_eval(

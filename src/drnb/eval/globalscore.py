@@ -15,6 +15,9 @@ class GlobalScore(EmbeddingEval):
         )
         return ("gs", gs)
 
+    def __str__(self):
+        return "Global Score Evaluation"
+
 
 # Used in Trimap: https://github.com/eamid/trimap/blob/master/trimap/trimap_.py
 def global_loss(X, Y):
