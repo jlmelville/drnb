@@ -7,6 +7,7 @@ import scipy.stats
 from sklearn.decomposition import PCA
 
 from drnb.embed import get_coords
+from drnb.io import islisty
 from drnb.neighbors import get_neighbors
 
 
@@ -220,35 +221,56 @@ def nbr_pres(
     y_metric="euclidean",
     y_method_kwds=None,
     verbose=False,
+    x_nbrs=None,
+    y_nbrs=None,
 ):
+    if isinstance(n_nbrs, int):
+        n_nbrs = [n_nbrs]
+    max_n_nbrs = int(np.max(n_nbrs))
 
-    Xnbrs = get_neighbors(
-        X,
-        metric=x_metric,
-        n_neighbors=n_nbrs,
-        method=x_method,
-        return_distance=False,
-        method_kwds=x_method_kwds,
-        verbose=verbose,
-    )
-    Ynbrs = get_neighbors(
-        Y,
-        metric=y_metric,
-        n_neighbors=n_nbrs,
-        method=y_method,
-        return_distance=False,
-        method_kwds=y_method_kwds,
-        verbose=verbose,
-    )
+    calc_x_nbrs = True
+    if x_nbrs is not None:
+        calc_x_nbrs = max_n_nbrs > x_nbrs.shape[1]
 
-    return nn_acc(Ynbrs, Xnbrs)
+    if calc_x_nbrs:
+        x_nbrs = get_neighbors(
+            X,
+            metric=x_metric,
+            n_neighbors=max_n_nbrs,
+            method=x_method,
+            return_distance=False,
+            method_kwds=x_method_kwds,
+            verbose=verbose,
+        )
+
+    calc_y_nbrs = True
+    if y_nbrs is not None:
+        calc_y_nbrs = max_n_nbrs > y_nbrs.shape[1]
+
+    if calc_y_nbrs:
+        y_nbrs = get_neighbors(
+            Y,
+            metric=y_metric,
+            n_neighbors=max_n_nbrs,
+            method=y_method,
+            return_distance=False,
+            method_kwds=y_method_kwds,
+            verbose=verbose,
+        )
+
+    return [
+        nn_acc(approx_indices=y_nbrs[:, :nbrs], true_indices=x_nbrs[:, :nbrs])
+        for nbrs in n_nbrs
+    ]
 
 
 @dataclass
 class NbrPreservationEval(EmbeddingEval):
-    n_neighbors: int = 15
+    n_neighbors: int = 15  # can also be a list
     verbose: bool = False
 
     def evaluate(self, X, coords):
-        nnp = nbr_pres(X, coords, n_nbrs=self.n_neighbors, verbose=self.verbose)
-        return (f"nnp{self.n_neighbors}", nnp)
+        nnps = nbr_pres(X, coords, n_nbrs=self.n_neighbors, verbose=self.verbose)
+        if not islisty(self.n_neighbors):
+            self.n_neighbors = [self.n_neighbors]
+        return [(f"nnp{n_nbrs}", nnp) for n_nbrs, nnp in zip(self.n_neighbors, nnps)]
