@@ -49,8 +49,8 @@ def ensure_suffix(suffix, default_suffix=""):
     if not suffix:
         return suffix
     if islisty(suffix):
-        return "".join(s if s[0] in ("-", "_") else f"-{s}" for s in suffix)
-    if not suffix[0] in ("-", "_"):
+        return "".join(s if s[0] in (".", "-", "_") else f"-{s}" for s in suffix)
+    if not suffix[0] in (".", "-", "_"):
         suffix = f"-{suffix}"
     return suffix
 
