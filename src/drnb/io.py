@@ -105,9 +105,10 @@ def read_data(
 
 
 def read_datax(dataset, data_path=None, sub_dir="xy", verbose=True):
-    return read_data(
+    x = read_data(
         dataset, suffix="", data_path=data_path, sub_dir=sub_dir, verbose=verbose
     )
+    return numpyfy(x)
 
 
 def read_datay(dataset, data_path=None, sub_dir="xy", verbose=True, x=None):
@@ -183,6 +184,14 @@ def read_pandas_csv(name, suffix=None, data_path=None, sub_dir=None, verbose=Fal
             print("csv may have a header, retrying...")
         return pd.read_csv(data_file_path, header=header)
     return data
+
+
+def numpyfy(x, dtype=np.float32):
+    if hasattr(x, "to_numpy"):
+        x = x.to_numpy(dtype=dtype)
+    if not x.flags["C_CONTIGUOUS"]:
+        x = np.ascontiguousarray(x)
+    return x
 
 
 def list_available_data(data_path=None, sub_dir="xy", with_y=False):

@@ -4,6 +4,7 @@ from collections import defaultdict
 import sklearn.metrics
 
 import drnb.neighbors.sklearn as sknbrs
+from drnb.io import numpyfy
 
 from . import annoy, faiss, hnsw, pynndescent
 
@@ -72,8 +73,7 @@ def get_neighbors(
 def dmat(x):
     if isinstance(x, tuple) and len(x) == 2:
         x = x[0]
-    if hasattr(x, "to_numpy"):
-        x = x.to_numpy()
+    x = numpyfy(x)
     return sklearn.metrics.pairwise_distances(x)
 
 

@@ -2,7 +2,7 @@ from drnb.embed import get_embedder_name
 from drnb.embed.factory import create_embedder
 from drnb.eval import evaluate_embedding
 from drnb.eval.factory import create_evaluators
-from drnb.io import create_exporter, create_importer
+from drnb.io import create_exporter, create_importer, numpyfy
 from drnb.plot import create_plotter
 
 try:
@@ -34,8 +34,7 @@ def embed_data(
     plotter = create_plotter(plot)
 
     x, y = importer.import_data(name, x, y)
-    if hasattr(x, "to_numpy"):
-        x = x.to_numpy()
+    x = numpyfy(x)
     embedded = embedder.embed(x)
     evaluations = evaluate_embedding(evaluators, x, embedded)
 

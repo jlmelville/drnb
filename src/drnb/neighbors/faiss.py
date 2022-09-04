@@ -1,6 +1,8 @@
 import faiss
 import numpy as np
 
+from drnb.io import numpyfy
+
 FAISS_METRICS = {"cosine": faiss.IndexFlatIP, "euclidean": faiss.IndexFlatL2}
 
 FAISS_DEFAULTS = {}
@@ -15,7 +17,7 @@ def faiss_neighbors(
 
     faiss_space = FAISS_METRICS[metric]
 
-    X = np.ascontiguousarray(X.astype(np.float32))
+    X = numpyfy(X)
 
     res = faiss.StandardGpuResources()
     index_flat = faiss_space(X.shape[1])
