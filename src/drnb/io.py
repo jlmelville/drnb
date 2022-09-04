@@ -252,7 +252,7 @@ class DatasetImporter:
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def import_data(self, name, x, y):
+    def import_data(self, name, x=None, y=None):
         x, y = read_dataxy(name)
         return x, y
 
