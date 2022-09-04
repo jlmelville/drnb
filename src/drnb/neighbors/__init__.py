@@ -5,6 +5,7 @@ import sklearn.metrics
 
 import drnb.neighbors.sklearn as sknbrs
 from drnb.io import numpyfy
+from drnb.log import log
 
 from . import annoy, faiss, hnsw, pynndescent
 
@@ -29,7 +30,9 @@ def get_neighbors(
         and data.shape[0] > 10000
         or data.shape[1] > 10000
     ):
-        print("Using sklearn to find exact nearest neighbors: this might take a while")
+        log.info(
+            "Using sklearn to find exact nearest neighbors: this might take a while"
+        )
 
     if method == "sklearn":
         nn_func = sknbrs.sklearn_neighbors
@@ -56,7 +59,7 @@ def get_neighbors(
         method_kwds = default_method_kwds | method_kwds
 
     if verbose:
-        print(
+        log.info(
             f"Finding {n_neighbors} neighbors using {method} "
             + f"with {metric} metric and params: {method_kwds}"
         )

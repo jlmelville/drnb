@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import trimap
 
 import drnb.embed
+from drnb.log import log
 
 
 @dataclass
@@ -26,7 +27,7 @@ def trimap_embed(x, embedder_kwds):
         # setting return_seq=True and init to "pca" or "random" will cause a crash
         if isinstance(init, str):
             init = None
-            print("Setting init=None to avoid crash with return_seq=True")
+            log.info("Setting init=None to avoid crash with return_seq=True")
 
         # Use an internal setting to change the number of snapshots we get
         if "_return_every" in embedder_kwds:

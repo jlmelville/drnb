@@ -8,6 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from drnb.log import log
 from drnb.util import get_method_and_args
 
 DATA_ROOT = Path.home() / "rdev" / "datasets"
@@ -32,9 +33,9 @@ def get_data_path(data_path=None, sub_dir=None, create_sub_dir=False, verbose=Fa
     if not data_path.exists():
         if create_sub_dir:
             if verbose:
-                print(
-                    f"Directory {data_relative_path(data_path)} "
-                    + "does not exist, creating..."
+                log.info(
+                    "Directory %s does not exist, creating...",
+                    data_relative_path(data_path),
                 )
             data_path.mkdir(parents=False, exist_ok=False)
         else:
@@ -104,14 +105,14 @@ def read_data(
     raise FileNotFoundError(f"Data for {dataset} suffix={suffix} sub_dir={sub_dir}")
 
 
-def read_datax(dataset, data_path=None, sub_dir="xy", verbose=True):
+def read_datax(dataset, data_path=None, sub_dir="xy", verbose=False):
     x = read_data(
         dataset, suffix="", data_path=data_path, sub_dir=sub_dir, verbose=verbose
     )
     return numpyfy(x)
 
 
-def read_datay(dataset, data_path=None, sub_dir="xy", verbose=True, x=None):
+def read_datay(dataset, data_path=None, sub_dir="xy", verbose=False, x=None):
     try:
         y = read_data(
             dataset, suffix="y", data_path=data_path, sub_dir=sub_dir, verbose=verbose
@@ -125,7 +126,7 @@ def read_datay(dataset, data_path=None, sub_dir="xy", verbose=True, x=None):
     return y
 
 
-def read_dataxy(dataset, data_path=None, sub_dir="xy", verbose=True):
+def read_dataxy(dataset, data_path=None, sub_dir="xy", verbose=False):
     x = read_datax(dataset, data_path=data_path, sub_dir=sub_dir, verbose=verbose)
     y = read_datay(dataset, data_path=data_path, sub_dir=sub_dir, verbose=verbose, x=x)
     return x, y
@@ -142,7 +143,7 @@ def read_npy(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
         verbose=verbose,
     )
     if verbose:
-        print(f"Looking for npy format from {data_relative_path(data_file_path)}")
+        log.info("Looking for npy format from %s", data_relative_path(data_file_path))
     return np.load(data_file_path)
 
 
@@ -157,7 +158,9 @@ def read_pickle(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
         verbose=verbose,
     )
     if verbose:
-        print(f"Looking for pickle format from {data_relative_path(data_file_path)}")
+        log.info(
+            "Looking for pickle format from %s", data_relative_path(data_file_path)
+        )
     with open(data_file_path, "rb") as f:
         return pickle.load(f)
 
@@ -173,15 +176,15 @@ def read_pandas_csv(name, suffix=None, data_path=None, sub_dir=None, verbose=Fal
         verbose=verbose,
     )
     if verbose:
-        print(
-            f"Looking for pandas csv format from {data_relative_path(data_file_path)}"
+        log.info(
+            "Looking for pandas csv format from %s", data_relative_path(data_file_path)
         )
 
     data = pd.read_csv(data_file_path, header=None)
     if np.any(data.dtypes.apply(pd.api.types.is_object_dtype)):
         header = 0
         if verbose:
-            print("csv may have a header, retrying...")
+            log.info("csv may have a header, retrying...")
         return pd.read_csv(data_file_path, header=header)
     return data
 
@@ -290,7 +293,7 @@ def write_csv(
         name, ".csv", suffix, data_path, sub_dir, create_sub_dir, verbose
     )
     if verbose:
-        print(f"Writing csv format to {data_relative_path(output_path)}")
+        log.info("Writing csv format to %s", data_relative_path(output_path))
     if x.dtype is np.dtype(object) or x.dtype.kind == "U":
         np.savetxt(output_path, x, delimiter=",", fmt="%s")
     else:
@@ -310,7 +313,7 @@ def write_npy(
         name, ".npy", suffix, data_path, sub_dir, create_sub_dir, verbose
     )
     if verbose:
-        print(f"Writing numpy format to {data_relative_path(output_path)}")
+        log.info("Writing numpy format to %s", data_relative_path(output_path))
     np.save(output_path, x)
 
 
@@ -327,7 +330,7 @@ def write_pickle(
         name, ".pickle", suffix, data_path, sub_dir, create_sub_dir, verbose
     )
     if verbose:
-        print(f"Writing pickle format to {data_relative_path(output_path)}")
+        log.info("Writing pickle format to %s", data_relative_path(output_path))
     with open(output_path, "wb") as f:
         pickle.dump(x, f, pickle.HIGHEST_PROTOCOL)
 
