@@ -38,9 +38,9 @@ def trimap_embed(x, params, init, return_every):
         result = embedder.fit_transform(x, init=init)
 
         if params.get("return_seq", False):
-            embedded = dict(coords=result[:, :, -1])
+            embedded = dict(coords=result[:, :, -1], snapshots={})
             for i in range(result.shape[-1]):
-                embedded[f"it_{return_every * i}"] = result[:, :, i]
+                embedded["snapshots"][f"it_{return_every * i}"] = result[:, :, i]
         else:
             embedded = result
 
