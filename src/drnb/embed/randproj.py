@@ -8,7 +8,7 @@ import drnb.embed
 
 @dataclass
 class RandProj(drnb.embed.Embedder):
-    def embed(self, x):
+    def embed(self, x, ctx=None):
         return embed_randproj(x, self.embedder_kwds)
 
 

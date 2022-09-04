@@ -7,7 +7,7 @@ import drnb.embed
 
 @dataclass
 class Tsne(drnb.embed.Embedder):
-    def embed(self, x):
+    def embed(self, x, ctx=None):
         return embed_tsne(x, self.embedder_kwds)
 
 

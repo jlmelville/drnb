@@ -1,4 +1,5 @@
 import logging
+import pathlib
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -26,11 +27,13 @@ class Pipeline:
         else:
             log.setLevel(logging.WARNING)
 
+        ctx = DatasetContext(name=name)
+
         log.info("Getting dataset %s", name)
         x, y = self.importer.import_data(name)
 
         log.info("Embedding")
-        embedded = self.embedder.embed(x)
+        embedded = self.embedder.embed(x, ctx=ctx)
 
         log.info("Evaluating")
         evaluations = evaluate_embedding(self.evaluators, x, embedded)
@@ -67,3 +70,11 @@ def create_pipeline(
         exporter=exporter,
         verbose=verbose,
     )
+
+
+@dataclass
+class DatasetContext:
+    name: str
+    data_path: pathlib.Path = nbio.DATA_ROOT
+    nn_sub_dir: str = "nn"
+    data_sub_dir: str = "xy"

@@ -15,7 +15,7 @@ class Embedder(abc.ABC):
     embedder_kwds: dict = field(default_factory=dict)
 
     @abc.abstractmethod
-    def embed(self, x):
+    def embed(self, x, ctx=None):
         pass
 
 

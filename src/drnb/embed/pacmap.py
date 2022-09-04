@@ -7,7 +7,7 @@ import drnb.embed
 
 @dataclass
 class Pacmap(drnb.embed.Embedder):
-    def embed(self, x):
+    def embed(self, x, ctx=None):
         return embed_pacmap(x, self.embedder_kwds)
 
 

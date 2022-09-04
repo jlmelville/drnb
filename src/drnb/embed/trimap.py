@@ -8,7 +8,7 @@ from drnb.log import log
 
 @dataclass
 class Trimap(drnb.embed.Embedder):
-    def embed(self, x):
+    def embed(self, x, ctx=None):
         return trimap_embed(x, self.embedder_kwds)
 
 

@@ -7,7 +7,7 @@ import drnb.embed
 
 @dataclass
 class Pca(drnb.embed.Embedder):
-    def embed(self, x):
+    def embed(self, x, ctx=None):
         return embed_pca(x, self.embedder_kwds)
 
 

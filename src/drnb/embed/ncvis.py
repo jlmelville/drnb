@@ -4,7 +4,7 @@ import drnb.embed
 
 
 class NCVis(drnb.embed.Embedder):
-    def embed(self, x):
+    def embed(self, x, ctx=None):
         return ncvis_embed(x, self.embedder_kwds)
 
 

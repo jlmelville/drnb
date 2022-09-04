@@ -8,7 +8,7 @@ import drnb.embed
 
 @dataclass
 class Pymde(drnb.embed.Embedder):
-    def embed(self, x):
+    def embed(self, x, ctx=None):
         return embed_pymde_nbrs(x, self.embedder_kwds)
 
 
