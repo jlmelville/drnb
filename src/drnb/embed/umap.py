@@ -6,6 +6,7 @@ import umap
 
 import drnb.embed
 import drnb.neighbors as knn
+from drnb.log import log
 
 
 @dataclass
@@ -13,28 +14,29 @@ class Umap(drnb.embed.Embedder):
     use_precomputed_knn: bool = False
 
     def embed_impl(self, x, params, ctx=None):
+        knn_params = {}
+        if isinstance(self.use_precomputed_knn, dict):
+            knn_params = dict(self.use_precomputed_knn)
+            self.use_precomputed_knn = True
+
         if self.use_precomputed_knn:
-            if ctx is not None:
-                metric = params.get("metric", "euclidean")
-                n_neighbors = params.get("n_neighbors", 15)
-                precomputed_knn = knn.get_neighbors(
-                    data=x,
-                    n_neighbors=n_neighbors,
-                    metric=metric,
-                    method="exact",
-                    return_distance=True,
-                    verbose=True,
-                    data_path=ctx.data_path,
-                    sub_dir=ctx.nn_sub_dir,
-                    name=ctx.name,
-                    cache=False,
-                )
-                precomputed_knn = (
-                    precomputed_knn.idx,
-                    precomputed_knn.dist,
-                    pynndescent.NNDescent(np.array([0]).reshape((1, 1)), n_neighbors=0),
-                )
-                params["precomputed_knn"] = precomputed_knn
+            log.info("Using precomputed knn")
+            metric = params.get("metric", "euclidean")
+            n_neighbors = params.get("n_neighbors", 15)
+            precomputed_knn = knn.get_neighbors_with_ctx(
+                x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
+            )
+
+            # third argument is a dummy search index to escape the scrutiny of UMAP's
+            # validation: but we aren't going to every transform new data so we don't
+            # need it
+            precomputed_knn = (
+                precomputed_knn.idx,
+                precomputed_knn.dist,
+                pynndescent.NNDescent(np.array([0]).reshape((1, 1)), n_neighbors=0),
+            )
+            params["precomputed_knn"] = precomputed_knn
+
         return embed_umap(x, params)
 
 

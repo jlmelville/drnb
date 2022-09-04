@@ -355,3 +355,26 @@ def write_neighbors(
             create_sub_dir=create_sub_dir,
             verbose=verbose,
         )
+
+# Used in a pipeline
+def get_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None):
+    if knn_params is None:
+        knn_params = {}
+    knn_defaults = dict(
+        method="exact",
+        cache=True,
+        verbose=True,
+    )
+    if ctx is not None:
+        knn_defaults.update(
+            dict(data_path=ctx.data_path, sub_dir=ctx.nn_sub_dir, name=ctx.name)
+        )
+    full_knn_params = knn_defaults | knn_params
+
+    return get_neighbors(
+        data=data,
+        n_neighbors=n_neighbors,
+        metric=metric,
+        return_distance=True,
+        **full_knn_params,
+    )
