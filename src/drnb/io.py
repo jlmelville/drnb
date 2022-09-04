@@ -89,27 +89,35 @@ def read_data(
     suffix=None,
     data_path=None,
     sub_dir="xy",
+    as_numpy=False,
     verbose=False,
 ):
     for reader_func in (read_npy, read_pickle, read_pandas_csv):
         try:
-            return reader_func(
+            data = reader_func(
                 dataset,
                 suffix=suffix,
                 data_path=data_path,
                 sub_dir=sub_dir,
                 verbose=verbose,
             )
+            if as_numpy:
+                data = numpyfy(data)
+            return data
         except FileNotFoundError:
             pass
     raise FileNotFoundError(f"Data for {dataset} suffix={suffix} sub_dir={sub_dir}")
 
 
 def read_datax(dataset, data_path=None, sub_dir="xy", verbose=False):
-    x = read_data(
-        dataset, suffix="", data_path=data_path, sub_dir=sub_dir, verbose=verbose
+    return read_data(
+        dataset,
+        suffix="",
+        data_path=data_path,
+        sub_dir=sub_dir,
+        verbose=verbose,
+        as_numpy=True,
     )
-    return numpyfy(x)
 
 
 def read_datay(dataset, data_path=None, sub_dir="xy", verbose=False, x=None):
@@ -192,6 +200,8 @@ def read_pandas_csv(name, suffix=None, data_path=None, sub_dir=None, verbose=Fal
 def numpyfy(x, dtype=np.float32):
     if hasattr(x, "to_numpy"):
         x = x.to_numpy(dtype=dtype)
+    if x.dtype != dtype:
+        x = x.astype(dtype)
     if not x.flags["C_CONTIGUOUS"]:
         x = np.ascontiguousarray(x)
     return x

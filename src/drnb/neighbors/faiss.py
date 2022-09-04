@@ -1,9 +1,8 @@
-import faiss
 import numpy as np
 
 from drnb.io import numpyfy
 
-FAISS_METRICS = {"cosine": faiss.IndexFlatIP, "euclidean": faiss.IndexFlatL2}
+FAISS_METRICS = ["cosine", "euclidean"]
 
 FAISS_DEFAULTS = {}
 
@@ -14,8 +13,15 @@ def faiss_neighbors(
     metric="euclidean",
     return_distance=True,
 ):
+    # pylint: disable=import-outside-toplevel
+    import faiss
 
-    faiss_space = FAISS_METRICS[metric]
+    if metric == "cosine":
+        faiss_space = faiss.IndexFlatIP
+    elif metric == "euclidean":
+        faiss_space = faiss.IndexFlatL2
+    else:
+        raise ValueError(f"Unsupported metric for faiss: '{metric}'")
 
     X = numpyfy(X)
 
