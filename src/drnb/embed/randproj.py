@@ -8,16 +8,16 @@ import drnb.embed
 
 @dataclass
 class RandProj(drnb.embed.Embedder):
-    def embed(self, x, ctx=None):
-        return embed_randproj(x, self.embedder_kwds)
+    def embed_impl(self, x, params, ctx=None):
+        return embed_randproj(x, params)
 
 
 def embed_randproj(
     x,
-    embedder_kwds,
+    params,
 ):
     embedder = sklearn.random_projection.SparseRandomProjection(
-        n_components=2, **embedder_kwds
+        n_components=2, **params
     )
     embedded = embedder.fit_transform(x)
     return embedded

@@ -4,8 +4,8 @@ import drnb.embed
 
 
 class NCVis(drnb.embed.Embedder):
-    def embed(self, x, ctx=None):
-        return ncvis_embed(x, self.embedder_kwds)
+    def embed_impl(self, x, params, ctx=None):
+        return ncvis_embed(x, params)
 
 
 # * d=2
@@ -26,8 +26,8 @@ class NCVis(drnb.embed.Embedder):
 # * distance="euclidean"
 
 
-def ncvis_embed(x, embedder_kwds):
-    embedder = ncvis.NCVis(**embedder_kwds)
+def ncvis_embed(x, params):
+    embedder = ncvis.NCVis(**params)
     embedded = embedder.fit_transform(x)
 
     return embedded

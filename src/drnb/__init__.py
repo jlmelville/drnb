@@ -1,3 +1,5 @@
+import logging
+
 from drnb.embed import get_embedder_name
 from drnb.embed.factory import create_embedder
 from drnb.eval import evaluate_embedding
@@ -17,6 +19,10 @@ try:
 except PackageNotFoundError:
     __version__ = "unknown"
 
+# helper method to create an embedder configuration
+def embedder(name, params=None, **kwargs):
+    return (name, kwargs | dict(params=params))
+
 
 def embed_data(
     name,
@@ -29,31 +35,39 @@ def embed_data(
     export=False,
     verbose=False,
 ):
+    old_log_level = log.level
+    if verbose:
+        log.setLevel(logging.INFO)
+    else:
+        log.setLevel(logging.WARNING)
+
     importer = create_importer(x, import_kwargs)
     exporter = create_exporter(get_embedder_name(method), export)
+    # zero reason to call embedder helper method here so don't care we are shadowing it
+    # pylint: disable=redefined-outer-name
     embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
     plotter = create_plotter(plot)
 
-    if verbose:
-        log.info("Getting data")
+    log.info("Getting data")
     x, y = importer.import_data(name, x, y)
     x = numpyfy(x)
-    if verbose:
-        log.info("Embedding")
+
+    log.info("Embedding")
     embedded = embedder.embed(x)
-    if verbose:
-        log.info("Evaluating")
+
+    log.info("Evaluating")
     evaluations = evaluate_embedding(evaluators, x, embedded)
-    if verbose:
-        log.info("Plotting")
+
+    log.info("Plotting")
     plotter.plot(embedded, y)
-    if verbose:
-        log.info("Exporting")
+
+    log.info("Exporting")
     exporter.export(name=name, embedded=embedded)
 
     if not isinstance(embedded, dict):
         embedded = dict(coords=embedded)
         if evaluations:
             embedded["_evaluations"] = evaluations
+    log.setLevel(old_log_level)
     return embedded

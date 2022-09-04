@@ -7,8 +7,8 @@ import drnb.embed
 
 @dataclass
 class Pacmap(drnb.embed.Embedder):
-    def embed(self, x, ctx=None):
-        return embed_pacmap(x, self.embedder_kwds)
+    def embed_impl(self, x, params, ctx=None):
+        return embed_pacmap(x, params)
 
 
 # n_neighbors=10
@@ -24,17 +24,17 @@ class Pacmap(drnb.embed.Embedder):
 # intermediate=False: if True, then snapshots of the coordinates at intermediate steps of the iteration are also returned.
 # intermediate_snapshots=[0, 10, 30, 60, 100, 120, 140, 170, 200, 250, 300, 350, 450]: the iterations at which snapshots are taken. Ignored unless intermediate=True.
 # random_state=None.
-def embed_pacmap(x, embedder_kwds):
-    if "init" in embedder_kwds:
-        init = embedder_kwds["init"]
-        del embedder_kwds["init"]
+def embed_pacmap(x, params):
+    if "init" in params:
+        init = params["init"]
+        del params["init"]
     else:
         init = None
 
-    embedder = pacmap.PaCMAP(**embedder_kwds)
+    embedder = pacmap.PaCMAP(**params)
     result = embedder.fit_transform(x, init=init)
 
-    if embedder_kwds.get("intermediate", False):
+    if params.get("intermediate", False):
         embedded = dict(coords=result[-1])
         for i in range(result.shape[0]):
             embedded[f"it_{embedder.intermediate_snapshots[i]}"] = result[i]

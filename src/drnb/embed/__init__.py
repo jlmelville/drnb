@@ -12,10 +12,14 @@ def get_embedder_name(method):
 
 @dataclass
 class Embedder(abc.ABC):
-    embedder_kwds: dict = field(default_factory=dict)
+    params: dict = field(default_factory=dict)
+
+    def embed(self, x, ctx=None):
+        params = dict(self.params)
+        return self.embed_impl(x, params, ctx)
 
     @abc.abstractmethod
-    def embed(self, x, ctx=None):
+    def embed_impl(self, x, params, ctx=None):
         pass
 
 

@@ -1,13 +1,16 @@
 # pylint: disable=import-outside-toplevel
-def create_embedder(method, embed_kwargs=None):
+def create_embedder(method, embed_kwds=None):
     if isinstance(method, tuple):
         if len(method) != 2:
             raise ValueError("Unexpected format for method")
-        embed_kwargs = method[1]
+        embed_kwds = method[1]
         method = method[0]
 
-    if embed_kwargs is None:
-        embed_kwargs = {}
+    if embed_kwds is None:
+        embed_kwds = dict(params={})
+
+    if "params" not in embed_kwds or embed_kwds["params"] is None:
+        embed_kwds["params"] = {}
 
     method = method.lower()
 
@@ -32,5 +35,5 @@ def create_embedder(method, embed_kwargs=None):
     else:
         raise ValueError(f"Unknown method {method}")
 
-    embedder = ctor(embed_kwargs)
+    embedder = ctor(**embed_kwds)
     return embedder

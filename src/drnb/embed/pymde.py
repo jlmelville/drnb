@@ -8,24 +8,24 @@ import drnb.embed
 
 @dataclass
 class Pymde(drnb.embed.Embedder):
-    def embed(self, x, ctx=None):
-        return embed_pymde_nbrs(x, self.embedder_kwds)
+    seed: int = None
+
+    def embed_impl(self, x, params, ctx=None):
+        return embed_pymde_nbrs(x, self.seed, params)
 
 
 def embed_pymde_nbrs(
     x,
-    embedder_kwds,
+    seed,
+    params,
 ):
     x = torch.from_numpy(x)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    if embedder_kwds.get("seed") is not None:
-        pymde.seed(embedder_kwds["seed"])
-        del embedder_kwds["seed"]
+    if seed is not None:
+        pymde.seed(seed)
 
-    embedder = pymde.preserve_neighbors(
-        x, device=device, embedding_dim=2, **embedder_kwds
-    )
+    embedder = pymde.preserve_neighbors(x, device=device, embedding_dim=2, **params)
     embedded = embedder.embed().cpu().data.numpy()
 
     return embedded
