@@ -68,6 +68,6 @@ def embed_data(
     if not isinstance(embedded, dict):
         embedded = dict(coords=embedded)
         if evaluations:
-            embedded["_evaluations"] = evaluations
+            embedded["evaluations"] = evaluations
     log.setLevel(old_log_level)
     return embedded

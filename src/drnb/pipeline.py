@@ -47,7 +47,7 @@ class Pipeline:
         if not isinstance(embedded, dict):
             embedded = dict(coords=embedded)
             if evaluations:
-                embedded["_evaluations"] = evaluations
+                embedded["evaluations"] = evaluations
         return embedded
 
 
