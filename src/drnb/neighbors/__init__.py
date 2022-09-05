@@ -299,32 +299,33 @@ def get_neighbors(
         return_distance=return_distance,
         verbose=verbose,
     )
-    if neighbor_data is None:
-        if data is None:
-            raise ValueError("Must provide data to calculate neighbors")
-        neighbor_data = calculate_neighbors(
-            data,
-            n_neighbors=n_neighbors,
-            metric=metric,
-            method=method,
-            return_distance=return_distance or cache,
-            verbose=verbose,
-            method_kwds=method_kwds,
-            name=name,
-        )
-        if cache:
-            if name is None:
-                log.warning("Asked for caching but no name provided to save under")
-            else:
-                if verbose:
-                    log.info("Caching calculated neighbor data")
-                write_neighbors(
-                    neighbor_data,
-                    data_path=data_path,
-                    sub_dir=sub_dir,
-                    create_sub_dir=True,
-                    verbose=verbose,
-                )
+    if neighbor_data is not None:
+        return neighbor_data
+    if data is None:
+        raise ValueError("Must provide data to calculate neighbors")
+    neighbor_data = calculate_neighbors(
+        data,
+        n_neighbors=n_neighbors,
+        metric=metric,
+        method=method,
+        return_distance=return_distance or cache,
+        verbose=verbose,
+        method_kwds=method_kwds,
+        name=name,
+    )
+    if cache:
+        if name is None:
+            log.warning("Asked for caching but no name provided to save under")
+        else:
+            if verbose:
+                log.info("Caching calculated neighbor data")
+            write_neighbors(
+                neighbor_data,
+                data_path=data_path,
+                sub_dir=sub_dir,
+                create_sub_dir=True,
+                verbose=verbose,
+            )
     return neighbor_data
 
 
@@ -355,6 +356,7 @@ def write_neighbors(
             create_sub_dir=create_sub_dir,
             verbose=verbose,
         )
+
 
 # Used in a pipeline
 def get_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None):
