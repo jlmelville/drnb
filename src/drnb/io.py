@@ -101,7 +101,9 @@ def read_data(
                 sub_dir=sub_dir,
                 verbose=verbose,
             )
-            if as_numpy:
+            if not isinstance(as_numpy, bool):
+                data = numpyfy(data, dtype=as_numpy)
+            elif as_numpy:
                 data = numpyfy(data)
             return data
         except FileNotFoundError:
