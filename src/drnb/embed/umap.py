@@ -47,10 +47,12 @@ def embed_umap(
     if isinstance(x, np.ndarray) and x.shape[0] == x.shape[1]:
         params["metric"] = "precomputed"
 
+    log.info("Running UMAP")
     embedder = umap.UMAP(
         **params,
     )
     embedded = embedder.fit_transform(x)
+    log.info("Embedding completed")
 
     if params.get("densmap", False) and params.get("output_dens", False):
         embedded = dict(coords=embedded[0], dens_ro=embedded[1], dens_re=embedded[2])

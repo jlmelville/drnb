@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import pacmap
 
 import drnb.embed
+from drnb.log import log
 
 
 @dataclass
@@ -31,8 +32,10 @@ def embed_pacmap(x, params):
     else:
         init = None
 
+    log.info("Running PaCMAP")
     embedder = pacmap.PaCMAP(**params)
     result = embedder.fit_transform(x, init=init)
+    log.info("Embedding completed")
 
     if params.get("intermediate", False):
         embedded = dict(coords=result[-1])

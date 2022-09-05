@@ -29,6 +29,7 @@ def trimap_embed(x, params, init, return_every):
             init = None
             log.info("Setting init=None to avoid crash with return_seq=True")
 
+    log.info("Running TriMap")
     # This is in a try block just to try really hard to put the internals of trimap
     # back to how we found them even if an exception gets thrown
     try:
@@ -43,7 +44,7 @@ def trimap_embed(x, params, init, return_every):
                 embedded["snapshots"][f"it_{return_every * i}"] = result[:, :, i]
         else:
             embedded = result
-
+        log.info("Embedding completed")
         return embedded
     finally:
         # put _RETURN_EVERY back if necessary

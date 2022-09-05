@@ -4,6 +4,7 @@ import pymde
 import torch
 
 import drnb.embed
+from drnb.log import log
 
 
 @dataclass
@@ -25,7 +26,9 @@ def embed_pymde_nbrs(
     if seed is not None:
         pymde.seed(seed)
 
+    log.info("Running PyMDE")
     embedder = pymde.preserve_neighbors(x, device=device, embedding_dim=2, **params)
     embedded = embedder.embed().cpu().data.numpy()
+    log.info("Embedding completed")
 
     return embedded

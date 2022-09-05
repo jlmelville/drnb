@@ -2,6 +2,8 @@ import ncvis
 
 import drnb.embed
 
+from drnb.log import log
+
 
 class NCVis(drnb.embed.Embedder):
     def embed_impl(self, x, params, ctx=None):
@@ -27,7 +29,9 @@ class NCVis(drnb.embed.Embedder):
 
 
 def ncvis_embed(x, params):
+    log.info("Running NCVis")
     embedder = ncvis.NCVis(**params)
     embedded = embedder.fit_transform(x)
+    log.info("Embedding completed")
 
     return embedded
