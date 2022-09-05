@@ -76,5 +76,6 @@ def create_pipeline(
 class DatasetContext:
     name: str
     data_path: pathlib.Path = nbio.DATA_ROOT
-    nn_sub_dir: str = "nn"
     data_sub_dir: str = "xy"
+    nn_sub_dir: str = "nn"
+    triplet_sub_dir: str = "triplets"
