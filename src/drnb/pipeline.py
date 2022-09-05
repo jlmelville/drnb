@@ -36,7 +36,7 @@ class Pipeline:
         embedded = self.embedder.embed(x, ctx=ctx)
 
         log.info("Evaluating")
-        evaluations = evaluate_embedding(self.evaluators, x, embedded)
+        evaluations = evaluate_embedding(self.evaluators, x, embedded, ctx=ctx)
 
         log.info("Plotting")
         self.plotter.plot(embedded, y)

@@ -34,7 +34,7 @@ class RandomPairCorrelEval(EmbeddingEval):
     random_state: int = None
     n_triplets_per_point: int = 5
 
-    def evaluate(self, X, coords):
+    def evaluate(self, X, coords, ctx=None):
         rpc = random_pair_correl_eval(
             X,
             coords,

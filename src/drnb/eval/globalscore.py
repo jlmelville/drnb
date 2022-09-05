@@ -8,7 +8,7 @@ from .base import EmbeddingEval
 
 @dataclass
 class GlobalScore(EmbeddingEval):
-    def evaluate(self, X, coords):
+    def evaluate(self, X, coords, ctx=None):
         gs = global_score(
             X,
             coords,

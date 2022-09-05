@@ -75,6 +75,7 @@ def nbr_pres(
         calc_x_nbrs = max_n_nbrs > x_nbrs.shape[1]
 
     if calc_x_nbrs:
+        cache = name is not None
         x_nbrs = get_neighbors(
             data=X,
             n_neighbors=max_n_nbrs,
@@ -86,7 +87,7 @@ def nbr_pres(
             data_path=data_path,
             sub_dir=sub_dir,
             name=name,
-            cache=name is not None,
+            cache=cache,
         )
 
     # if we calculated our own neig
@@ -106,11 +107,26 @@ def nbr_pres(
 
 @dataclass
 class NbrPreservationEval(EmbeddingEval):
+    x_metric: str = "euclidean"
     n_neighbors: int = 15  # can also be a list
     verbose: bool = False
 
-    def evaluate(self, X, coords):
-        nnps = nbr_pres(X, coords, n_nbrs=self.n_neighbors, verbose=self.verbose)
+    def evaluate(self, X, coords, ctx=None):
+        if ctx is not None:
+            nnp_kwargs = dict(
+                data_path=ctx.data_path, sub_dir=ctx.nn_sub_dir, name=ctx.name
+            )
+        else:
+            nnp_kwargs = {}
+
+        nnps = nbr_pres(
+            X,
+            coords,
+            n_nbrs=self.n_neighbors,
+            x_metric=self.x_metric,
+            verbose=self.verbose,
+            **nnp_kwargs,
+        )
         if not islisty(self.n_neighbors):
             self.n_neighbors = [self.n_neighbors]
         return [(f"nnp{n_nbrs}", nnp) for n_nbrs, nnp in zip(self.n_neighbors, nnps)]

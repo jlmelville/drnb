@@ -11,7 +11,7 @@ class RandomTripletEval(EmbeddingEval):
     random_state: int = None
     n_triplets_per_point: int = 5
 
-    def evaluate(self, X, coords):
+    def evaluate(self, X, coords, ctx=None):
         rte = random_triplet_eval(
             X,
             coords,
