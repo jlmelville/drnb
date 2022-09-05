@@ -96,20 +96,6 @@ class RandomPairCorrelEval(EmbeddingEval):
                 self.metric,
                 self.random_state,
             )
-
-            # log.info("Caching triplets")
-            # write_triplets(
-            #     idx,
-            #     name=ctx.name,
-            #     n_triplets_per_point=self.n_triplets_per_point,
-            #     seed=self.random_state,
-            #     data_path=ctx.data_path,
-            #     sub_dir=ctx.triplet_sub_dir,
-            #     create_sub_dir=True,
-            #     verbose=True,
-            #     dist=X_dist,
-            #     metric=self.metric,
-            # )
         else:
             rpc = rpc_result
         return ("rpc", rpc)

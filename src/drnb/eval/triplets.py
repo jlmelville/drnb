@@ -21,11 +21,6 @@ def calc_distances(X, pairs):
     return distances
 
 
-def calc_labels(X, pairs):
-    distances = calc_distances(X, pairs)
-    return distances[:, :, 0] < distances[:, :, 1]
-
-
 def validate_triplets(triplets, n_obs):
     if len(triplets.shape) != 3 or triplets.shape[2] != 2 or triplets.shape[0] != n_obs:
         raise ValueError(
