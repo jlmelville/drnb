@@ -9,6 +9,15 @@ import drnb.neighbors as knn
 from drnb.log import log
 
 
+# A subclass of NNDescent which exists purely to escape the scrutiny of a validation
+# type check in UMAP when using pre-computed knn.
+# https://github.com/lmcinnes/umap/issues/848
+class DummyNNDescent(pynndescent.NNDescent):
+    # pylint: disable=super-init-not-called
+    def __init__(self):
+        return
+
+
 @dataclass
 class Umap(drnb.embed.Embedder):
     use_precomputed_knn: bool = False
@@ -27,15 +36,18 @@ class Umap(drnb.embed.Embedder):
                 x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
             )
 
-            # third argument is a dummy search index to escape the scrutiny of UMAP's
-            # validation: but we aren't going to every transform new data so we don't
-            # need it
+            # we aren't going to transform new data so we don't need the search index
+            # to actually work
+            dummy_search_index = DummyNNDescent()
             precomputed_knn = (
                 precomputed_knn.idx,
                 precomputed_knn.dist,
-                pynndescent.NNDescent(np.array([0]).reshape((1, 1)), n_neighbors=0),
+                dummy_search_index,
             )
             params["precomputed_knn"] = precomputed_knn
+            # also UMAP complains when a precomputed knn is used with a smaller dataset
+            # unless this flag is set
+            params["force_approximation_algorithm"] = True
 
         return embed_umap(x, params)
 
