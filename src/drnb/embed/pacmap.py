@@ -8,8 +8,10 @@ from drnb.log import log
 
 @dataclass
 class Pacmap(drnb.embed.Embedder):
+    init: str = None
+
     def embed_impl(self, x, params, ctx=None):
-        return embed_pacmap(x, params)
+        return embed_pacmap(x, params, self.init)
 
 
 # n_neighbors=10
@@ -25,12 +27,16 @@ class Pacmap(drnb.embed.Embedder):
 # intermediate=False: if True, then snapshots of the coordinates at intermediate steps of the iteration are also returned.
 # intermediate_snapshots=[0, 10, 30, 60, 100, 120, 140, 170, 200, 250, 300, 350, 450]: the iterations at which snapshots are taken. Ignored unless intermediate=True.
 # random_state=None.
-def embed_pacmap(x, params):
-    if "init" in params:
-        init = params["init"]
-        del params["init"]
-    else:
-        init = None
+# init: one of "pca", "random" or user-supplied
+def embed_pacmap(x, params, init=None):
+    # if intermediate_snapshots is supplied, make sure the last value is `num_iters`
+    # to avoid an exception
+    if params.get("intermediate", False) and "intermediate_snapshots" in params:
+        snapshots = params["intermediate_snapshots"]
+        num_iters = params.get("num_iters", 450)
+        if snapshots[-1] != num_iters:
+            snapshots.append(num_iters)
+        params["intermediate_snapshots"] = snapshots
 
     log.info("Running PaCMAP")
     embedder = pacmap.PaCMAP(**params)
@@ -38,9 +44,11 @@ def embed_pacmap(x, params):
     log.info("Embedding completed")
 
     if params.get("intermediate", False):
-        embedded = dict(coords=result[-1])
+        embedded = dict(coords=result[-1], snapshots={})
         for i in range(result.shape[0]):
-            embedded[f"it_{embedder.intermediate_snapshots[i]}"] = result[i]
+            embedded["snapshots"][f"it_{embedder.intermediate_snapshots[i]}"] = result[
+                i
+            ]
     else:
         embedded = result
 
