@@ -23,7 +23,7 @@ def faiss_neighbors(
     else:
         raise ValueError(f"Unsupported metric for faiss: '{metric}'")
 
-    X = numpyfy(X)
+    X = numpyfy(X, dtype=np.float32, layout="c")
 
     res = faiss.StandardGpuResources()
     index_flat = faiss_space(X.shape[1])
