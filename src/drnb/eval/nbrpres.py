@@ -90,7 +90,8 @@ def nbr_pres(
             cache=cache,
         )
 
-    # if we calculated our own neig
+    # contents of n_nbrs may still be larger than the number of neighbors that can be
+    # sensibly calculated so check and use NaN for those cases
     nn_accs = []
     for nbrs in n_nbrs:
         if nbrs <= max_n_nbrs:
