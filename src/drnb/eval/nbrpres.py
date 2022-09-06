@@ -31,6 +31,7 @@ def nbr_pres(
     y_method="exact",
     y_metric="euclidean",
     y_method_kwds=None,
+    include_self=False,
     verbose=False,
     x_nbrs=None,
     y_nbrs=None,
@@ -40,6 +41,12 @@ def nbr_pres(
 ):
     if isinstance(n_nbrs, int):
         n_nbrs = [n_nbrs]
+
+    start_idx = 0
+    if not include_self:
+        n_nbrs = [n + 1 for n in n_nbrs]
+        start_idx = 1
+
     max_n_nbrs = int(np.max(n_nbrs))
 
     n_items = Y.shape[0]
@@ -97,8 +104,8 @@ def nbr_pres(
         if nbrs <= max_n_nbrs:
             nn_accs.append(
                 nn_acc(
-                    approx_indices=y_nbrs.idx[:, :nbrs],
-                    true_indices=x_nbrs.idx[:, :nbrs],
+                    approx_indices=y_nbrs.idx[:, start_idx:nbrs],
+                    true_indices=x_nbrs.idx[:, start_idx:nbrs],
                 )
             )
         else:
@@ -110,6 +117,7 @@ def nbr_pres(
 class NbrPreservationEval(EmbeddingEval):
     x_metric: str = "euclidean"
     n_neighbors: int = 15  # can also be a list
+    include_self: bool = False
     verbose: bool = False
 
     def evaluate(self, X, coords, ctx=None):
@@ -125,6 +133,7 @@ class NbrPreservationEval(EmbeddingEval):
             coords,
             n_nbrs=self.n_neighbors,
             x_metric=self.x_metric,
+            include_self=self.include_self,
             verbose=self.verbose,
             **nnp_kwargs,
         )
@@ -133,4 +142,8 @@ class NbrPreservationEval(EmbeddingEval):
         return [(f"nnp{n_nbrs}", nnp) for n_nbrs, nnp in zip(self.n_neighbors, nnps)]
 
     def __str__(self):
-        return f"Neighbor Preservation for n_neighbors: {self.n_neighbors}"
+        include_self_str = "including" if self.include_self else "excluding"
+        return (
+            f"Neighbor Preservation for n_neighbors: {self.n_neighbors} "
+            f"({include_self_str} self)"
+        )
