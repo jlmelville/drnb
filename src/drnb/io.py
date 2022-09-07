@@ -10,6 +10,7 @@ import pandas as pd
 
 from drnb.log import log
 from drnb.util import get_method_and_args
+from drnb.preprocess import numpyfy
 
 DATA_ROOT = Path.home() / "rdev" / "datasets"
 DEBUG = False
@@ -197,20 +198,6 @@ def read_pandas_csv(name, suffix=None, data_path=None, sub_dir=None, verbose=Fal
             log.info("csv may have a header, retrying...")
         return pd.read_csv(data_file_path, header=header)
     return data
-
-
-def numpyfy(x, dtype=None, layout=None):
-    # pandas
-    if hasattr(x, "to_numpy"):
-        x = x.to_numpy(dtype=dtype)
-    if dtype is not None and x.dtype != dtype:
-        x = x.astype(dtype)
-    if layout is not None:
-        if layout == "c" and not x.flags["C_CONTIGUOUS"]:
-            x = np.ascontiguousarray(x)
-        elif layout == "f" and not x.flags["F_CONTIGUOUS"]:
-            x = np.asfortranarray(x)
-    return x
 
 
 def list_available_data(data_path=None, sub_dir="xy", with_y=False):

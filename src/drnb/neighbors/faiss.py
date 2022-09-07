@@ -1,6 +1,6 @@
 import numpy as np
 
-from drnb.io import numpyfy
+from drnb.preprocess import numpyfy
 
 FAISS_METRICS = ["cosine", "euclidean"]
 

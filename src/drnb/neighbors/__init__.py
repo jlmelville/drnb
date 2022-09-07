@@ -5,8 +5,10 @@ from pathlib import Path
 import sklearn.metrics
 
 import drnb.neighbors.sklearn as sknbrs
-from drnb.io import data_relative_path, get_data_path, numpyfy, read_data, write_npy
+from drnb.io import data_relative_path, get_data_path, read_data, write_npy
 from drnb.log import log
+from drnb.preprocess import numpyfy
+
 
 from . import annoy, faiss, hnsw, pynndescent
 from .nbrinfo import NbrInfo, NearestNeighbors
