@@ -1,4 +1,5 @@
 import numpy as np
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 def numpyfy(x, dtype=None, layout=None):
@@ -17,3 +18,11 @@ def numpyfy(x, dtype=None, layout=None):
 
 def center(X):
     return X - np.mean(X, axis=0)
+
+
+def zscale(X):
+    return StandardScaler().fit_transform(X)
+
+
+def range_scale(X, minval=0, maxval=1):
+    return MinMaxScaler(feature_range=(minval, maxval)).fit_transform(X)
