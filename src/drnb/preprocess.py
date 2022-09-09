@@ -2,27 +2,31 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
-def numpyfy(x, dtype=None, layout=None):
+# ("numpyfy", dict(dtype="float32", layout="c"))
+def numpyfy(data, dtype=None, layout=None):
     # pandas
-    if hasattr(x, "to_numpy"):
-        x = x.to_numpy(dtype=dtype)
-    if dtype is not None and x.dtype != dtype:
-        x = x.astype(dtype)
+    if hasattr(data, "to_numpy"):
+        data = data.to_numpy(dtype=dtype)
+    if dtype is not None and data.dtype != dtype:
+        data = data.astype(dtype)
     if layout is not None:
-        if layout == "c" and not x.flags["C_CONTIGUOUS"]:
-            x = np.ascontiguousarray(x)
-        elif layout == "f" and not x.flags["F_CONTIGUOUS"]:
-            x = np.asfortranarray(x)
-    return x
+        if layout == "c" and not data.flags["C_CONTIGUOUS"]:
+            data = np.ascontiguousarray(data)
+        elif layout == "f" and not data.flags["F_CONTIGUOUS"]:
+            data = np.asfortranarray(data)
+    return data
 
 
-def center(X):
-    return X - np.mean(X, axis=0)
+# "center"
+def center(data):
+    return data - np.mean(data, axis=0)
 
 
-def zscale(X):
-    return StandardScaler().fit_transform(X)
+# "zscale"
+def zscale(data):
+    return StandardScaler().fit_transform(data)
 
 
-def range_scale(X, minval=0, maxval=1):
-    return MinMaxScaler(feature_range=(minval, maxval)).fit_transform(X)
+# ("range_scale", dict(minval=0, maxval=10.0))
+def range_scale(data, minval=0, maxval=1):
+    return MinMaxScaler(feature_range=(minval, maxval)).fit_transform(data)
