@@ -263,26 +263,6 @@ def create_importer(x=None, import_kwargs=None):
     return importer
 
 
-def export_coords(
-    coords,
-    name,
-    export_dir,
-    data_path=None,
-    suffix=None,
-    create_sub_dir=True,
-    verbose=False,
-):
-    write_csv(
-        coords,
-        name=name,
-        suffix=suffix,
-        data_path=data_path,
-        sub_dir=export_dir,
-        create_sub_dir=create_sub_dir,
-        verbose=verbose,
-    )
-
-
 def write_csv(
     x,
     name,
@@ -338,7 +318,43 @@ def write_pickle(
         pickle.dump(x, f, pickle.HIGHEST_PROTOCOL)
 
 
-class NoExporter:
+def is_file_type(target_file_type, file_type=None, suffix=None):
+    return (file_type is not None and file_type == target_file_type) or (
+        suffix is not None and suffix.endswith(f".{target_file_type}")
+    )
+
+
+def write_data(
+    x,
+    name,
+    suffix=None,
+    data_path=None,
+    sub_dir=None,
+    create_sub_dir=True,
+    verbose=False,
+    file_type=None,
+):
+    if is_file_type("csv", file_type, suffix):
+        func = write_csv
+    elif is_file_type("pkl", file_type, suffix):
+        func = write_pickle
+    elif is_file_type("npy", file_type, suffix):
+        func = write_npy
+    else:
+        raise ValueError("Could not detect type of file to export to")
+
+    func(
+        x=x,
+        name=name,
+        suffix=suffix,
+        data_path=data_path,
+        sub_dir=sub_dir,
+        create_sub_dir=create_sub_dir,
+        verbose=verbose,
+    )
+
+
+class NoEmbedExporter:
     def __init__(self, **kwargs):
         pass
 
@@ -351,12 +367,13 @@ class NoExporter:
 
 
 @dataclass
-class CsvExporter:
+class FileEmbedExporter:
     export_dir: str = None
     data_path: str = None
     suffix: str = None
     create_sub_dir: bool = True
     verbose: bool = False
+    file_type: str = "csv"
 
     @classmethod
     def new(cls, **kwargs):
@@ -369,14 +386,15 @@ class CsvExporter:
         else:
             coords = embedded
 
-        export_coords(
+        write_data(
             coords,
             name,
-            export_dir=self.export_dir,
             data_path=self.data_path,
+            sub_dir=self.export_dir,
             suffix=self.suffix,
             create_sub_dir=self.create_sub_dir,
             verbose=self.verbose,
+            file_type=self.file_type,
         )
 
     def export_extra(self, name, embedded):
@@ -384,14 +402,15 @@ class CsvExporter:
         for extra_data_name, extra_data in embedded.items():
             if extra_data_name == "coords":
                 continue
-            write_csv(
+            write_data(
                 extra_data,
                 name=name,
                 suffix=[suffix, extra_data_name],
-                sub_dir=self.export_dir,
                 data_path=self.data_path,
+                sub_dir=self.export_dir,
                 create_sub_dir=self.create_sub_dir,
                 verbose=self.verbose,
+                file_type=self.file_type,
             )
 
 
@@ -403,10 +422,10 @@ def create_exporter(embed_method, export=False):
         else:
             export = "none"
 
-    if export == "csv":
-        exporter_cls = CsvExporter
+    if export in ("csv", "pkl", "npy"):
+        exporter_cls = FileEmbedExporter
     elif export == "none":
-        exporter_cls = NoExporter
+        exporter_cls = NoEmbedExporter
     else:
         raise ValueError(f"Unknown exporter type {export}")
 
@@ -415,5 +434,12 @@ def create_exporter(embed_method, export=False):
     if "export_dir" not in export_kwargs:
         export_kwargs["export_dir"] = embed_method
 
-    exporter = exporter_cls.new(**export_kwargs)
+    exporter = exporter_cls.new(file_type=export, **export_kwargs)
     return exporter
+
+
+def create_exporters(embed_method, export=False):
+    # bool or string or (file_type, {options}) should be put in a list
+    if not islisty(export) or isinstance(export, tuple):
+        export = [export]
+    return [create_exporter(embed_method, ex) for ex in export]

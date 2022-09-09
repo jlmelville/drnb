@@ -33,7 +33,7 @@ are using VSCode then the `.vscode/settings.json` sets those tools up with the c
 ### The data root directory
 
 Defaults for the functions assume that there is a root directory under which sub-directories store
-input and output data. The root directory is stored in `nb.io.DATA_ROOT` is set to a value of 
+input and output data. The root directory is stored in `nb.io.DATA_ROOT` is set to a value of
 convenience to me. If you are not me, you will want to set:
 
 ```python
@@ -57,8 +57,8 @@ DATA_ROOT/
     fashion-y.pickle
 ```
 
-The dataset name if the basename of the file, e.g. the contents of `iris.csv` `iris-y.csv` are 
-loaded in when using the dataset name `iris` with the various `dnrb` function. The `-y` files are 
+The dataset name if the basename of the file, e.g. the contents of `iris.csv` `iris-y.csv` are
+loaded in when using the dataset name `iris` with the various `dnrb` function. The `-y` files are
 optional CSV files with categorical labels or real values. For datasets without y-labels, an array
 of 0..N is used for the purpose of coloring any produced plots.
 
@@ -120,7 +120,7 @@ DATA_ROOT/
 This is accomplished with:
 
 ```python
-nbio.export_coords(iris_randproj, name="iris", export_dir="randproj")
+nbio.write_csv(iris_randproj, name="iris", export_dir="randproj")
 ```
 
 You can also over-ride `data_root` here too.
@@ -184,6 +184,5 @@ import numpy as np
 import drnb as nb
 ```
 
-`lab_black` is an extension that runs the [black](https://black.readthedocs.io/en/stable/) 
+`lab_black` is an extension that runs the [black](https://black.readthedocs.io/en/stable/)
 code formatter on notebook code on submit.
-

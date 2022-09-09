@@ -18,7 +18,7 @@ class Pipeline:
     embedder: Any = None
     evaluators: list = field(default_factory=list)
     plotter: Any = nbplot.NoPlotter()
-    exporter: Any = nbio.NoExporter()
+    exporters: list = field(default_factory=list)
     verbose: bool = False
 
     def run(self, name):
@@ -42,7 +42,8 @@ class Pipeline:
         self.plotter.plot(embedded, y)
 
         log.info("Exporting")
-        self.exporter.export(name=name, embedded=embedded)
+        for exporter in self.exporters:
+            exporter.export(name=name, embedded=embedded)
 
         if not isinstance(embedded, dict):
             embedded = dict(coords=embedded)
@@ -61,13 +62,13 @@ def create_pipeline(
     embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
     plotter = nbplot.create_plotter(plot)
-    exporter = nbio.create_exporter(get_embedder_name(method), export)
+    exporters = nbio.create_exporters(get_embedder_name(method), export)
 
     return Pipeline(
         embedder=embedder,
         evaluators=evaluators,
         plotter=plotter,
-        exporter=exporter,
+        exporters=exporters,
         verbose=verbose,
     )
 
