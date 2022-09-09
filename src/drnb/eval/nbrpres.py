@@ -2,9 +2,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from drnb.io import islisty
 from drnb.log import log
 from drnb.neighbors import calculate_neighbors, get_neighbors
+from drnb.util import islisty
 
 from .base import EmbeddingEval
 

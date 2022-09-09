@@ -1,6 +1,5 @@
 # Functions for reading and writing data
 
-import collections.abc
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,8 +8,8 @@ import numpy as np
 import pandas as pd
 
 from drnb.log import log
-from drnb.util import get_method_and_args
 from drnb.preprocess import numpyfy
+from drnb.util import get_method_and_args, islisty
 
 DATA_ROOT = Path.home() / "rdev" / "datasets"
 DEBUG = False
@@ -20,10 +19,6 @@ def data_relative_path(path):
     if not DEBUG and path.is_relative_to(DATA_ROOT):
         return path.relative_to(DATA_ROOT)
     return path
-
-
-def islisty(o):
-    return not isinstance(o, str) and isinstance(o, collections.abc.Iterable)
 
 
 def get_data_path(data_path=None, sub_dir=None, create_sub_dir=False, verbose=False):
