@@ -62,7 +62,7 @@ def create_pipeline(
     embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
     plotter = nbplot.create_plotter(plot)
-    exporters = nbio.create_exporters(get_embedder_name(method), export)
+    exporters = nbio.create_embed_exporters(get_embedder_name(method), export)
 
     return Pipeline(
         embedder=embedder,

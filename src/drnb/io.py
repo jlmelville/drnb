@@ -243,7 +243,7 @@ class DatasetImporter:
         return x, y
 
 
-def create_importer(x=None, import_kwargs=None):
+def create_dataset_importer(x=None, import_kwargs=None):
     if x is None:
         importer_cls = DatasetImporter
     else:
@@ -423,7 +423,7 @@ class FileEmbedExporter:
                 )
 
 
-def create_exporter(embed_method, export=False):
+def create_embed_exporter(embed_method, export=False):
     export, export_kwargs = get_method_and_args(export)
     if isinstance(export, bool):
         if export:
@@ -447,8 +447,8 @@ def create_exporter(embed_method, export=False):
     return exporter
 
 
-def create_exporters(embed_method, export=False):
+def create_embed_exporters(embed_method, export=False):
     # bool or string or (file_type, {options}) should be put in a list
     if not islisty(export) or isinstance(export, tuple):
         export = [export]
-    return [create_exporter(embed_method, ex) for ex in export]
+    return [create_embed_exporter(embed_method, ex) for ex in export]

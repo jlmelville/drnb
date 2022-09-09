@@ -4,7 +4,7 @@ from drnb.embed import get_embedder_name
 from drnb.embed.factory import create_embedder
 from drnb.eval import evaluate_embedding
 from drnb.eval.factory import create_evaluators
-from drnb.io import create_exporters, create_importer
+from drnb.io import create_dataset_importer, create_embed_exporters
 from drnb.log import log
 from drnb.plot import create_plotter
 from drnb.preprocess import numpyfy
@@ -42,8 +42,8 @@ def embed_data(
     else:
         log.setLevel(logging.WARNING)
 
-    importer = create_importer(x, import_kwargs)
-    exporters = create_exporters(get_embedder_name(method), export)
+    importer = create_dataset_importer(x, import_kwargs)
+    exporters = create_embed_exporters(get_embedder_name(method), export)
     # zero reason to call embedder helper method here so don't care we are shadowing it
     # pylint: disable=redefined-outer-name
     embedder = create_embedder(method)
