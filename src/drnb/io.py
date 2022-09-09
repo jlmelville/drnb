@@ -156,7 +156,7 @@ def read_npy(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
 def read_pickle(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
     data_file_path = get_data_file_path(
         name,
-        "pickle",
+        "pkl",
         suffix=suffix,
         data_path=data_path,
         sub_dir=sub_dir,
@@ -164,9 +164,7 @@ def read_pickle(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
         verbose=verbose,
     )
     if verbose:
-        log.info(
-            "Looking for pickle format from %s", data_relative_path(data_file_path)
-        )
+        log.info("Looking for pkl format from %s", data_relative_path(data_file_path))
     with open(data_file_path, "rb") as f:
         return pickle.load(f)
 
@@ -305,10 +303,10 @@ def write_pickle(
     verbose=False,
 ):
     output_path = get_data_file_path(
-        name, ".pickle", suffix, data_path, sub_dir, create_sub_dir, verbose
+        name, ".pkl", suffix, data_path, sub_dir, create_sub_dir, verbose
     )
     if verbose:
-        log.info("Writing pickle format to %s", data_relative_path(output_path))
+        log.info("Writing pkl format to %s", data_relative_path(output_path))
     with open(output_path, "wb") as f:
         pickle.dump(x, f, pickle.HIGHEST_PROTOCOL)
 
