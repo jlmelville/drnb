@@ -349,6 +349,36 @@ def write_data(
     )
 
 
+@dataclass
+class FileExporter:
+    data_path: str = None
+    sub_dir: str = None
+    suffix: str = None
+    create_sub_dir: bool = True
+    verbose: bool = False
+    file_type: str = "csv"
+
+    @classmethod
+    def new(cls, **kwargs):
+        return cls(**kwargs)
+
+    def export(self, name, data, suffix=None, sub_dir=None):
+        if suffix is None:
+            suffix = self.suffix
+        if sub_dir is None:
+            sub_dir = self.sub_dir
+        write_data(
+            data,
+            name,
+            data_path=self.data_path,
+            sub_dir=sub_dir,
+            suffix=suffix,
+            create_sub_dir=self.create_sub_dir,
+            verbose=self.verbose,
+            file_type=self.file_type,
+        )
+
+
 class NoEmbedExporter:
     def __init__(self, **kwargs):
         pass
@@ -363,16 +393,12 @@ class NoEmbedExporter:
 
 @dataclass
 class FileEmbedExporter:
-    export_dir: str = None
-    data_path: str = None
-    suffix: str = None
-    create_sub_dir: bool = True
-    verbose: bool = False
-    file_type: str = "csv"
+    file_exporter: FileExporter
 
     @classmethod
     def new(cls, **kwargs):
-        return cls(**kwargs)
+        file_exporter = FileExporter(**kwargs)
+        return cls(file_exporter=file_exporter)
 
     def export(self, name, embedded):
         if isinstance(embedded, dict):
@@ -380,33 +406,23 @@ class FileEmbedExporter:
             self.export_extra(name, embedded)
         else:
             coords = embedded
+        self.file_exporter.export(name, coords)
 
-        write_data(
-            coords,
-            name,
-            data_path=self.data_path,
-            sub_dir=self.export_dir,
-            suffix=self.suffix,
-            create_sub_dir=self.create_sub_dir,
-            verbose=self.verbose,
-            file_type=self.file_type,
-        )
-
-    def export_extra(self, name, embedded):
-        suffix = ensure_suffix(self.suffix, self.export_dir)
+    def export_extra(self, name, embedded, suffix=None):
+        if suffix is None:
+            suffix = self.file_exporter.suffix
+        suffix = ensure_suffix(suffix, self.file_exporter.sub_dir)
+        if not islisty(suffix):
+            suffix = [suffix]
         for extra_data_name, extra_data in embedded.items():
             if extra_data_name == "coords":
                 continue
-            write_data(
-                extra_data,
-                name=name,
-                suffix=[suffix, extra_data_name],
-                data_path=self.data_path,
-                sub_dir=self.export_dir,
-                create_sub_dir=self.create_sub_dir,
-                verbose=self.verbose,
-                file_type=self.file_type,
-            )
+            if isinstance(extra_data, dict):
+                self.export_extra(name, extra_data, suffix=suffix + [extra_data_name])
+            else:
+                self.file_exporter.export(
+                    name, extra_data, suffix=suffix + [extra_data_name]
+                )
 
 
 def create_exporter(embed_method, export=False):
@@ -426,8 +442,8 @@ def create_exporter(embed_method, export=False):
 
     if export_kwargs is None:
         export_kwargs = dict(suffix=None, create_sub_dir=True, verbose=False)
-    if "export_dir" not in export_kwargs:
-        export_kwargs["export_dir"] = embed_method
+    if "sub_dir" not in export_kwargs:
+        export_kwargs["sub_dir"] = embed_method
 
     exporter = exporter_cls.new(file_type=export, **export_kwargs)
     return exporter
