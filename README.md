@@ -120,7 +120,7 @@ DATA_ROOT/
 This is accomplished with:
 
 ```python
-nbio.write_csv(iris_randproj, name="iris", export_dir="randproj")
+nbio.write_csv(iris_randproj, name="iris", sub_dir="randproj")
 ```
 
 You can also over-ride `data_root` here too.
@@ -153,7 +153,7 @@ data is stored under a key that will be used as a further suffix if exporting is
 iris_densmap = nb.embed_data(
     "iris",
     method=("densmap", dict(output_dens=True))
-    export=dict(export_dir="dmaprad"),
+    export=dict(sub_dir="dmaprad"),
 )
 iris_densmap.keys()
 ```

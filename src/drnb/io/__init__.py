@@ -107,37 +107,6 @@ def read_data(
     raise FileNotFoundError(f"Data for {dataset} suffix={suffix} sub_dir={sub_dir}")
 
 
-def read_datax(dataset, data_path=None, sub_dir="xy", verbose=False):
-    return read_data(
-        dataset,
-        suffix="",
-        data_path=data_path,
-        sub_dir=sub_dir,
-        verbose=verbose,
-        as_numpy=True,
-    )
-
-
-def read_datay(dataset, data_path=None, sub_dir="xy", verbose=False, x=None):
-    try:
-        y = read_data(
-            dataset, suffix="y", data_path=data_path, sub_dir=sub_dir, verbose=verbose
-        )
-    except FileNotFoundError:
-        if x is None:
-            x = read_data(
-                dataset, suffix="", data_path=data_path, sub_dir=sub_dir, verbose=False
-            )
-        y = range(x.shape[0])
-    return y
-
-
-def read_dataxy(dataset, data_path=None, sub_dir="xy", verbose=False):
-    x = read_datax(dataset, data_path=data_path, sub_dir=sub_dir, verbose=verbose)
-    y = read_datay(dataset, data_path=data_path, sub_dir=sub_dir, verbose=verbose, x=x)
-    return x, y
-
-
 def read_npy(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
     data_file_path = get_data_file_path(
         name,
@@ -220,40 +189,6 @@ def get_xy(x, y):
         y = x[1]
         x = x[0]
     return x, y
-
-
-class XImporter:
-    @classmethod
-    def new(cls, **kwargs):
-        return cls(**kwargs)
-
-    # pylint: disable=unused-argument
-    def import_data(self, name, x, y):
-        return get_xy(x, y)
-
-
-@dataclass
-class DatasetImporter:
-    @classmethod
-    def new(cls, **kwargs):
-        return cls(**kwargs)
-
-    def import_data(self, name, x=None, y=None):
-        x, y = read_dataxy(name)
-        return x, y
-
-
-def create_dataset_importer(x=None, import_kwargs=None):
-    if x is None:
-        importer_cls = DatasetImporter
-    else:
-        importer_cls = XImporter
-
-    if import_kwargs is None:
-        import_kwargs = {}
-
-    importer = importer_cls.new(**import_kwargs)
-    return importer
 
 
 def write_csv(
@@ -375,80 +310,3 @@ class FileExporter:
             verbose=self.verbose,
             file_type=self.file_type,
         )
-
-
-class NoEmbedExporter:
-    def __init__(self, **kwargs):
-        pass
-
-    @classmethod
-    def new(cls, **kwargs):
-        return cls(**kwargs)
-
-    def export(self, name, embedded):
-        pass
-
-
-@dataclass
-class FileEmbedExporter:
-    file_exporter: FileExporter
-
-    @classmethod
-    def new(cls, **kwargs):
-        file_exporter = FileExporter(**kwargs)
-        return cls(file_exporter=file_exporter)
-
-    def export(self, name, embedded):
-        if isinstance(embedded, dict):
-            coords = embedded["coords"]
-            self.export_extra(name, embedded)
-        else:
-            coords = embedded
-        self.file_exporter.export(name, coords)
-
-    def export_extra(self, name, embedded, suffix=None):
-        if suffix is None:
-            suffix = self.file_exporter.suffix
-        suffix = ensure_suffix(suffix, self.file_exporter.sub_dir)
-        if not islisty(suffix):
-            suffix = [suffix]
-        for extra_data_name, extra_data in embedded.items():
-            if extra_data_name == "coords":
-                continue
-            if isinstance(extra_data, dict):
-                self.export_extra(name, extra_data, suffix=suffix + [extra_data_name])
-            else:
-                self.file_exporter.export(
-                    name, extra_data, suffix=suffix + [extra_data_name]
-                )
-
-
-def create_embed_exporter(embed_method, export=False):
-    export, export_kwargs = get_method_and_args(export)
-    if isinstance(export, bool):
-        if export:
-            export = "csv"
-        else:
-            export = "none"
-
-    if export in ("csv", "pkl", "npy"):
-        exporter_cls = FileEmbedExporter
-    elif export == "none":
-        exporter_cls = NoEmbedExporter
-    else:
-        raise ValueError(f"Unknown exporter type {export}")
-
-    if export_kwargs is None:
-        export_kwargs = dict(suffix=None, create_sub_dir=True, verbose=False)
-    if "sub_dir" not in export_kwargs:
-        export_kwargs["sub_dir"] = embed_method
-
-    exporter = exporter_cls.new(file_type=export, **export_kwargs)
-    return exporter
-
-
-def create_embed_exporters(embed_method, export=False):
-    # bool or string or (file_type, {options}) should be put in a list
-    if not islisty(export) or isinstance(export, tuple):
-        export = [export]
-    return [create_embed_exporter(embed_method, ex) for ex in export]

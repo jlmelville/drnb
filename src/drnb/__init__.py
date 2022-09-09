@@ -4,7 +4,8 @@ from drnb.embed import get_embedder_name
 from drnb.embed.factory import create_embedder
 from drnb.eval import evaluate_embedding
 from drnb.eval.factory import create_evaluators
-from drnb.io import create_dataset_importer, create_embed_exporters
+from drnb.io.dataset import create_dataset_importer
+from drnb.io.embed import create_embed_exporters
 from drnb.log import log
 from drnb.plot import create_plotter
 from drnb.preprocess import numpyfy
