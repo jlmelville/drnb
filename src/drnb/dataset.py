@@ -1,34 +1,3 @@
-# create_data_pipeline
-
-#
-# preprocess = [
-# ("numpyfy", dict(dtype="float32", layout="c"))
-# dropNA
-# select columns
-# "center"
-# "zscale"
-# ("range_scale", dict(minval=0, maxval=10.0))
-# ],
-# neighbors = (
-#   n_neighbors=[15, 50, 150] # add 1 to be on the safe side?
-#   method = "exact",
-#   metric = "euclidean",
-#   # for method = "exact" or "approximate" we can't know what algo we will get
-#   # so need to nest the names inside?
-#   method_kwds = dict("annoy"=dict(), hnsw=dict() ... )
-# ),
-# triplets = (
-#   n_triplets_per_point=5,
-#   seed=42,
-#   metric="l2",
-# ), # choose a seed here
-# force=True # overwrite if data exists
-#
-#  data_pipeline.run(data=irisx, target=irisy, name="iris") # override context?
-# write into each folder a .pipeline file with the originating pipeline UUID?
-# -> return a PipelineResult containing the parameters + actual written paths
-# -> also write that to pipelines/<name>.UUID.data.json?
-
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -84,34 +53,7 @@ class DatasetPipeline(Jsonizable):
             target, dropna_index, name
         )
 
-        # ctx = DatasetContext(name=name, data_sub_dir=self.data_sub_dir)
-
-        neighbors_output_paths = None
-        if self.neighbors_request is not None:
-            for metric in self.neighbors_request.metric:
-                max_n_neighbors = np.max(self.neighbors_request.n_neighbors)
-                neighbors_data = calculate_neighbors(
-                    data=data,
-                    n_neighbors=max_n_neighbors,
-                    metric=metric,
-                    return_distance=True,
-                    **self.neighbors_request.params,
-                    verbose=True,
-                    name=name
-                )
-                neighbors_output_paths = []
-                for n_neighbors in self.neighbors_request.n_neighbors:
-                    sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)
-                    idx_paths, dist_paths = write_neighbors(
-                        neighbor_data=sliced_neighbors,
-                        sub_dir="nn",
-                        create_sub_dir=True,
-                        file_type=self.neighbors_request.file_types,
-                        verbose=True,
-                    )
-                    neighbors_output_paths.append(
-                        stringify_paths(idx_paths + dist_paths)
-                    )
+        neighbors_output_paths = self.calculate_neighbors(data, name)
 
         created_on = dts_now()
         result = DatasetPipelineResult(
@@ -185,6 +127,36 @@ class DatasetPipeline(Jsonizable):
             all_output_paths += stringify_paths(output_paths)
         return all_output_paths
 
+    def calculate_neighbors(self, data, name):
+        neighbors_output_paths = None
+        if self.neighbors_request is not None:
+            log.info("Calculating nearest neighbors")
+            for metric in self.neighbors_request.metric:
+                max_n_neighbors = np.max(self.neighbors_request.n_neighbors)
+                neighbors_data = calculate_neighbors(
+                    data=data,
+                    n_neighbors=max_n_neighbors,
+                    metric=metric,
+                    return_distance=True,
+                    **self.neighbors_request.params,
+                    verbose=self.verbose,
+                    name=name
+                )
+                neighbors_output_paths = []
+                for n_neighbors in self.neighbors_request.n_neighbors:
+                    sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)
+                    idx_paths, dist_paths = write_neighbors(
+                        neighbor_data=sliced_neighbors,
+                        sub_dir="nn",
+                        create_sub_dir=True,
+                        file_type=self.neighbors_request.file_types,
+                        verbose=False,
+                    )
+                    neighbors_output_paths.append(
+                        stringify_paths(idx_paths + dist_paths)
+                    )
+        return neighbors_output_paths
+
 
 def stringify_paths(paths):
     return [str(data_relative_path(path)) for path in paths]
@@ -235,6 +207,9 @@ def create_data_pipeline(
         )
 
 
+#   # for method = "exact" or "approximate" we can't know what algo we will get
+#   # so need to nest the names inside?
+#   method_kwds = dict("annoy"=dict(), hnsw=dict() ... )
 def create_neighbors_request(neighbors_kwds):
     if neighbors_kwds is None:
         return None
