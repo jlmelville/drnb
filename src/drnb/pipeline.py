@@ -1,4 +1,3 @@
-import logging
 import pathlib
 from dataclasses import dataclass, field
 from typing import Any
@@ -11,11 +10,11 @@ from drnb.embed import get_embedder_name
 from drnb.embed.factory import create_embedder
 from drnb.eval import evaluate_embedding
 from drnb.eval.factory import create_evaluators
-from drnb.log import log
+from drnb.log import log, log_verbosity
 
 
 @dataclass
-class Pipeline:
+class EmbedderPipeline:
     importer: Any = dataio.DatasetImporter()
     embedder: Any = None
     evaluators: list = field(default_factory=list)
@@ -23,14 +22,18 @@ class Pipeline:
     exporters: list = field(default_factory=list)
     verbose: bool = False
 
-    def run(self, name):
-        if self.verbose:
-            log.setLevel(logging.INFO)
-        else:
-            log.setLevel(logging.WARNING)
+    def run(self, name, verbose=None):
+        if verbose is None:
+            verbose = self.verbose
+        with log_verbosity(verbose):
+            return self._run(name)
 
-        ctx = DatasetContext(name=name)
-
+    def _run(self, name):
+        ctx = DatasetContext(
+            name=name,
+            data_path=self.importer.data_path,
+            data_sub_dir=self.importer.sub_dir,
+        )
         log.info("Getting dataset %s", name)
         x, y = self.importer.import_data(name)
 
@@ -56,17 +59,22 @@ class Pipeline:
 
 def create_pipeline(
     method,
+    data_config=None,
     plot=True,
     eval_metrics=None,
     export=False,
     verbose=False,
 ):
+    if data_config is None:
+        data_config = {}
+    importer = dataio.DatasetImporter(**data_config)
     embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
     plotter = nbplot.create_plotter(plot)
     exporters = embedio.create_embed_exporters(get_embedder_name(method), export)
 
-    return Pipeline(
+    return EmbedderPipeline(
+        importer=importer,
         embedder=embedder,
         evaluators=evaluators,
         plotter=plotter,
