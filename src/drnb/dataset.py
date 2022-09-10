@@ -33,15 +33,17 @@ from dataclasses import dataclass, field
 
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
-from drnb.preprocess import filter_columns
+from drnb.preprocess import create_scale_kwargs, filter_columns, numpyfy, scale_data
 
 
 @dataclass
 class DatasetPipeline:
     data_cols: list = field(default_factory=list)
-    target_cols: list = field(default_factory=list)
+    convert: dict = field(default_factory=lambda: dict(dtype="float32", layout="c"))
+    scale: dict = field(default_factory=dict)
     data_sub_dir: str = "data"
     data_exporters: list = field(default_factory=list)
+    target_cols: list = field(default_factory=list)
     target_exporters: list = field(default_factory=list)
     verbose: bool = False
 
@@ -54,7 +56,22 @@ class DatasetPipeline:
                     log.info("Using data as source for target")
                     target = data
 
+            log.info("data shape: %s target shape: %s", data.shape, target.shape)
+
+            log.info("Removing rows with NAs")
+            data_nona = data.dropna()
+            if target is not None:
+                target = target.loc[data_nona.index]
+            data = data_nona
+            log.info("data shape after filtering NAs: %s", data.shape)
+
             data = filter_columns(data, self.data_cols)
+
+            data = scale_data(data, **self.scale)
+
+            if self.convert is not None:
+                log.info("Converting to numpy with %s", self.convert)
+                data = numpyfy(data, **self.convert)
 
             log.info("Writing data for %s", name)
             for exporter in self.data_exporters:
@@ -77,15 +94,25 @@ class DatasetPipeline:
 def create_data_pipeline(
     data_export,
     data_cols=None,
+    convert=True,
+    scale=None,
     target_cols=None,
     target_export=None,
     verbose=False,
 ):
+    if isinstance(convert, bool):
+        if convert:
+            convert = dict(dtype="float32", layout="c")
+        else:
+            convert = None
+
     with log_verbosity(verbose):
         data_exporters = create_dataset_exporters(data_export)
         target_exporters = create_dataset_exporters(target_export)
 
         return DatasetPipeline(
+            convert=convert,
+            scale=create_scale_kwargs(scale),
             data_cols=data_cols,
             target_cols=target_cols,
             data_exporters=data_exporters,

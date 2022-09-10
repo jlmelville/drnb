@@ -3,6 +3,7 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from drnb.log import log
+from drnb.util import get_method_and_args
 
 
 # ("numpyfy", dict(dtype="float32", layout="c"))
@@ -18,6 +19,31 @@ def numpyfy(data, dtype=None, layout=None):
         elif layout == "f" and not data.flags["F_CONTIGUOUS"]:
             data = np.asfortranarray(data)
     return data
+
+
+def scale_data(data, scale_type=None, params=None):
+    if scale_type is None or not scale_type:
+        log.info("No scaling")
+        return data
+
+    if scale_type == "center":
+        log.info("Centering")
+        return center(data)
+    if scale_type in ("z", "zscale", "standard"):
+        log.info("Z-Scaling")
+        return zscale(data)
+    if scale_type in ("range", "minmax"):
+        log.info("range scaling")
+        return range_scale(data, **params)
+    raise ValueError(f"Unknown scale type {scale_type}")
+
+
+def create_scale_kwargs(scale):
+    scale, kwds = get_method_and_args(scale)
+    if kwds is None:
+        kwds = {}
+    kwds["scale_type"] = scale
+    return kwds
 
 
 # "center"
