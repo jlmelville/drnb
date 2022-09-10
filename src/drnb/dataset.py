@@ -56,54 +56,24 @@ class DatasetPipeline(Jsonizable):
     def runv(self, name, data, target):
         started_on = dts_now()
 
-        if target is not None or (self.target_cols is not None and self.target_cols):
-            if target is None:
-                log.info("Using data as source for target")
-                target = data
+        data, target = self.get_target(data, target)
 
         log.info("initial data shape: %s target shape: %s", data.shape, target.shape)
 
-        log.info("Removing rows with NAs")
-        data_nona = data.dropna()
-        if target is not None:
-            target = target.loc[data_nona.index]
-        data = data_nona
-        log.info("data shape after filtering NAs: %s", data.shape)
+        data, dropna_index = self.dropna(data)
 
-        data = filter_columns(data, self.data_cols)
-        log.info("data shape after filtering columns: %s", data.shape)
+        data = self.filter_data_columns(data)
 
         data = scale_data(data, **self.scale)
 
-        if self.convert is not None:
-            log.info("Converting to numpy with %s", self.convert)
-            data = numpyfy(data, **self.convert)
+        data = self.convert_data(data)
 
-        data_output_paths = []
-        log.info("Writing data for %s", name)
-        for exporter in self.data_exporters:
-            data_output_path = exporter.export(
-                name, data, sub_dir=self.data_sub_dir, suffix="data"
-            )
-            data_output_paths.append(str(data_relative_path(data_output_path)))
+        data_output_paths = self.export_data(data, name)
 
-        target_shape = None
-        target_output_paths = []
-        if target is not None:
-            log.info("Processing target")
-            target = filter_columns(target, self.target_cols)
-            target_shape = target.shape
-            if self.target_exporters is None or not self.target_exporters:
-                log.warning("Target supplied but no target exporters defined")
-            else:
-                log.info("Writing target for %s", name)
-                for exporter in self.target_exporters:
-                    target_output_path = exporter.export(
-                        name, target, sub_dir=self.data_sub_dir, suffix="target"
-                    )
-                    target_output_paths.append(
-                        str(data_relative_path(target_output_path))
-                    )
+        target_shape, target_output_paths = self.process_target(
+            target, dropna_index, name
+        )
+
         created_on = dts_now()
         result = DatasetPipelineResult(
             self,
@@ -117,7 +87,63 @@ class DatasetPipeline(Jsonizable):
         )
         log.info("Writing pipeline result for %s", name)
         write_json(result, name=name, sub_dir=self.data_sub_dir, suffix="pipeline")
+
         return result
+
+    def dropna(self, data):
+        log.info("Removing rows with NAs")
+        data_nona = data.dropna()
+        data = data_nona
+        log.info("data shape after filtering NAs: %s", data.shape)
+        return data, data_nona.index
+
+    def filter_data_columns(self, data):
+        data = filter_columns(data, self.data_cols)
+        log.info("data shape after filtering columns: %s", data.shape)
+        return data
+
+    def convert_data(self, data):
+        if self.convert is not None:
+            log.info("Converting to numpy with %s", self.convert)
+            data = numpyfy(data, **self.convert)
+        return data
+
+    def get_target(self, data, target):
+        if target is not None or (self.target_cols is not None and self.target_cols):
+            if target is None:
+                log.info("Using data as source for target")
+                target = data
+        return data, target
+
+    def process_target(self, target, dropna_index, name):
+        target_shape = None
+        target_output_paths = []
+        if target is not None:
+            log.info("Processing target")
+            target = target.loc[dropna_index]
+            target = filter_columns(target, self.target_cols)
+            target_shape = target.shape
+            if self.target_exporters is None or not self.target_exporters:
+                log.warning("Target supplied but no target exporters defined")
+            else:
+                target_output_paths = self.export_target(target, name)
+        return target_shape, target_output_paths
+
+    def export_data(self, data, name):
+        return self.export(data, name, self.data_exporters, what="data")
+
+    def export_target(self, data, name):
+        return self.export(data, name, self.target_exporters, what="target")
+
+    def export(self, data, name, exporters, what):
+        output_paths = []
+        log.info("Writing %s for %s", what, name)
+        for exporter in exporters:
+            output_path = exporter.export(
+                name, data, sub_dir=self.data_sub_dir, suffix=what
+            )
+            output_paths.append(str(data_relative_path(output_path)))
+        return output_paths
 
 
 @dataclass
