@@ -211,6 +211,7 @@ def write_csv(
         np.savetxt(output_path, x, delimiter=",", fmt="%s")
     else:
         np.savetxt(output_path, x, delimiter=",")
+    return output_path
 
 
 def write_npy(
@@ -228,6 +229,7 @@ def write_npy(
     if verbose:
         log.info("Writing numpy format to %s", data_relative_path(output_path))
     np.save(output_path, x)
+    return output_path
 
 
 def write_pickle(
@@ -246,6 +248,27 @@ def write_pickle(
         log.info("Writing pkl format to %s", data_relative_path(output_path))
     with open(output_path, "wb") as f:
         pickle.dump(x, f, pickle.HIGHEST_PROTOCOL)
+    return output_path
+
+
+def write_json(
+    x,
+    name,
+    suffix=None,
+    data_path=None,
+    sub_dir=None,
+    create_sub_dir=True,
+    verbose=False,
+):
+    output_path = get_data_file_path(
+        name, ".json", suffix, data_path, sub_dir, create_sub_dir, verbose
+    )
+    if verbose:
+        log.info("Writing JSON format to %s", data_relative_path(output_path))
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(x.to_json(indent=2))
+    return output_path
 
 
 def is_file_type(target_file_type, file_type=None, suffix=None):
@@ -273,7 +296,7 @@ def write_data(
     else:
         raise ValueError("Could not detect type of file to export to")
 
-    func(
+    output_path = func(
         x=x,
         name=name,
         suffix=suffix,
@@ -282,6 +305,7 @@ def write_data(
         create_sub_dir=create_sub_dir,
         verbose=verbose,
     )
+    return output_path
 
 
 @dataclass
@@ -302,7 +326,7 @@ class FileExporter:
             suffix = self.suffix
         if sub_dir is None:
             sub_dir = self.sub_dir
-        write_data(
+        output_path = write_data(
             data,
             name,
             data_path=self.data_path,
@@ -312,3 +336,4 @@ class FileExporter:
             verbose=self.verbose,
             file_type=self.file_type,
         )
+        return output_path

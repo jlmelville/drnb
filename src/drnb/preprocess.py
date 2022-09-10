@@ -6,7 +6,6 @@ from drnb.log import log
 from drnb.util import get_method_and_args
 
 
-# ("numpyfy", dict(dtype="float32", layout="c"))
 def numpyfy(data, dtype=None, layout=None):
     # pandas
     if hasattr(data, "to_numpy"):
@@ -46,17 +45,14 @@ def create_scale_kwargs(scale):
     return kwds
 
 
-# "center"
 def center(data):
     return data - np.mean(data, axis=0)
 
 
-# "zscale"
 def zscale(data):
     return StandardScaler().fit_transform(data)
 
 
-# ("range_scale", dict(minval=0, maxval=10.0))
 def range_scale(data, minval=0, maxval=1):
     return MinMaxScaler(feature_range=(minval, maxval)).fit_transform(data)
 
