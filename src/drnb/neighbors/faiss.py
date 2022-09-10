@@ -35,5 +35,7 @@ def faiss_neighbors(
 
     distances, indices = gpu_index_flat.search(X, n_neighbors)
     if return_distance:
-        return indices, np.sqrt(distances)
+        if metric == "euclidean":
+            distances = np.sqrt(distances)
+        return indices, distances
     return indices

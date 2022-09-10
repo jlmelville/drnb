@@ -35,6 +35,12 @@ class Jsonizable:
         return json.dumps(self.__dict__, indent=indent, ensure_ascii=False)
 
 
+class FromDict:
+    @classmethod
+    def new(cls, **kwargs):
+        return cls(**kwargs)
+
+
 DATETIME_FMT = "%Y%m%d%H%M%S"
 
 

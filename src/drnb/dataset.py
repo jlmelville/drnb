@@ -31,11 +31,19 @@
 
 from dataclasses import dataclass, field
 
+import numpy as np
+
 from drnb.io import data_relative_path, write_json
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
+from drnb.neighbors import (
+    NeighborsRequest,
+    calculate_neighbors,
+    slice_neighbors,
+    write_neighbors,
+)
 from drnb.preprocess import create_scale_kwargs, filter_columns, numpyfy, scale_data
-from drnb.util import Jsonizable, dts_now
+from drnb.util import Jsonizable, dts_now, islisty
 
 
 @dataclass
@@ -47,6 +55,8 @@ class DatasetPipeline(Jsonizable):
     data_exporters: list = field(default_factory=list)
     target_cols: list = field(default_factory=list)
     target_exporters: list = field(default_factory=list)
+    neighbors_request: NeighborsRequest = None
+
     verbose: bool = False
 
     def run(self, name, data, target=None, verbose=False):
@@ -74,6 +84,35 @@ class DatasetPipeline(Jsonizable):
             target, dropna_index, name
         )
 
+        # ctx = DatasetContext(name=name, data_sub_dir=self.data_sub_dir)
+
+        neighbors_output_paths = None
+        if self.neighbors_request is not None:
+            for metric in self.neighbors_request.metric:
+                max_n_neighbors = np.max(self.neighbors_request.n_neighbors)
+                neighbors_data = calculate_neighbors(
+                    data=data,
+                    n_neighbors=max_n_neighbors,
+                    metric=metric,
+                    return_distance=True,
+                    **self.neighbors_request.params,
+                    verbose=True,
+                    name=name
+                )
+                neighbors_output_paths = []
+                for n_neighbors in self.neighbors_request.n_neighbors:
+                    sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)
+                    idx_paths, dist_paths = write_neighbors(
+                        neighbor_data=sliced_neighbors,
+                        sub_dir="nn",
+                        create_sub_dir=True,
+                        file_type=self.neighbors_request.file_types,
+                        verbose=True,
+                    )
+                    neighbors_output_paths.append(
+                        stringify_paths(idx_paths + dist_paths)
+                    )
+
         created_on = dts_now()
         result = DatasetPipelineResult(
             self,
@@ -84,6 +123,7 @@ class DatasetPipeline(Jsonizable):
             started_on=started_on,
             created_on=created_on,
             updated_on=created_on,
+            neighbors_output_paths=neighbors_output_paths,
         )
         log.info("Writing pipeline result for %s", name)
         write_json(result, name=name, sub_dir=self.data_sub_dir, suffix="pipeline")
@@ -136,26 +176,31 @@ class DatasetPipeline(Jsonizable):
         return self.export(data, name, self.target_exporters, what="target")
 
     def export(self, data, name, exporters, what):
-        output_paths = []
+        all_output_paths = []
         log.info("Writing %s for %s", what, name)
         for exporter in exporters:
-            output_path = exporter.export(
+            output_paths = exporter.export(
                 name, data, sub_dir=self.data_sub_dir, suffix=what
             )
-            output_paths.append(str(data_relative_path(output_path)))
-        return output_paths
+            all_output_paths += stringify_paths(output_paths)
+        return all_output_paths
+
+
+def stringify_paths(paths):
+    return [str(data_relative_path(path)) for path in paths]
 
 
 @dataclass
 class DatasetPipelineResult(Jsonizable):
     pipeline: str
-    data_output_paths: list = field(default_factory=list)
-    target_output_paths: list = field(default_factory=list)
-    data_shape: tuple = None
-    target_shape: tuple = None
     started_on: str = "unknown"
     created_on: str = "unknown"
     updated_on: str = "unknown"
+    data_shape: tuple = None
+    data_output_paths: list = field(default_factory=list)
+    target_shape: tuple = None
+    target_output_paths: list = field(default_factory=list)
+    neighbors_output_paths: list = field(default_factory=list)
 
 
 def create_data_pipeline(
@@ -165,6 +210,7 @@ def create_data_pipeline(
     scale=None,
     target_cols=None,
     target_export=None,
+    neighbors=None,
     verbose=False,
 ):
     if isinstance(convert, bool):
@@ -184,5 +230,20 @@ def create_data_pipeline(
             target_cols=target_cols,
             data_exporters=data_exporters,
             target_exporters=target_exporters,
+            neighbors_request=create_neighbors_request(neighbors),
             verbose=verbose,
         )
+
+
+def create_neighbors_request(neighbors_kwds):
+    if neighbors_kwds is None:
+        return None
+    for key in ["metric", "n_neighbors"]:
+        if key in neighbors_kwds and not islisty(neighbors_kwds[key]):
+            neighbors_kwds[key] = [neighbors_kwds[key]]
+    neighbors_request = NeighborsRequest.new(**neighbors_kwds)
+    log.info("Requesting one extra neighbor to account for self-neighbor")
+    neighbors_request.n_neighbors = [
+        n_nbrs + 1 for n_nbrs in neighbors_request.n_neighbors
+    ]
+    return neighbors_request

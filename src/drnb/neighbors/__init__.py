@@ -1,13 +1,15 @@
 import itertools
 from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import sklearn.metrics
 
 import drnb.neighbors.sklearn as sknbrs
-from drnb.io import data_relative_path, get_data_path, read_data, write_npy
+from drnb.io import data_relative_path, get_data_path, read_data, write_data, write_npy
 from drnb.log import log
 from drnb.preprocess import numpyfy
+from drnb.util import FromDict
 
 from . import annoy, faiss, hnsw, pynndescent
 from .nbrinfo import NbrInfo, NearestNeighbors
@@ -23,6 +25,7 @@ def calculate_neighbors(
     method_kwds=None,
     name=None,
 ):
+    n_neighbors = int(n_neighbors)
     n_items = data.shape[0]
     if n_items < n_neighbors:
         log.warning(
@@ -335,28 +338,35 @@ def write_neighbors(
     data_path=None,
     sub_dir="nn",
     create_sub_dir=True,
+    file_type="npy",
     verbose=False,
 ):
     # e.g. mnist.150.euclidean.exact.faiss.dist.npy
-    write_npy(
-        neighbor_data.idx,
-        neighbor_data.info.name,
+    if neighbor_data.info.name is None:
+        raise ValueError("No neighbor data info name")
+    idx_paths = write_data(
+        x=neighbor_data.idx,
+        name=neighbor_data.info.name,
         suffix=neighbor_data.info.idx_suffix,
         data_path=data_path,
         sub_dir=sub_dir,
         create_sub_dir=create_sub_dir,
         verbose=verbose,
+        file_type=file_type,
     )
+    dist_paths = []
     if neighbor_data.dist is not None:
-        write_npy(
-            neighbor_data.dist,
-            neighbor_data.info.name,
+        dist_paths = write_data(
+            x=neighbor_data.dist,
+            name=neighbor_data.info.name,
             suffix=neighbor_data.info.dist_suffix,
             data_path=data_path,
             sub_dir=sub_dir,
             create_sub_dir=create_sub_dir,
             verbose=verbose,
+            file_type=file_type,
         )
+    return idx_paths, dist_paths
 
 
 # Used in a pipeline
@@ -383,23 +393,22 @@ def get_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None)
     )
 
 
-def calculate_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None):
-    if knn_params is None:
-        knn_params = {}
-    knn_defaults = dict(
-        method="exact",
-        verbose=True,
-    )
-    if ctx is not None:
-        knn_defaults.update(
-            dict(data_path=ctx.data_path, sub_dir=ctx.nn_sub_dir, name=ctx.name)
-        )
-    full_knn_params = knn_defaults | knn_params
+def slice_neighbors(neighbors_data, n_neighbors):
+    if neighbors_data.info.n_nbrs < n_neighbors:
+        raise ValueError("Not enough neighbors")
+    idx = neighbors_data.idx[:, :n_neighbors]
+    dist = None
+    if neighbors_data.dist is not None:
+        dist = neighbors_data.dist[:, :n_neighbors]
+    info = NbrInfo(**neighbors_data.info.__dict__)
+    info.n_nbrs = n_neighbors
+    return NearestNeighbors(idx=idx, dist=dist, info=info)
 
-    return calculate_neighbors(
-        data=data,
-        n_neighbors=n_neighbors,
-        metric=metric,
-        return_distance=True,
-        **full_knn_params,
-    )
+
+@dataclass
+class NeighborsRequest(FromDict):
+    n_neighbors: list = field(default_factory=list)
+    method: str = "exact"
+    metric: str = "euclidean"
+    file_types: list = field(default_factory=list)
+    params: dict = field(default_factory=dict)

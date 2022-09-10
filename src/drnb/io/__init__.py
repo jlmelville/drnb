@@ -287,25 +287,31 @@ def write_data(
     verbose=False,
     file_type=None,
 ):
-    if is_file_type("csv", file_type, suffix):
-        func = write_csv
-    elif is_file_type("pkl", file_type, suffix):
-        func = write_pickle
-    elif is_file_type("npy", file_type, suffix):
-        func = write_npy
-    else:
-        raise ValueError("Could not detect type of file to export to")
+    if not islisty(file_type):
+        file_type = [file_type]
 
-    output_path = func(
-        x=x,
-        name=name,
-        suffix=suffix,
-        data_path=data_path,
-        sub_dir=sub_dir,
-        create_sub_dir=create_sub_dir,
-        verbose=verbose,
-    )
-    return output_path
+    output_paths = []
+    for ftype in file_type:
+        if is_file_type("csv", ftype, suffix):
+            func = write_csv
+        elif is_file_type("pkl", ftype, suffix):
+            func = write_pickle
+        elif is_file_type("npy", ftype, suffix):
+            func = write_npy
+        else:
+            raise ValueError(f"Could not detect type of {ftype} to export to")
+
+        output_path = func(
+            x=x,
+            name=name,
+            suffix=suffix,
+            data_path=data_path,
+            sub_dir=sub_dir,
+            create_sub_dir=create_sub_dir,
+            verbose=verbose,
+        )
+        output_paths.append(output_path)
+    return output_paths
 
 
 @dataclass
