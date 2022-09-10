@@ -9,7 +9,6 @@ from drnb.io import data_relative_path, get_data_path, read_data, write_npy
 from drnb.log import log
 from drnb.preprocess import numpyfy
 
-
 from . import annoy, faiss, hnsw, pynndescent
 from .nbrinfo import NbrInfo, NearestNeighbors
 
@@ -376,6 +375,28 @@ def get_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None)
     full_knn_params = knn_defaults | knn_params
 
     return get_neighbors(
+        data=data,
+        n_neighbors=n_neighbors,
+        metric=metric,
+        return_distance=True,
+        **full_knn_params,
+    )
+
+
+def calculate_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None):
+    if knn_params is None:
+        knn_params = {}
+    knn_defaults = dict(
+        method="exact",
+        verbose=True,
+    )
+    if ctx is not None:
+        knn_defaults.update(
+            dict(data_path=ctx.data_path, sub_dir=ctx.nn_sub_dir, name=ctx.name)
+        )
+    full_knn_params = knn_defaults | knn_params
+
+    return calculate_neighbors(
         data=data,
         n_neighbors=n_neighbors,
         metric=metric,

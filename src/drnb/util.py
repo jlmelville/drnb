@@ -35,5 +35,22 @@ class Jsonizable:
         return json.dumps(self.__dict__, indent=indent, ensure_ascii=False)
 
 
-def dtstamp():
-    return datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
+DATETIME_FMT = "%Y%m%d%H%M%S"
+
+
+def dts_now():
+    return dt_now().timestamp()
+
+
+def dt_now():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def dts_to_str(dts):
+    if dts is None:
+        dts = dts_now()
+    return dts.strftime(DATETIME_FMT)
+
+
+def dts_to_dt(dts):
+    return datetime.datetime.fromtimestamp(dts, tz=datetime.timezone.utc)

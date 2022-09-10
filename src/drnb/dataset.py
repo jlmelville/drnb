@@ -35,7 +35,7 @@ from drnb.io import data_relative_path, write_json
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
 from drnb.preprocess import create_scale_kwargs, filter_columns, numpyfy, scale_data
-from drnb.util import Jsonizable, dtstamp
+from drnb.util import Jsonizable, dts_now
 
 
 @dataclass
@@ -50,65 +50,74 @@ class DatasetPipeline(Jsonizable):
     verbose: bool = False
 
     def run(self, name, data, target=None, verbose=False):
-        start_dt = dtstamp()
         with log_verbosity(verbose):
-            if target is not None or (
-                self.target_cols is not None and self.target_cols
-            ):
-                if target is None:
-                    log.info("Using data as source for target")
-                    target = data
+            return self.runv(name, data, target=target)
 
-            log.info("data shape: %s target shape: %s", data.shape, target.shape)
+    def runv(self, name, data, target):
+        started_on = dts_now()
 
-            log.info("Removing rows with NAs")
-            data_nona = data.dropna()
-            if target is not None:
-                target = target.loc[data_nona.index]
-            data = data_nona
-            log.info("data shape after filtering NAs: %s", data.shape)
+        if target is not None or (self.target_cols is not None and self.target_cols):
+            if target is None:
+                log.info("Using data as source for target")
+                target = data
 
-            data = filter_columns(data, self.data_cols)
+        log.info("initial data shape: %s target shape: %s", data.shape, target.shape)
 
-            data = scale_data(data, **self.scale)
+        log.info("Removing rows with NAs")
+        data_nona = data.dropna()
+        if target is not None:
+            target = target.loc[data_nona.index]
+        data = data_nona
+        log.info("data shape after filtering NAs: %s", data.shape)
 
-            if self.convert is not None:
-                log.info("Converting to numpy with %s", self.convert)
-                data = numpyfy(data, **self.convert)
+        data = filter_columns(data, self.data_cols)
+        log.info("data shape after filtering columns: %s", data.shape)
 
-            data_output_paths = []
-            log.info("Writing data for %s", name)
-            for exporter in self.data_exporters:
-                data_output_path = exporter.export(
-                    name, data, sub_dir=self.data_sub_dir, suffix="data"
-                )
-                data_output_paths.append(str(data_relative_path(data_output_path)))
+        data = scale_data(data, **self.scale)
 
-            target_output_paths = []
-            if target is not None:
-                log.info("Processing target")
-                target = filter_columns(target, self.target_cols)
+        if self.convert is not None:
+            log.info("Converting to numpy with %s", self.convert)
+            data = numpyfy(data, **self.convert)
 
-                if self.target_exporters is None or not self.target_exporters:
-                    log.warning("Target supplied but no target exporters defined")
-                else:
-                    log.info("Writing target for %s", name)
-                    for exporter in self.target_exporters:
-                        target_output_path = exporter.export(
-                            name, target, sub_dir=self.data_sub_dir, suffix="target"
-                        )
-                        target_output_paths.append(
-                            str(data_relative_path(target_output_path))
-                        )
-            result = DatasetPipelineResult(
-                self,
-                data_output_paths=data_output_paths,
-                target_output_paths=target_output_paths,
-                start_dt=start_dt,
-                end_dt=dtstamp(),
+        data_output_paths = []
+        log.info("Writing data for %s", name)
+        for exporter in self.data_exporters:
+            data_output_path = exporter.export(
+                name, data, sub_dir=self.data_sub_dir, suffix="data"
             )
-            log.info("Writing pipeline result for %s", name)
-            write_json(result, name=name, sub_dir=self.data_sub_dir, suffix="pipeline")
+            data_output_paths.append(str(data_relative_path(data_output_path)))
+
+        target_shape = None
+        target_output_paths = []
+        if target is not None:
+            log.info("Processing target")
+            target = filter_columns(target, self.target_cols)
+            target_shape = target.shape
+            if self.target_exporters is None or not self.target_exporters:
+                log.warning("Target supplied but no target exporters defined")
+            else:
+                log.info("Writing target for %s", name)
+                for exporter in self.target_exporters:
+                    target_output_path = exporter.export(
+                        name, target, sub_dir=self.data_sub_dir, suffix="target"
+                    )
+                    target_output_paths.append(
+                        str(data_relative_path(target_output_path))
+                    )
+        created_on = dts_now()
+        result = DatasetPipelineResult(
+            self,
+            data_shape=data.shape,
+            data_output_paths=data_output_paths,
+            target_shape=target_shape,
+            target_output_paths=target_output_paths,
+            started_on=started_on,
+            created_on=created_on,
+            updated_on=created_on,
+        )
+        log.info("Writing pipeline result for %s", name)
+        write_json(result, name=name, sub_dir=self.data_sub_dir, suffix="pipeline")
+        return result
 
 
 @dataclass
@@ -116,8 +125,11 @@ class DatasetPipelineResult(Jsonizable):
     pipeline: str
     data_output_paths: list = field(default_factory=list)
     target_output_paths: list = field(default_factory=list)
-    start_dt: str = "unknown"
-    end_dt: str = "unknown"
+    data_shape: tuple = None
+    target_shape: tuple = None
+    started_on: str = "unknown"
+    created_on: str = "unknown"
+    updated_on: str = "unknown"
 
 
 def create_data_pipeline(
