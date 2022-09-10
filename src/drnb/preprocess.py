@@ -58,7 +58,8 @@ def range_scale(data, minval=0, maxval=1):
 
 
 def filter_columns(data, cols):
-    if cols is None and cols:
+    if cols is None:
+        log.info("Keeping all columns")
         return data
 
     log.info("Keeping columns: %s", cols)
