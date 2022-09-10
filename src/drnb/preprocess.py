@@ -1,5 +1,8 @@
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+from drnb.log import log
 
 
 # ("numpyfy", dict(dtype="float32", layout="c"))
@@ -30,3 +33,15 @@ def zscale(data):
 # ("range_scale", dict(minval=0, maxval=10.0))
 def range_scale(data, minval=0, maxval=1):
     return MinMaxScaler(feature_range=(minval, maxval)).fit_transform(data)
+
+
+def filter_columns(data, cols):
+    if cols is None and cols:
+        return data
+
+    log.info("Keeping columns: %s", cols)
+    if isinstance(data, pd.DataFrame):
+        # pandas dataframe must be indexed by column name
+        return data[cols]
+    # better be a numpy 2d array indexed by column integer index
+    return data[:, cols]
