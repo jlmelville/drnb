@@ -38,14 +38,6 @@ class RandomTripletEval(EmbeddingEval):
                     log.info("Can't cache triplets because random seed is not set")
                     return_triplets = False
 
-        # rte = random_triplet_eval(
-        #     X,
-        #     coords,
-        #     random_state=self.random_state,
-        #     n_triplets_per_point=self.n_triplets_per_point,
-        # )
-        # return ("rte", rte)
-
         rte_result = random_triplet_eval(
             X,
             coords,

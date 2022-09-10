@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from drnb.eval.triplets import TripletsRequest, calculate_triplets, write_triplets
 from drnb.io import data_relative_path, write_json
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
@@ -25,6 +26,7 @@ class DatasetPipeline(Jsonizable):
     target_cols: list = field(default_factory=list)
     target_exporters: list = field(default_factory=list)
     neighbors_request: NeighborsRequest = None
+    triplets_request: None = None
 
     verbose: bool = False
 
@@ -54,6 +56,7 @@ class DatasetPipeline(Jsonizable):
         )
 
         neighbors_output_paths = self.calculate_neighbors(data, name)
+        triplets_output_paths = self.calculate_triplets(data, name)
 
         created_on = dts_now()
         result = DatasetPipelineResult(
@@ -66,6 +69,7 @@ class DatasetPipeline(Jsonizable):
             created_on=created_on,
             updated_on=created_on,
             neighbors_output_paths=neighbors_output_paths,
+            triplets_output_paths=triplets_output_paths,
         )
         log.info("Writing pipeline result for %s", name)
         write_json(result, name=name, sub_dir=self.data_sub_dir, suffix="pipeline")
@@ -128,34 +132,79 @@ class DatasetPipeline(Jsonizable):
         return all_output_paths
 
     def calculate_neighbors(self, data, name):
-        neighbors_output_paths = None
-        if self.neighbors_request is not None:
-            log.info("Calculating nearest neighbors")
-            for metric in self.neighbors_request.metric:
-                max_n_neighbors = np.max(self.neighbors_request.n_neighbors)
-                neighbors_data = calculate_neighbors(
-                    data=data,
-                    n_neighbors=max_n_neighbors,
-                    metric=metric,
-                    return_distance=True,
-                    **self.neighbors_request.params,
-                    verbose=self.verbose,
-                    name=name
+        if self.neighbors_request is None:
+            return None
+        log.info("Calculating nearest neighbors")
+        for metric in self.neighbors_request.metric:
+            max_n_neighbors = np.max(self.neighbors_request.n_neighbors)
+            neighbors_data = calculate_neighbors(
+                data=data,
+                n_neighbors=max_n_neighbors,
+                metric=metric,
+                return_distance=True,
+                **self.neighbors_request.params,
+                verbose=self.verbose,
+                name=name
+            )
+            neighbors_output_paths = []
+            for n_neighbors in self.neighbors_request.n_neighbors:
+                sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)
+                idx_paths, dist_paths = write_neighbors(
+                    neighbor_data=sliced_neighbors,
+                    sub_dir="nn",
+                    create_sub_dir=True,
+                    file_type=self.neighbors_request.file_types,
+                    verbose=False,
                 )
-                neighbors_output_paths = []
-                for n_neighbors in self.neighbors_request.n_neighbors:
-                    sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)
-                    idx_paths, dist_paths = write_neighbors(
-                        neighbor_data=sliced_neighbors,
-                        sub_dir="nn",
-                        create_sub_dir=True,
-                        file_type=self.neighbors_request.file_types,
-                        verbose=False,
-                    )
-                    neighbors_output_paths.append(
-                        stringify_paths(idx_paths + dist_paths)
-                    )
+                neighbors_output_paths.append(stringify_paths(idx_paths + dist_paths))
         return neighbors_output_paths
+
+    def calculate_triplets(self, data, name):
+        if self.triplets_request is None:
+            return None
+        log.info("Calculating triplets")
+        idx, dist = calculate_triplets(
+            data,
+            seed=self.triplets_request.seed,
+            n_triplets_per_point=self.triplets_request.n_triplets_per_point,
+            return_distance=True,
+        )
+
+        file_types = self.triplets_request.file_types
+        idx_paths = []
+        dist_paths = []
+        if "csv" in file_types:
+            # treat CSV specially because we need to flatten distances
+            file_types = [ft for ft in self.triplets_request.file_types if ft != "csv"]
+            csv_idx_paths, csv_dist_paths = write_triplets(
+                idx.flatten(),
+                name,
+                self.triplets_request.n_triplets_per_point,
+                self.triplets_request.seed,
+                sub_dir="triplets",
+                create_sub_dir=True,
+                file_type="csv",
+                verbose=True,
+                dist=dist.flatten(),
+                flattened=True,
+            )
+            idx_paths += csv_idx_paths
+            dist_paths += csv_dist_paths
+
+        triplet_idx_paths, triplet_dist_paths = write_triplets(
+            idx,
+            name,
+            self.triplets_request.n_triplets_per_point,
+            self.triplets_request.seed,
+            sub_dir="triplets",
+            create_sub_dir=True,
+            file_type=file_types,
+            verbose=True,
+            dist=dist,
+        )
+        return stringify_paths(
+            idx_paths + triplet_idx_paths + dist_paths + triplet_dist_paths
+        )
 
 
 def stringify_paths(paths):
@@ -173,6 +222,7 @@ class DatasetPipelineResult(Jsonizable):
     target_shape: tuple = None
     target_output_paths: list = field(default_factory=list)
     neighbors_output_paths: list = field(default_factory=list)
+    triplets_output_paths: list = field(default_factory=list)
 
 
 def create_data_pipeline(
@@ -183,6 +233,7 @@ def create_data_pipeline(
     target_cols=None,
     target_export=None,
     neighbors=None,
+    triplets=None,
     verbose=False,
 ):
     if isinstance(convert, bool):
@@ -203,6 +254,7 @@ def create_data_pipeline(
             data_exporters=data_exporters,
             target_exporters=target_exporters,
             neighbors_request=create_neighbors_request(neighbors),
+            triplets_request=create_triplets_request(triplets),
             verbose=verbose,
         )
 
@@ -222,3 +274,12 @@ def create_neighbors_request(neighbors_kwds):
         n_nbrs + 1 for n_nbrs in neighbors_request.n_neighbors
     ]
     return neighbors_request
+
+
+# triplets = (
+#   n_triplets_per_point=5,
+#   seed=42,
+def create_triplets_request(triplets_kwds):
+    if triplets_kwds is None:
+        return None
+    return TripletsRequest.new(**triplets_kwds)

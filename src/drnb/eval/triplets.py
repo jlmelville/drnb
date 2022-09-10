@@ -1,10 +1,22 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
 
 import drnb.io as nbio
 from drnb.log import log
+from drnb.util import FromDict
+
+
+def calculate_triplets(data, seed=None, n_triplets_per_point=5, return_distance=True):
+    idx = get_triplets(X=data, seed=seed, n_triplets_per_point=n_triplets_per_point)
+    if return_distance:
+        n_obs = data.shape[0]
+        anchors = np.arange(n_obs).reshape((-1, 1, 1))
+        bpairs = np.broadcast(anchors, idx)
+        dist = calc_distances(data, bpairs)
+        return idx, dist
+    return idx
 
 
 def get_triplets(X, seed=None, n_triplets_per_point=5):
@@ -62,6 +74,8 @@ def find_triplet_files(
     return dist_triplet_infos
 
 
+# flattened = True means idx and dist have been turned into 1D arrays so they can
+# be exported as e.g. CSV
 def write_triplets(
     idx,
     name,
@@ -70,18 +84,20 @@ def write_triplets(
     data_path=None,
     sub_dir="triplets",
     create_sub_dir=True,
+    file_type="npy",
     verbose=False,
     dist=None,
     metric="l2",
+    flattened=False,
 ):
-    if idx.shape[1] != n_triplets_per_point:
+    if not flattened and idx.shape[1] != n_triplets_per_point:
         raise ValueError(
             "triplet data should have "
             + f"{n_triplets_per_point} triplets per point, but was {idx.shape[1]}"
         )
 
     # e.g. mnist.5.42.idx.npy
-    nbio.write_npy(
+    idx_paths = nbio.write_data(
         idx,
         name,
         suffix=f".{n_triplets_per_point}.{seed}.idx",
@@ -89,10 +105,12 @@ def write_triplets(
         sub_dir=sub_dir,
         create_sub_dir=create_sub_dir,
         verbose=verbose,
+        file_type=file_type,
     )
     # e.g. mnist.5.42.l2.npy
+    dist_paths = []
     if dist is not None:
-        nbio.write_npy(
+        dist_paths = nbio.write_data(
             dist,
             name,
             suffix=f".{n_triplets_per_point}.{seed}.{metric}",
@@ -100,7 +118,9 @@ def write_triplets(
             sub_dir=sub_dir,
             create_sub_dir=create_sub_dir,
             verbose=verbose,
+            file_type=file_type,
         )
+    return idx_paths, dist_paths
 
 
 def read_triplets_from_info(triplet_info, metric="l2", verbose=False):
@@ -207,3 +227,10 @@ class TripletInfo:
         seed = int(items[2])
 
         return TripletInfo(name, n_triplets_per_point, seed, triplet_path)
+
+
+@dataclass
+class TripletsRequest(FromDict):
+    n_triplets_per_point: int = 5
+    seed: int = 42
+    file_types: list = field(default_factory=list)
