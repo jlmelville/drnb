@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import drnb.io as nbio
+import drnb.io.dataset as dataio
+import drnb.io.embed as embedio
 import drnb.plot as nbplot
 from drnb.embed import get_embedder_name
 from drnb.embed.factory import create_embedder
@@ -14,7 +16,7 @@ from drnb.log import log
 
 @dataclass
 class Pipeline:
-    importer: Any = nbio.DatasetImporter()
+    importer: Any = dataio.DatasetImporter()
     embedder: Any = None
     evaluators: list = field(default_factory=list)
     plotter: Any = nbplot.NoPlotter()
@@ -62,7 +64,7 @@ def create_pipeline(
     embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
     plotter = nbplot.create_plotter(plot)
-    exporters = nbio.create_embed_exporters(get_embedder_name(method), export)
+    exporters = embedio.create_embed_exporters(get_embedder_name(method), export)
 
     return Pipeline(
         embedder=embedder,

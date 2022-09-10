@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
-from drnb.io import get_xy, read_data
+from drnb.io import FileExporter, get_xy, read_data
+from drnb.util import get_method_and_args, get_multi_config
 
 
 def read_datax(dataset, data_path=None, sub_dir="xy", verbose=False):
@@ -66,3 +67,22 @@ def create_dataset_importer(x=None, import_kwargs=None):
 
     importer = importer_cls.new(**import_kwargs)
     return importer
+
+
+def create_dataset_exporter(export_config):
+    export, export_kwargs = get_method_and_args(export_config)
+    if export in ("csv", "pkl", "npy"):
+        exporter_cls = FileExporter
+    else:
+        raise ValueError(f"Unknown exporter type {export}")
+
+    if export_kwargs is None:
+        export_kwargs = dict(suffix=None, create_sub_dir=True, verbose=False)
+
+    exporter = exporter_cls.new(file_type=export, **export_kwargs)
+    return exporter
+
+
+def create_dataset_exporters(export_configs):
+    export_configs = get_multi_config(export_configs)
+    return [create_dataset_exporter(export_config) for export_config in export_configs]

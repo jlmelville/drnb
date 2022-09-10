@@ -13,3 +13,11 @@ def get_method_and_args(method):
 
 def islisty(o):
     return not isinstance(o, str) and isinstance(o, collections.abc.Iterable)
+
+
+# normalize possible config list
+# bool or string or (file_type, {options}) should be put in a list
+def get_multi_config(config):
+    if not islisty(config) or isinstance(config, tuple):
+        return [config]
+    return config

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from drnb.io import FileExporter, ensure_suffix
-from drnb.util import get_method_and_args, islisty
+from drnb.util import get_method_and_args, get_multi_config, islisty
 
 
 class NoEmbedExporter:
@@ -75,7 +75,5 @@ def create_embed_exporter(embed_method, export=False):
 
 
 def create_embed_exporters(embed_method, export=False):
-    # bool or string or (file_type, {options}) should be put in a list
-    if not islisty(export) or isinstance(export, tuple):
-        export = [export]
+    export = get_multi_config(export)
     return [create_embed_exporter(embed_method, ex) for ex in export]

@@ -205,7 +205,9 @@ def write_csv(
     )
     if verbose:
         log.info("Writing csv format to %s", data_relative_path(output_path))
-    if x.dtype is np.dtype(object) or x.dtype.kind == "U":
+    if isinstance(x, (pd.DataFrame, pd.Series)):
+        x.to_csv(output_path, header=True, index=False)
+    elif hasattr(x, "dtype") and (x.dtype is np.dtype(object) or x.dtype.kind == "U"):
         np.savetxt(output_path, x, delimiter=",", fmt="%s")
     else:
         np.savetxt(output_path, x, delimiter=",")
