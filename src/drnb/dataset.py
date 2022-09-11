@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
 import numpy as np
+import pandas as pd
 
 from drnb.eval.triplets import TripletsRequest, calculate_triplets, write_triplets
 from drnb.io import data_relative_path, write_json
@@ -78,10 +79,16 @@ class DatasetPipeline(Jsonizable):
 
     def dropna(self, data):
         log.info("Removing rows with NAs")
-        data_nona = data.dropna()
-        data = data_nona
+        if isinstance(data, pd.DataFrame):
+            data_nona = data.dropna()
+            data = data_nona
+            data_nona_index = data_nona.index
+        else:
+            data_nona_index = ~np.isnan(data).any(axis=1)
+            data = data[data_nona_index]
+
         log.info("data shape after filtering NAs: %s", data.shape)
-        return data, data_nona.index
+        return data, data_nona_index
 
     def filter_data_columns(self, data):
         data = filter_columns(data, self.data_cols)
