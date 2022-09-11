@@ -1,4 +1,3 @@
-import typing
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
@@ -7,6 +6,7 @@ import pandas as pd
 import seaborn as sns
 
 from drnb.embed import get_coords
+from drnb.io import read_pickle
 
 
 class NoPlotter:
@@ -14,7 +14,7 @@ class NoPlotter:
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def plot(self, embedded, y):
+    def plot(self, embedded, y, ctx=None):
         pass
 
 
@@ -22,7 +22,6 @@ class NoPlotter:
 class SeabornPlotter:
     cex: int = 10
     alpha_scale: float = 1.0
-    palette: typing.Any = None
     title: str = ""
     figsize: tuple = None
     legend: bool = True
@@ -31,18 +30,33 @@ class SeabornPlotter:
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def plot(self, embedded, y):
+    def plot(self, embedded, y, ctx=None):
         coords = get_coords(embedded)
+        palette = self.get_palette(ctx)
         sns_embed_plot(
             coords,
             color_col=y,
             cex=self.cex,
             alpha_scale=self.alpha_scale,
-            palette=self.palette,
+            palette=palette,
             title=self.title,
             figsize=self.figsize,
             legend=self.legend,
         )
+
+    def get_palette(self, ctx):
+        if ctx is None:
+            return None
+        try:
+            return read_pickle(
+                ctx.name,
+                suffix="target-palette",
+                data_path=ctx.data_path,
+                sub_dir=ctx.data_sub_dir,
+                verbose=True,
+            )
+        except FileNotFoundError:
+            return None
 
 
 def create_plotter(plot=True, plot_kwargs=None):
@@ -117,7 +131,17 @@ def sns_embed_plot(
     if color_col is None:
         color_col = range(coords.shape[0])
     if isinstance(color_col, pd.DataFrame):
+        if isinstance(palette, dict) and color_col.columns[-1] in palette:
+            palette = palette[color_col.columns[-1]]
+        # with a dataframe color col, the palette must be a dict mapping from
+        # the color column name to another dict which maps the category "levels" to
+        # colors, e.g. dict(smoker=dict(yes="red", no="blue"),
+        #                   time=dict(Lunch="green", Dinner="red"))
+        else:
+            palette = None
+        # always pick the last column in the dataframe as the color column
         color_col = color_col.iloc[:, -1]
+
     if isinstance(color_col, pd.Series) and pd.api.types.is_integer_dtype(color_col):
         color_col = color_col.astype("category")
     if is_hex(color_col):

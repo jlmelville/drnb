@@ -44,7 +44,7 @@ class EmbedderPipeline:
         evaluations = evaluate_embedding(self.evaluators, x, embedded, ctx=ctx)
 
         log.info("Plotting")
-        self.plotter.plot(embedded, y)
+        self.plotter.plot(embedded, y, ctx=ctx)
 
         log.info("Exporting")
         for exporter in self.exporters:

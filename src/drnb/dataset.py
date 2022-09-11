@@ -5,7 +5,7 @@ import pandas as pd
 import sklearn.decomposition
 
 from drnb.eval.triplets import TripletsRequest, calculate_triplets, write_triplets
-from drnb.io import data_relative_path, write_json
+from drnb.io import data_relative_path, write_json, write_pickle
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
 from drnb.neighbors import (
@@ -30,6 +30,7 @@ class DatasetPipeline(Jsonizable):
     target_exporters: list = field(default_factory=list)
     neighbors_request: NeighborsRequest = None
     triplets_request: TripletsRequest = None
+    target_palette: dict = field(default_factory=dict)
 
     verbose: bool = False
 
@@ -57,7 +58,7 @@ class DatasetPipeline(Jsonizable):
         data_output_paths = self.export_data(data, name)
 
         target_shape, target_output_paths = self.process_target(
-            target, dropna_index, name
+            target, name, dropna_index
         )
 
         neighbors_output_paths = self.calculate_neighbors(data, name)
@@ -120,7 +121,7 @@ class DatasetPipeline(Jsonizable):
                 target = data
         return data, target
 
-    def process_target(self, target, dropna_index, name):
+    def process_target(self, target, name, dropna_index):
         target_shape = None
         target_output_paths = []
         if target is not None:
@@ -132,6 +133,17 @@ class DatasetPipeline(Jsonizable):
                 log.warning("Target supplied but no target exporters defined")
             else:
                 target_output_paths = self.export_target(target, name)
+            if self.target_palette:
+                target_palette_path = write_pickle(
+                    self.target_palette,
+                    name,
+                    suffix="target-palette",
+                    data_path=None,
+                    sub_dir=self.data_sub_dir,
+                    create_sub_dir=True,
+                    verbose=True,
+                )
+                target_output_paths.append(stringify_paths([target_palette_path]))
         return target_shape, target_output_paths
 
     def export_data(self, data, name):
@@ -252,6 +264,7 @@ def create_data_pipeline(
     reduce=None,
     target_cols=None,
     target_export=None,
+    target_palette=None,
     neighbors=None,
     triplets=None,
     verbose=False,
@@ -272,6 +285,7 @@ def create_data_pipeline(
             reduce=reduce,
             data_cols=data_cols,
             target_cols=target_cols,
+            target_palette=target_palette,
             data_exporters=data_exporters,
             target_exporters=target_exporters,
             neighbors_request=create_neighbors_request(neighbors),
