@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
+import sklearn.decomposition
 
 from drnb.eval.triplets import TripletsRequest, calculate_triplets, write_triplets
 from drnb.io import data_relative_path, write_json
@@ -22,20 +23,21 @@ class DatasetPipeline(Jsonizable):
     data_cols: list = field(default_factory=list)
     convert: dict = field(default_factory=lambda: dict(dtype="float32", layout="c"))
     scale: dict = field(default_factory=dict)
+    reduce: int = None
     data_sub_dir: str = "data"
     data_exporters: list = field(default_factory=list)
     target_cols: list = field(default_factory=list)
     target_exporters: list = field(default_factory=list)
     neighbors_request: NeighborsRequest = None
-    triplets_request: None = None
+    triplets_request: TripletsRequest = None
 
     verbose: bool = False
 
     def run(self, name, data, target=None, verbose=False):
         with log_verbosity(verbose):
-            return self.runv(name, data, target=target)
+            return self._run(name, data, target=target)
 
-    def runv(self, name, data, target):
+    def _run(self, name, data, target):
         started_on = dts_now()
 
         data, target = self.get_target(data, target)
@@ -49,6 +51,8 @@ class DatasetPipeline(Jsonizable):
         data = scale_data(data, **self.scale)
 
         data = self.convert_data(data)
+
+        data = self.reduce_dim(data)
 
         data_output_paths = self.export_data(data, name)
 
@@ -99,6 +103,14 @@ class DatasetPipeline(Jsonizable):
         if self.convert is not None:
             log.info("Converting to numpy with %s", self.convert)
             data = numpyfy(data, **self.convert)
+        return data
+
+    def reduce_dim(self, data):
+        if self.reduce is None:
+            return data
+        log.info("Reducing initial dimensionality to %d", self.reduce)
+        data = sklearn.decomposition.PCA(n_components=self.reduce).fit_transform(data)
+        log.info("data shape after PCA: %s", data.shape)
         return data
 
     def get_target(self, data, target):
@@ -237,6 +249,7 @@ def create_data_pipeline(
     data_cols=None,
     convert=True,
     scale=None,
+    reduce=None,
     target_cols=None,
     target_export=None,
     neighbors=None,
@@ -256,6 +269,7 @@ def create_data_pipeline(
         return DatasetPipeline(
             convert=convert,
             scale=create_scale_kwargs(scale),
+            reduce=reduce,
             data_cols=data_cols,
             target_cols=target_cols,
             data_exporters=data_exporters,
