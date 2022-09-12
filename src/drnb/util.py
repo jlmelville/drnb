@@ -60,3 +60,7 @@ def dts_to_str(dts):
 
 def dts_to_dt(dts):
     return datetime.datetime.fromtimestamp(dts, tz=datetime.timezone.utc)
+
+
+def categorize(df, colname):
+    df[colname] = df[colname].astype("category")
