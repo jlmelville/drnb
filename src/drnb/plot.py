@@ -7,6 +7,7 @@ import seaborn as sns
 
 from drnb.embed import get_coords
 from drnb.io import read_pickle
+from drnb.log import log
 
 
 class NoPlotter:
@@ -168,6 +169,8 @@ def sns_embed_plot(
                 nclasses = color_col.nunique()
             nlegcol = int(nclasses / (figsize[1] * 4)) + 1
         if nlegcol > 1:
+            if legend and not force_legend:
+                log.info("Not showing large legend")
             legend = force_legend
 
     plot = sns.scatterplot(
