@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,6 +27,7 @@ class SeabornPlotter:
     title: str = ""
     figsize: tuple = None
     legend: bool = True
+    palette: Any = None
 
     @classmethod
     def new(cls, **kwargs):
@@ -34,6 +36,8 @@ class SeabornPlotter:
     def plot(self, embedded, y, ctx=None):
         coords = get_coords(embedded)
         palette = self.get_palette(ctx)
+        if palette is None:
+            palette = self.palette
         sns_embed_plot(
             coords,
             color_col=y,
