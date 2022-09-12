@@ -172,6 +172,9 @@ def sns_embed_plot(
             if legend and not force_legend:
                 log.info("Not showing large legend")
             legend = force_legend
+        elif force_legend:
+            # in this case forced legend was unnecessary
+            legend = True
 
     plot = sns.scatterplot(
         x=coords[:, 0],
