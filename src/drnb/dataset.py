@@ -109,7 +109,13 @@ class DatasetPipeline(Jsonizable):
         if self.reduce is None:
             return data
         log.info("Reducing initial dimensionality to %d", self.reduce)
-        data = sklearn.decomposition.PCA(n_components=self.reduce).fit_transform(data)
+        pca = sklearn.decomposition.PCA(n_components=self.reduce).fit(data)
+        log.info(
+            "PCA: %d components explain %.2f%% of variance",
+            self.reduce,
+            np.sum(pca.explained_variance_ratio_) * 100.0,
+        )
+        data = pca.transform(data)
         log.info("data shape after PCA: %s", data.shape)
         return data
 
