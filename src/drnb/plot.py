@@ -142,8 +142,6 @@ def sns_embed_plot(
         # the color column name to another dict which maps the category "levels" to
         # colors, e.g. dict(smoker=dict(yes="red", no="blue"),
         #                   time=dict(Lunch="green", Dinner="red"))
-        else:
-            palette = None
         # always pick the last column in the dataframe as the color column
         color_col = color_col.iloc[:, -1]
 
