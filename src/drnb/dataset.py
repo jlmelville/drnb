@@ -184,15 +184,23 @@ class DatasetPipeline(Jsonizable):
             )
             neighbors_output_paths = []
             for n_neighbors in self.neighbors_request.n_neighbors:
-                sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)
-                idx_paths, dist_paths = write_neighbors(
-                    neighbor_data=sliced_neighbors,
-                    sub_dir="nn",
-                    create_sub_dir=True,
-                    file_type=self.neighbors_request.file_types,
-                    verbose=False,
-                )
-                neighbors_output_paths.append(stringify_paths(idx_paths + dist_paths))
+                try:
+                    sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)
+                    idx_paths, dist_paths = write_neighbors(
+                        neighbor_data=sliced_neighbors,
+                        sub_dir="nn",
+                        create_sub_dir=True,
+                        file_type=self.neighbors_request.file_types,
+                        verbose=False,
+                    )
+                    neighbors_output_paths.append(
+                        stringify_paths(idx_paths + dist_paths)
+                    )
+                except ValueError:
+                    log.warning(
+                        "Unable to save %d neighbors (probably not enough neigbors)",
+                        n_neighbors,
+                    )
         return neighbors_output_paths
 
     def calculate_triplets(self, data, name):
