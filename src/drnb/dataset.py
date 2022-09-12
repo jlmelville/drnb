@@ -42,7 +42,7 @@ class DatasetPipeline(Jsonizable):
 
         data, target = self.get_target(data, target)
 
-        log.info("initial data shape: %s target shape: %s", data.shape, target.shape)
+        log.info("initial data shape: %s", data.shape)
 
         data, dropna_index = self.dropna(data)
 
@@ -130,7 +130,7 @@ class DatasetPipeline(Jsonizable):
         target_shape = None
         target_output_paths = []
         if target is not None:
-            log.info("Processing target")
+            log.info("Processing target with initial shape %s", target.shape)
             target = target.loc[dropna_index]
             target = filter_columns(target, self.target_cols)
             target_shape = target.shape

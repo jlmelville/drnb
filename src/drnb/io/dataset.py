@@ -140,5 +140,7 @@ def create_dataset_exporter(export_config):
 
 
 def create_dataset_exporters(export_configs):
+    if export_configs is None:
+        return None
     export_configs = get_multi_config(export_configs)
     return [create_dataset_exporter(export_config) for export_config in export_configs]
