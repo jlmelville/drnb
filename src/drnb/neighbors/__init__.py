@@ -38,7 +38,7 @@ def calculate_neighbors(
             method = find_exact_method(metric)
         else:
             method = find_fast_method(metric)
-    if verbose and method == "sklearn" and n_items > 10000 or data.shape[1] > 10000:
+    if verbose and method == "sklearn" and (n_items > 10000 or data.shape[1] > 10000):
         log.warning(
             "Using sklearn to find exact nearest neighbors: this might take a while"
         )
