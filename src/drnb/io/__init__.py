@@ -1,5 +1,6 @@
 # Functions for reading and writing data
 
+import json
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
@@ -162,23 +163,21 @@ def read_pandas_csv(name, suffix=None, data_path=None, sub_dir=None, verbose=Fal
     return data
 
 
-def list_available_data(data_path=None, sub_dir="xy", with_y=False):
-    if data_path is None:
-        data_path = DATA_ROOT
-    if sub_dir is not None:
-        data_path = data_path / sub_dir
+def read_json(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
+    data_file_path = get_data_file_path(
+        name,
+        ".json",
+        suffix=suffix,
+        data_path=data_path,
+        sub_dir=sub_dir,
+        create_sub_dir=False,
+        verbose=verbose,
+    )
 
-    datasets = {x.stem for x in Path.glob(data_path, "*") if not x.stem.endswith("-y")}
-
-    if with_y:
-        # chop off the "-y" bit
-        y_stems = {
-            y.stem[:-2] for y in Path.glob(data_path, "*") if y.stem.endswith("-y")
-        }
-        # only keep items in datasets and y_stems
-        datasets &= y_stems
-
-    return sorted(datasets)
+    if verbose:
+        log.info("Reading %s", data_relative_path(data_file_path))
+    with open(data_file_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 # Handles case when data is already loaded

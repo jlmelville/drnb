@@ -1,7 +1,9 @@
-import pathlib
 from dataclasses import dataclass
+from pathlib import Path
 
-from drnb.io import DATA_ROOT, FileExporter, get_xy, read_data
+import pandas as pd
+
+from drnb.io import DATA_ROOT, FileExporter, get_xy, read_data, read_json
 from drnb.util import get_method_and_args, get_multi_config
 
 
@@ -91,7 +93,7 @@ class XImporter:
 
 @dataclass
 class DatasetImporter:
-    data_path: pathlib.Path = DATA_ROOT
+    data_path: Path = DATA_ROOT
     sub_dir: str = "data"
     data_suffix: str = "data"
     target_suffix: str = "target"
@@ -144,3 +146,71 @@ def create_dataset_exporters(export_configs):
         return None
     export_configs = get_multi_config(export_configs)
     return [create_dataset_exporter(export_config) for export_config in export_configs]
+
+
+def read_data_pipeline(name, data_path=None, sub_dir="data"):
+    return read_json(name=name, suffix="pipeline", data_path=data_path, sub_dir=sub_dir)
+
+
+def get_dataset_info(name, data_path=None, sub_dir="data"):
+    pipeline = read_data_pipeline(name=name, data_path=data_path, sub_dir=sub_dir)
+    dshape = pipeline["data_shape"]
+    tshape = pipeline["target_shape"]
+    pipeline_info = pipeline["pipeline"]
+    scale = pipeline_info["scale"]["scale_type"]
+    dim_red = pipeline_info.get("reduce")
+    if tshape is not None:
+        if len(tshape) == 1:
+            n_target_cols = 1
+        else:
+            n_target_cols = tshape[1]
+    else:
+        n_target_cols = None
+    return pd.DataFrame(
+        dict(
+            name=name,
+            n_items=dshape[0],
+            n_dim=dshape[1],
+            n_target_cols=n_target_cols,
+            scale=scale,
+            dim_red=dim_red,
+        ),
+        index=[0],
+    ).set_index("name")
+
+
+def list_available_data(data_path=None, sub_dir="data", with_target=False):
+    if data_path is None:
+        data_path = DATA_ROOT
+    if sub_dir is not None:
+        data_path = data_path / sub_dir
+
+    data_suffix = "-data"
+    datasets = {
+        x.stem[: -len(data_suffix)]
+        for x in Path.glob(data_path, "*")
+        if x.stem.endswith(data_suffix)
+    }
+
+    if with_target:
+        target_suffix = "-target"
+        # chop off the "-target" bit
+        target_stems = {
+            t.stem[: -len(target_suffix)]
+            for t in Path.glob(data_path, "*")
+            if t.stem.endswith(target_suffix)
+        }
+        # only keep items in datasets and t_stems
+        datasets &= target_stems
+
+    return sorted(datasets)
+
+
+def get_available_data_info(data_path=None, sub_dir="data"):
+    dfs = [
+        get_dataset_info(name)
+        for name in list_available_data(
+            data_path=data_path, sub_dir=sub_dir, with_target=False
+        )
+    ]
+    return pd.concat(dfs)
