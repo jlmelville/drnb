@@ -44,9 +44,9 @@ class DatasetPipeline(Jsonizable):
 
         log.info("initial data shape: %s", data.shape)
 
-        data, dropna_index = self.dropna(data)
-
         data = self.filter_data_columns(data)
+
+        data, dropna_index = self.dropna(data)
 
         data = scale_data(data, **self.scale)
 
