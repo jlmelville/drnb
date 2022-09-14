@@ -180,7 +180,7 @@ class DatasetPipeline(Jsonizable):
                 return_distance=True,
                 **self.neighbors_request.params,
                 verbose=self.verbose,
-                name=name
+                name=name,
             )
             neighbors_output_paths = []
             for n_neighbors in self.neighbors_request.n_neighbors:
