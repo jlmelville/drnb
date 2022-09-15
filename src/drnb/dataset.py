@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -24,6 +25,7 @@ class DatasetPipeline(Jsonizable):
     convert: dict = field(default_factory=lambda: dict(dtype="float32", layout="c"))
     scale: dict = field(default_factory=dict)
     reduce: int = None
+    reduce_result: Any = None
     data_sub_dir: str = "data"
     data_exporters: list = field(default_factory=list)
     target_cols: list = field(default_factory=list)
@@ -33,11 +35,35 @@ class DatasetPipeline(Jsonizable):
 
     verbose: bool = False
 
-    def run(self, name, data, target=None, target_palette=None, verbose=False):
+    def run(
+        self,
+        name,
+        data,
+        target=None,
+        target_palette=None,
+        url=None,
+        tags=None,
+        verbose=False,
+    ):
         with log_verbosity(verbose):
-            return self._run(name, data, target=target, target_palette=target_palette)
+            return self._run(
+                name,
+                data,
+                target=target,
+                target_palette=target_palette,
+                url=url,
+                tags=tags,
+            )
 
-    def _run(self, name, data, target, target_palette):
+    def _run(
+        self,
+        name,
+        data,
+        target,
+        target_palette,
+        url=None,
+        tags=None,
+    ):
         started_on = dts_now()
 
         data, target = self.get_target(data, target)
@@ -75,6 +101,8 @@ class DatasetPipeline(Jsonizable):
             updated_on=created_on,
             neighbors_output_paths=neighbors_output_paths,
             triplets_output_paths=triplets_output_paths,
+            tags=tags,
+            url=url,
         )
         log.info("Writing pipeline result for %s", name)
         write_json(result, name=name, sub_dir=self.data_sub_dir, suffix="pipeline")
@@ -110,13 +138,15 @@ class DatasetPipeline(Jsonizable):
             return data
         log.info("Reducing initial dimensionality to %d", self.reduce)
         pca = sklearn.decomposition.PCA(n_components=self.reduce).fit(data)
+        varex = float(np.sum(pca.explained_variance_ratio_) * 100.0)
         log.info(
             "PCA: %d components explain %.2f%% of variance",
             self.reduce,
-            np.sum(pca.explained_variance_ratio_) * 100.0,
+            varex,
         )
         data = pca.transform(data)
         log.info("data shape after PCA: %s", data.shape)
+        self.reduce_result = Pca(self.reduce, varex)
         return data
 
     def get_target(self, data, target):
@@ -267,6 +297,8 @@ class DatasetPipelineResult(Jsonizable):
     target_output_paths: list = field(default_factory=list)
     neighbors_output_paths: list = field(default_factory=list)
     triplets_output_paths: list = field(default_factory=list)
+    url: str = None
+    tags: list = field(default_factory=list)
 
 
 def create_data_pipeline(
@@ -329,3 +361,12 @@ def create_triplets_request(triplets_kwds):
     if triplets_kwds is None:
         return None
     return TripletsRequest.new(**triplets_kwds)
+
+
+@dataclass
+class Pca(Jsonizable):
+    n_components: int
+    variance_explained: float
+
+    def __str__(self):
+        return f"PCA {self.n_components} ({self.variance_explained:.2f}%)"

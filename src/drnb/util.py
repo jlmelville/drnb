@@ -42,6 +42,7 @@ class FromDict:
 
 
 DATETIME_FMT = "%Y%m%d%H%M%S"
+READABLE_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
 
 
 def dts_now():
@@ -52,10 +53,10 @@ def dt_now():
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def dts_to_str(dts):
+def dts_to_str(dts, fmt=DATETIME_FMT):
     if dts is None:
         dts = dts_now()
-    return dts.strftime(DATETIME_FMT)
+    return dts_to_dt(dts).strftime(fmt)
 
 
 def dts_to_dt(dts):

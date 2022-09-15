@@ -4,7 +4,12 @@ from pathlib import Path
 import pandas as pd
 
 from drnb.io import DATA_ROOT, FileExporter, get_xy, read_data, read_json
-from drnb.util import get_method_and_args, get_multi_config
+from drnb.util import (
+    READABLE_DATETIME_FMT,
+    dts_to_str,
+    get_method_and_args,
+    get_multi_config,
+)
 
 
 def read_datax(dataset, data_path=None, sub_dir="xy", verbose=False):
@@ -157,8 +162,19 @@ def get_dataset_info(name, data_path=None, sub_dir="data"):
     dshape = pipeline["data_shape"]
     tshape = pipeline["target_shape"]
     pipeline_info = pipeline["pipeline"]
+    created_on = pipeline["created_on"]
+    updated_on = pipeline["updated_on"]
     scale = pipeline_info["scale"]["scale_type"]
-    dim_red = pipeline_info.get("reduce")
+    tags = pipeline.get("tags", [])
+    tags = " ".join(tags)
+    url = pipeline.get("url", "")
+    dim_red = pipeline_info.get("reduce_result")
+    if dim_red is not None:
+        dim_red = (
+            f"PCA{dim_red['n_components']} " + f"({dim_red['variance_explained']:.2f}%)"
+        )
+    else:
+        dim_red = pipeline_info.get("reduce")
     if tshape is not None:
         if len(tshape) == 1:
             n_target_cols = 1
@@ -174,6 +190,10 @@ def get_dataset_info(name, data_path=None, sub_dir="data"):
             n_target_cols=n_target_cols,
             scale=scale,
             dim_red=dim_red,
+            url=url,
+            tags=tags,
+            created_on=dts_to_str(created_on, READABLE_DATETIME_FMT),
+            updated_on=dts_to_str(updated_on, READABLE_DATETIME_FMT),
         ),
         index=[0],
     ).set_index("name")
