@@ -22,7 +22,6 @@ from drnb.util import Jsonizable, dts_now, islisty
 @dataclass
 class DatasetPipeline(Jsonizable):
     data_cols: list = field(default_factory=list)
-    n_na_rows: int = 0
     convert: dict = field(default_factory=lambda: dict(dtype="float32", layout="c"))
     scale: dict = field(default_factory=dict)
     reduce: int = None
@@ -76,7 +75,7 @@ class DatasetPipeline(Jsonizable):
 
         data = self.filter_data_columns(data)
 
-        data, dropna_index = self.dropna(data)
+        data, dropna_index, n_na_rows = self.dropna(data)
 
         data = scale_data(data, **self.scale)
 
@@ -106,6 +105,7 @@ class DatasetPipeline(Jsonizable):
             triplets_output_paths=triplets_output_paths,
             tags=tags,
             url=url,
+            n_na_rows=n_na_rows,
         )
         log.info("Writing pipeline result for %s", name)
         write_json(result, name=name, sub_dir=self.data_sub_dir, suffix="pipeline")
@@ -124,9 +124,9 @@ class DatasetPipeline(Jsonizable):
             data = data[data_nona_index]
 
         nrows_after = data.shape[0]
-        self.n_na_rows = nrows_before - nrows_after
+        n_na_rows = nrows_before - nrows_after
         log.info("data shape after filtering NAs: %s", data.shape)
-        return data, data_nona_index
+        return data, data_nona_index, n_na_rows
 
     def filter_data_columns(self, data):
         data = filter_columns(data, self.data_cols)
@@ -298,6 +298,7 @@ class DatasetPipelineResult(Jsonizable):
     created_on: str = "unknown"
     updated_on: str = "unknown"
     data_shape: tuple = None
+    n_na_rows: int = 0
     data_output_paths: list = field(default_factory=list)
     target_shape: tuple = None
     target_output_paths: list = field(default_factory=list)
