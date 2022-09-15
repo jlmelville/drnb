@@ -166,6 +166,7 @@ def get_dataset_info(name, data_path=None, sub_dir="data"):
     updated_on = pipeline["updated_on"]
     scale = pipeline_info["scale"]["scale_type"]
     n_na_rows = pipeline.get("n_na_rows", 0)
+    n_duplicates = pipeline.get("n_duplicates")
     tags = pipeline.get("tags", [])
     tags = " ".join(tags)
     url = pipeline.get("url", "")
@@ -192,6 +193,7 @@ def get_dataset_info(name, data_path=None, sub_dir="data"):
             n_na_rows=n_na_rows,
             scale=scale,
             dim_red=dim_red,
+            n_duplicates=n_duplicates,
             url=url,
             tags=tags,
             created_on=dts_to_str(created_on, READABLE_DATETIME_FMT),

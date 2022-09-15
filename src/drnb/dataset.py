@@ -24,6 +24,7 @@ class DatasetPipeline(Jsonizable):
     data_cols: list = field(default_factory=list)
     convert: dict = field(default_factory=lambda: dict(dtype="float32", layout="c"))
     scale: dict = field(default_factory=dict)
+    check_for_duplicates: bool = False
     reduce: int = None
     reduce_result: Any = None
     data_sub_dir: str = "data"
@@ -77,6 +78,10 @@ class DatasetPipeline(Jsonizable):
 
         data, dropna_index, n_na_rows = self.dropna(data)
 
+        # as this is potentially memory intensive, it won't be done by default
+        # a value of None means "don't know", not "zero duplicates"
+        n_duplicates = self.duplicate_check(data)
+
         data = scale_data(data, **self.scale)
 
         data = self.convert_data(data)
@@ -106,6 +111,7 @@ class DatasetPipeline(Jsonizable):
             tags=tags,
             url=url,
             n_na_rows=n_na_rows,
+            n_duplicates=n_duplicates,
         )
         log.info("Writing pipeline result for %s", name)
         write_json(result, name=name, sub_dir=self.data_sub_dir, suffix="pipeline")
@@ -132,6 +138,12 @@ class DatasetPipeline(Jsonizable):
         data = filter_columns(data, self.data_cols)
         log.info("data shape after filtering columns: %s", data.shape)
         return data
+
+    def duplicate_check(self, data):
+        if not self.check_for_duplicates:
+            return None
+        log.info("Checking for duplicates")
+        return data.shape[0] - np.unique(data, axis=0).shape[0]
 
     def convert_data(self, data):
         if self.convert is not None:
@@ -299,6 +311,7 @@ class DatasetPipelineResult(Jsonizable):
     updated_on: str = "unknown"
     data_shape: tuple = None
     n_na_rows: int = 0
+    n_duplicates: int = None
     data_output_paths: list = field(default_factory=list)
     target_shape: tuple = None
     target_output_paths: list = field(default_factory=list)
@@ -310,6 +323,7 @@ class DatasetPipelineResult(Jsonizable):
 
 def create_data_pipeline(
     data_export,
+    check_for_duplicates=False,
     data_cols=None,
     convert=True,
     scale=None,
@@ -331,6 +345,7 @@ def create_data_pipeline(
         target_exporters = create_dataset_exporters(target_export)
 
         return DatasetPipeline(
+            check_for_duplicates=check_for_duplicates,
             convert=convert,
             scale=create_scale_kwargs(scale),
             reduce=reduce,
