@@ -75,7 +75,7 @@ class DatasetPipeline(Jsonizable):
 
         data, target = self.get_target(data, target, target_cols)
 
-        log.info("initial data shape: %s", data.shape)
+        log.info("Initial data shape: %s", data.shape)
 
         data = self.filter_data_columns(data, data_cols)
 
@@ -141,19 +141,20 @@ class DatasetPipeline(Jsonizable):
 
         nrows_after = data.shape[0]
         n_na_rows = nrows_before - nrows_after
-        log.info("data shape after filtering NAs: %s", data.shape)
+        log.info("Data shape after filtering NAs: %s", data.shape)
         return data, data_nona_index, n_na_rows
 
     def filter_data_columns(self, data, data_cols):
         data = filter_columns(data, data_cols)
-        log.info("data shape after filtering columns: %s", data.shape)
+        log.info("Data shape after filtering columns: %s", data.shape)
         return data
 
     def duplicate_check(self, data):
         if not self.check_for_duplicates:
             return None
-        log.info("Checking for duplicates")
-        return data.shape[0] - np.unique(data, axis=0).shape[0]
+        n_duplicates = data.shape[0] - np.unique(data, axis=0).shape[0]
+        log.info("Checked for duplicates: found %d", n_duplicates)
+        return n_duplicates
 
     def convert_data(self, data):
         if self.convert is not None:
@@ -173,7 +174,7 @@ class DatasetPipeline(Jsonizable):
             varex,
         )
         data = pca.transform(data)
-        log.info("data shape after PCA: %s", data.shape)
+        log.info("Data shape after PCA: %s", data.shape)
         reduce_result = f"PCA {self.reduce} ({varex:.2f}%)"
         return data, reduce_result
 
