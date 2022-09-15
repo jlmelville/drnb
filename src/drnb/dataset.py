@@ -21,7 +21,6 @@ from drnb.util import Jsonizable, dts_now, islisty
 
 @dataclass
 class DatasetPipeline(Jsonizable):
-    data_cols: list = field(default_factory=list)
     convert: dict = field(default_factory=lambda: dict(dtype="float32", layout="c"))
     scale: dict = field(default_factory=dict)
     check_for_duplicates: bool = False
@@ -29,18 +28,18 @@ class DatasetPipeline(Jsonizable):
     reduce_result: Any = None
     data_sub_dir: str = "data"
     data_exporters: list = field(default_factory=list)
-    target_cols: list = field(default_factory=list)
     target_exporters: list = field(default_factory=list)
     neighbors_request: NeighborsRequest = None
     triplets_request: TripletsRequest = None
-
     verbose: bool = False
 
     def run(
         self,
         name,
         data,
+        data_cols=None,
         target=None,
+        target_cols=None,
         target_palette=None,
         url=None,
         tags=None,
@@ -50,7 +49,9 @@ class DatasetPipeline(Jsonizable):
             return self._run(
                 name,
                 data,
+                data_cols=data_cols,
                 target=target,
+                target_cols=target_cols,
                 target_palette=target_palette,
                 url=url,
                 tags=tags,
@@ -60,21 +61,23 @@ class DatasetPipeline(Jsonizable):
         self,
         name,
         data,
+        data_cols,
         target,
+        target_cols,
         target_palette,
-        url=None,
-        tags=None,
+        url,
+        tags,
     ):
         if tags is None:
             tags = []
 
         started_on = dts_now()
 
-        data, target = self.get_target(data, target)
+        data, target = self.get_target(data, target, target_cols)
 
         log.info("initial data shape: %s", data.shape)
 
-        data = self.filter_data_columns(data)
+        data = self.filter_data_columns(data, data_cols)
 
         data, dropna_index, n_na_rows = self.dropna(data)
 
@@ -86,12 +89,16 @@ class DatasetPipeline(Jsonizable):
 
         data = self.convert_data(data)
 
-        data = self.reduce_dim(data)
+        (data, reduce_result) = self.reduce_dim(data)
 
         data_output_paths = self.export_data(data, name)
 
         target_shape, target_output_paths = self.process_target(
-            target, name, dropna_index, target_palette
+            target,
+            name,
+            dropna_index,
+            target_cols=target_cols,
+            target_palette=target_palette,
         )
 
         neighbors_output_paths = self.calculate_neighbors(data, name)
@@ -112,6 +119,9 @@ class DatasetPipeline(Jsonizable):
             url=url,
             n_na_rows=n_na_rows,
             n_duplicates=n_duplicates,
+            reduce_result=reduce_result,
+            data_cols=data_cols,
+            target_cols=target_cols,
         )
         log.info("Writing pipeline result for %s", name)
         write_json(result, name=name, sub_dir=self.data_sub_dir, suffix="pipeline")
@@ -134,8 +144,8 @@ class DatasetPipeline(Jsonizable):
         log.info("data shape after filtering NAs: %s", data.shape)
         return data, data_nona_index, n_na_rows
 
-    def filter_data_columns(self, data):
-        data = filter_columns(data, self.data_cols)
+    def filter_data_columns(self, data, data_cols):
+        data = filter_columns(data, data_cols)
         log.info("data shape after filtering columns: %s", data.shape)
         return data
 
@@ -153,7 +163,7 @@ class DatasetPipeline(Jsonizable):
 
     def reduce_dim(self, data):
         if self.reduce is None:
-            return data
+            return data, None
         log.info("Reducing initial dimensionality to %d", self.reduce)
         pca = sklearn.decomposition.PCA(n_components=self.reduce).fit(data)
         varex = float(np.sum(pca.explained_variance_ratio_) * 100.0)
@@ -164,23 +174,25 @@ class DatasetPipeline(Jsonizable):
         )
         data = pca.transform(data)
         log.info("data shape after PCA: %s", data.shape)
-        self.reduce_result = Pca(self.reduce, varex)
-        return data
+        reduce_result = f"PCA {self.reduce} ({varex:.2f}%)"
+        return data, reduce_result
 
-    def get_target(self, data, target):
-        if target is not None or (self.target_cols is not None and self.target_cols):
+    def get_target(self, data, target, target_cols=None):
+        if target is not None or (target_cols is not None and target_cols):
             if target is None:
                 log.info("Using data as source for target")
                 target = data
         return data, target
 
-    def process_target(self, target, name, dropna_index, target_palette=None):
+    def process_target(
+        self, target, name, dropna_index, target_cols=None, target_palette=None
+    ):
         target_shape = None
         target_output_paths = []
         if target is not None:
             log.info("Processing target with initial shape %s", target.shape)
             target = target.loc[dropna_index]
-            target = filter_columns(target, self.target_cols)
+            target = filter_columns(target, target_cols)
             target_shape = target.shape
             if self.target_exporters is None or not self.target_exporters:
                 log.warning("Target supplied but no target exporters defined")
@@ -312,6 +324,7 @@ class DatasetPipelineResult(Jsonizable):
     data_shape: tuple = None
     n_na_rows: int = 0
     n_duplicates: int = None
+    reduce_result: str = None
     data_output_paths: list = field(default_factory=list)
     target_shape: tuple = None
     target_output_paths: list = field(default_factory=list)
@@ -319,16 +332,16 @@ class DatasetPipelineResult(Jsonizable):
     triplets_output_paths: list = field(default_factory=list)
     url: str = None
     tags: list = field(default_factory=list)
+    data_cols: list = field(default_factory=list)
+    target_cols: list = field(default_factory=list)
 
 
 def create_data_pipeline(
     data_export,
     check_for_duplicates=False,
-    data_cols=None,
     convert=True,
     scale=None,
     reduce=None,
-    target_cols=None,
     target_export=None,
     neighbors=None,
     triplets=None,
@@ -349,8 +362,6 @@ def create_data_pipeline(
             convert=convert,
             scale=create_scale_kwargs(scale),
             reduce=reduce,
-            data_cols=data_cols,
-            target_cols=target_cols,
             data_exporters=data_exporters,
             target_exporters=target_exporters,
             neighbors_request=create_neighbors_request(neighbors),
@@ -383,12 +394,3 @@ def create_triplets_request(triplets_kwds):
     if triplets_kwds is None:
         return None
     return TripletsRequest.new(**triplets_kwds)
-
-
-@dataclass
-class Pca(Jsonizable):
-    n_components: int
-    variance_explained: float
-
-    def __str__(self):
-        return f"PCA {self.n_components} ({self.variance_explained:.2f}%)"

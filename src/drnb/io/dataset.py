@@ -170,12 +170,8 @@ def get_dataset_info(name, data_path=None, sub_dir="data"):
     tags = pipeline.get("tags", [])
     tags = " ".join(tags)
     url = pipeline.get("url", "")
-    dim_red = pipeline_info.get("reduce_result")
-    if dim_red is not None:
-        dim_red = (
-            f"PCA{dim_red['n_components']} " + f"({dim_red['variance_explained']:.2f}%)"
-        )
-    else:
+    dim_red = pipeline.get("reduce_result")
+    if dim_red is None:
         dim_red = pipeline_info.get("reduce")
     if tshape is not None:
         if len(tshape) == 1:
