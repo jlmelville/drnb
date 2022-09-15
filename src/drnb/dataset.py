@@ -395,3 +395,25 @@ def create_triplets_request(triplets_kwds):
     if triplets_kwds is None:
         return None
     return TripletsRequest.new(**triplets_kwds)
+
+
+def create_default_pipeline(check_for_duplicates=False, scale=None, reduce=None):
+    return create_data_pipeline(
+        check_for_duplicates=check_for_duplicates,
+        scale=scale,
+        reduce=reduce,
+        data_export=["csv", "npy"],
+        target_export=["csv", "pkl"],
+        neighbors=dict(
+            n_neighbors=[15, 50, 150],
+            method="exact",
+            metric=["euclidean"],
+            file_types=["csv", "npy"],
+        ),
+        triplets=dict(
+            n_triplets_per_point=5,
+            seed=1337,
+            file_types=["csv", "npy"],
+        ),
+        verbose=True,
+    )
