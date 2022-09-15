@@ -64,6 +64,9 @@ class DatasetPipeline(Jsonizable):
         url=None,
         tags=None,
     ):
+        if tags is None:
+            tags = []
+
         started_on = dts_now()
 
         data, target = self.get_target(data, target)
