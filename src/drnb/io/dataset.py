@@ -165,6 +165,7 @@ def get_dataset_info(name, data_path=None, sub_dir="data"):
     created_on = pipeline["created_on"]
     updated_on = pipeline["updated_on"]
     scale = pipeline_info["scale"]["scale_type"]
+    n_na_rows = pipeline_info.get("n_na_rows", 0)
     tags = pipeline.get("tags", [])
     tags = " ".join(tags)
     url = pipeline.get("url", "")
@@ -188,6 +189,7 @@ def get_dataset_info(name, data_path=None, sub_dir="data"):
             n_items=dshape[0],
             n_dim=dshape[1],
             n_target_cols=n_target_cols,
+            n_na_rows=n_na_rows,
             scale=scale,
             dim_red=dim_red,
             url=url,

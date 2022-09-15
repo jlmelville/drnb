@@ -22,6 +22,7 @@ from drnb.util import Jsonizable, dts_now, islisty
 @dataclass
 class DatasetPipeline(Jsonizable):
     data_cols: list = field(default_factory=list)
+    n_na_rows: int = 0
     convert: dict = field(default_factory=lambda: dict(dtype="float32", layout="c"))
     scale: dict = field(default_factory=dict)
     reduce: int = None
@@ -91,7 +92,6 @@ class DatasetPipeline(Jsonizable):
 
         neighbors_output_paths = self.calculate_neighbors(data, name)
         triplets_output_paths = self.calculate_triplets(data, name)
-
         created_on = dts_now()
         result = DatasetPipelineResult(
             self,
@@ -113,6 +113,7 @@ class DatasetPipeline(Jsonizable):
         return result
 
     def dropna(self, data):
+        nrows_before = data.shape[0]
         log.info("Removing rows with NAs")
         if isinstance(data, pd.DataFrame):
             data_nona = data.dropna()
@@ -122,6 +123,8 @@ class DatasetPipeline(Jsonizable):
             data_nona_index = ~np.isnan(data).any(axis=1)
             data = data[data_nona_index]
 
+        nrows_after = data.shape[0]
+        self.n_na_rows = nrows_before - nrows_after
         log.info("data shape after filtering NAs: %s", data.shape)
         return data, data_nona_index
 
