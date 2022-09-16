@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from drnb.io import DATA_ROOT, FileExporter, get_xy, read_data, read_json
+from drnb.io import FileExporter, get_drnb_home, read_data, read_json
 from drnb.util import (
     READABLE_DATETIME_FMT,
     dts_to_str,
@@ -12,93 +12,61 @@ from drnb.util import (
 )
 
 
-def read_datax(dataset, data_path=None, sub_dir="xy", verbose=False):
-    return read_data(
-        dataset,
-        suffix="",
-        data_path=data_path,
-        sub_dir=sub_dir,
-        verbose=verbose,
-        as_numpy=True,
-    )
-
-
-def read_datay(
+def read_target(
     dataset,
-    data_path=None,
-    sub_dir="xy",
+    drnb_home=None,
+    sub_dir="data",
     verbose=False,
-    target_suffix="y",
-    x=None,
+    target_suffix="target",
+    data=None,
     data_suffix="",
 ):
     try:
-        y = read_data(
+        return read_data(
             dataset,
             suffix=target_suffix,
-            data_path=data_path,
+            drnb_home=drnb_home,
             sub_dir=sub_dir,
             verbose=verbose,
         )
     except FileNotFoundError:
-        if x is None:
-            x = read_data(
+        if data is None:
+            data = read_data(
                 dataset,
                 suffix=data_suffix,
-                data_path=data_path,
+                drnb_home=drnb_home,
                 sub_dir=sub_dir,
                 verbose=False,
             )
-        y = range(x.shape[0])
-    return y
-
-
-def read_dataxy(
-    dataset,
-    data_path=None,
-    sub_dir="xy",
-    verbose=False,
-):
-    x = read_datax(dataset, data_path=data_path, sub_dir=sub_dir, verbose=verbose)
-    y = read_datay(dataset, data_path=data_path, sub_dir=sub_dir, verbose=verbose, x=x)
-    return x, y
+        target = range(data.shape[0])
+        return target
 
 
 def read_dataset(
     dataset,
-    data_path=None,
+    drnb_home=None,
     sub_dir="data",
     data_suffix="data",
     target_suffix="target",
     verbose=False,
 ):
     data = read_data(
-        dataset, suffix=data_suffix, data_path=data_path, sub_dir=sub_dir, verbose=False
+        dataset, suffix=data_suffix, drnb_home=drnb_home, sub_dir=sub_dir, verbose=False
     )
-    target = read_datay(
+    target = read_target(
         dataset,
-        data_path=data_path,
+        drnb_home=drnb_home,
         sub_dir=sub_dir,
         verbose=verbose,
-        x=data,
+        data=data,
         target_suffix=target_suffix,
     )
     return data, target
 
 
-class XImporter:
-    @classmethod
-    def new(cls, **kwargs):
-        return cls(**kwargs)
-
-    # pylint: disable=unused-argument
-    def import_data(self, name, x, y):
-        return get_xy(x, y)
-
-
 @dataclass
 class DatasetImporter:
-    data_path: Path = DATA_ROOT
+    drnb_home: Path = None
     sub_dir: str = "data"
     data_suffix: str = "data"
     target_suffix: str = "target"
@@ -109,27 +77,16 @@ class DatasetImporter:
 
     # pylint: disable=unused-argument
     def import_data(self, name, x=None, y=None):
+        if drnb_home is None:
+            drnb_home = get_drnb_home()
         data, target = read_dataset(
             name,
-            data_path=self.data_path,
+            drnb_home=self.drnb_home,
             sub_dir=self.sub_dir,
             data_suffix=self.data_suffix,
             target_suffix=self.target_suffix,
         )
         return data, target
-
-
-def create_dataset_importer(x=None, import_kwargs=None):
-    if x is None:
-        importer_cls = DatasetImporter
-    else:
-        importer_cls = XImporter
-
-    if import_kwargs is None:
-        import_kwargs = {}
-
-    importer = importer_cls.new(**import_kwargs)
-    return importer
 
 
 def create_dataset_exporter(export_config):
@@ -153,12 +110,12 @@ def create_dataset_exporters(export_configs):
     return [create_dataset_exporter(export_config) for export_config in export_configs]
 
 
-def read_data_pipeline(name, data_path=None, sub_dir="data"):
-    return read_json(name=name, suffix="pipeline", data_path=data_path, sub_dir=sub_dir)
+def read_data_pipeline(name, drnb_home=None, sub_dir="data"):
+    return read_json(name=name, suffix="pipeline", drnb_home=drnb_home, sub_dir=sub_dir)
 
 
-def get_dataset_info(name, data_path=None, sub_dir="data"):
-    pipeline = read_data_pipeline(name=name, data_path=data_path, sub_dir=sub_dir)
+def get_dataset_info(name, drnb_home=None, sub_dir="data"):
+    pipeline = read_data_pipeline(name=name, drnb_home=drnb_home, sub_dir=sub_dir)
     dshape = pipeline["data_shape"]
     tshape = pipeline["target_shape"]
     pipeline_info = pipeline["pipeline"]
@@ -190,20 +147,21 @@ def get_dataset_info(name, data_path=None, sub_dir="data"):
             scale=scale,
             dim_red=dim_red,
             n_duplicates=n_duplicates,
-            url=url,
             tags=tags,
             created_on=dts_to_str(created_on, READABLE_DATETIME_FMT),
             updated_on=dts_to_str(updated_on, READABLE_DATETIME_FMT),
+            url=url,
         ),
         index=[0],
     ).set_index("name")
 
 
-def list_available_data(data_path=None, sub_dir="data", with_target=False):
-    if data_path is None:
-        data_path = DATA_ROOT
+def list_available_data(drnb_home=None, sub_dir="data", with_target=False):
+    if drnb_home is None:
+        drnb_home = get_drnb_home()
+    data_path = drnb_home
     if sub_dir is not None:
-        data_path = data_path / sub_dir
+        data_path = drnb_home / sub_dir
 
     data_suffix = "-data"
     datasets = {
@@ -226,11 +184,11 @@ def list_available_data(data_path=None, sub_dir="data", with_target=False):
     return sorted(datasets)
 
 
-def get_available_data_info(data_path=None, sub_dir="data"):
+def get_available_data_info(drnb_home=None, sub_dir="data"):
     dfs = [
         get_dataset_info(name)
         for name in list_available_data(
-            data_path=data_path, sub_dir=sub_dir, with_target=False
+            drnb_home=drnb_home, sub_dir=sub_dir, with_target=False
         )
     ]
     return pd.concat(dfs)

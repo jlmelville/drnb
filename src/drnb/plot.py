@@ -56,7 +56,7 @@ class SeabornPlotter:
             return read_pickle(
                 ctx.name,
                 suffix="target-palette",
-                data_path=ctx.data_path,
+                drnb_home=ctx.drnb_home,
                 sub_dir=ctx.data_sub_dir,
                 verbose=True,
             )

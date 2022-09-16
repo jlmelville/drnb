@@ -36,7 +36,7 @@ def nbr_pres(
     x_nbrs=None,
     y_nbrs=None,
     name=None,
-    data_path=None,
+    drnb_home=None,
     sub_dir="nn",
 ):
     if isinstance(n_nbrs, int):
@@ -91,7 +91,7 @@ def nbr_pres(
             return_distance=False,
             method_kwds=x_method_kwds,
             verbose=verbose,
-            data_path=data_path,
+            drnb_home=drnb_home,
             sub_dir=sub_dir,
             name=name,
             cache=cache,
@@ -123,7 +123,7 @@ class NbrPreservationEval(EmbeddingEval):
     def evaluate(self, X, coords, ctx=None):
         if ctx is not None:
             nnp_kwargs = dict(
-                data_path=ctx.data_path, sub_dir=ctx.nn_sub_dir, name=ctx.name
+                drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.name
             )
         else:
             nnp_kwargs = {}

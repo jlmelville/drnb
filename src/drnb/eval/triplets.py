@@ -41,9 +41,9 @@ def validate_triplets(triplets, n_obs):
 
 
 def find_triplet_files(
-    name, n_triplets_per_point=5, metric="l2", data_path=None, sub_dir="triplets"
+    name, n_triplets_per_point=5, metric="l2", drnb_home=None, sub_dir="triplets"
 ):
-    triplet_dir_path = nbio.get_data_path(data_path=data_path, sub_dir=sub_dir)
+    triplet_dir_path = nbio.get_path(drnb_home=drnb_home, sub_dir=sub_dir)
     if not triplet_dir_path.exists():
         return []
     triplet_file_paths = list(Path.glob(triplet_dir_path, name + "*.idx.*"))
@@ -81,7 +81,7 @@ def write_triplets(
     name,
     n_triplets_per_point,
     seed,
-    data_path=None,
+    drnb_home=None,
     sub_dir="triplets",
     create_sub_dir=True,
     file_type="npy",
@@ -101,7 +101,7 @@ def write_triplets(
         idx,
         name,
         suffix=f".{n_triplets_per_point}.{seed}.idx",
-        data_path=data_path,
+        drnb_home=drnb_home,
         sub_dir=sub_dir,
         create_sub_dir=create_sub_dir,
         verbose=verbose,
@@ -114,7 +114,7 @@ def write_triplets(
             dist,
             name,
             suffix=f".{n_triplets_per_point}.{seed}.{metric}",
-            data_path=data_path,
+            drnb_home=drnb_home,
             sub_dir=sub_dir,
             create_sub_dir=create_sub_dir,
             verbose=verbose,
@@ -128,7 +128,7 @@ def read_triplets_from_info(triplet_info, metric="l2", verbose=False):
         dataset=triplet_info.name,
         suffix=triplet_info.idx_suffix,
         sub_dir=None,
-        data_path=triplet_info.idx_path.parent,
+        drnb_home=triplet_info.idx_path.parent,
         as_numpy=np.int64,
         verbose=verbose,
     )
@@ -138,7 +138,7 @@ def read_triplets_from_info(triplet_info, metric="l2", verbose=False):
             dataset=triplet_info.name,
             suffix=triplet_info.dist_suffix(metric),
             sub_dir=None,
-            data_path=triplet_info.idx_path.parent,
+            drnb_home=triplet_info.idx_path.parent,
             as_numpy=True,
             verbose=verbose,
         )
@@ -150,7 +150,7 @@ def find_precomputed_triplets(ctx, n_triplets_per_point, metric):
     triplet_infos = find_triplet_files(
         name=ctx.name,
         n_triplets_per_point=n_triplets_per_point,
-        data_path=ctx.data_path,
+        drnb_home=ctx.drnb_home,
         sub_dir=ctx.triplet_sub_dir,
     )
     if not triplet_infos:
@@ -175,7 +175,7 @@ def cache_triplets(idx, dist, ctx, n_triplets_per_point, metric, random_state):
         name=ctx.name,
         n_triplets_per_point=n_triplets_per_point,
         seed=random_state,
-        data_path=ctx.data_path,
+        drnb_home=ctx.drnb_home,
         sub_dir=ctx.triplet_sub_dir,
         create_sub_dir=True,
         verbose=True,

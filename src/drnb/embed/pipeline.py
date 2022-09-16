@@ -31,7 +31,7 @@ class EmbedderPipeline:
     def _run(self, name):
         ctx = DatasetContext(
             name=name,
-            data_path=self.importer.data_path,
+            drnb_home=self.importer.drnb_home,
             data_sub_dir=self.importer.sub_dir,
         )
         log.info("Getting dataset %s", name)
@@ -86,7 +86,7 @@ def create_pipeline(
 @dataclass
 class DatasetContext:
     name: str
-    data_path: pathlib.Path = nbio.DATA_ROOT
+    drnb_home: pathlib.Path = nbio.get_drnb_home()
     data_sub_dir: str = "xy"
     nn_sub_dir: str = "nn"
     triplet_sub_dir: str = "triplets"

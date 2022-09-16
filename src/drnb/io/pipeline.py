@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -26,6 +27,7 @@ class DatasetPipeline(Jsonizable):
     check_for_duplicates: bool = False
     reduce: int = None
     reduce_result: Any = None
+    drnb_home: Path = None
     data_sub_dir: str = "data"
     data_exporters: list = field(default_factory=list)
     target_exporters: list = field(default_factory=list)
@@ -204,7 +206,7 @@ class DatasetPipeline(Jsonizable):
                     target_palette,
                     name,
                     suffix="target-palette",
-                    data_path=None,
+                    drnb_home=None,
                     sub_dir=self.data_sub_dir,
                     create_sub_dir=True,
                     verbose=True,
@@ -223,7 +225,11 @@ class DatasetPipeline(Jsonizable):
         log.info("Writing %s for %s", what, name)
         for exporter in exporters:
             output_paths = exporter.export(
-                name, data, sub_dir=self.data_sub_dir, suffix=what
+                name,
+                data,
+                drnb_home=self.drnb_home,
+                sub_dir=self.data_sub_dir,
+                suffix=what,
             )
             all_output_paths += stringify_paths(output_paths)
         return all_output_paths
@@ -346,6 +352,7 @@ def create_data_pipeline(
     target_export=None,
     neighbors=None,
     triplets=None,
+    drnb_home=None,
     verbose=False,
 ):
     if isinstance(convert, bool):
@@ -359,6 +366,7 @@ def create_data_pipeline(
         target_exporters = create_dataset_exporters(target_export)
 
         return DatasetPipeline(
+            drnb_home=drnb_home,
             check_for_duplicates=check_for_duplicates,
             convert=convert,
             scale=create_scale_kwargs(scale),
@@ -397,8 +405,11 @@ def create_triplets_request(triplets_kwds):
     return TripletsRequest.new(**triplets_kwds)
 
 
-def create_default_pipeline(check_for_duplicates=False, scale=None, reduce=None):
+def create_default_pipeline(
+    drnb_home=None, check_for_duplicates=False, scale=None, reduce=None
+):
     return create_data_pipeline(
+        drnb_home=drnb_home,
         check_for_duplicates=check_for_duplicates,
         scale=scale,
         reduce=reduce,

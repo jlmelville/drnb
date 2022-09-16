@@ -6,7 +6,7 @@ from pathlib import Path
 import sklearn.metrics
 
 import drnb.neighbors.sklearn as sknbrs
-from drnb.io import data_relative_path, get_data_path, read_data, write_data, write_npy
+from drnb.io import data_relative_path, get_path, read_data, write_data
 from drnb.log import log
 from drnb.preprocess import numpyfy
 from drnb.util import FromDict
@@ -146,7 +146,7 @@ def preferred_exact_methods():
 # pylint: disable=too-many-return-statements
 def find_candidate_neighbors_info(
     name,
-    data_path=None,
+    drnb_home=None,
     sub_dir="nn",
     n_neighbors=1,
     metric="euclidean",
@@ -157,7 +157,7 @@ def find_candidate_neighbors_info(
     if name is None:
         return None
 
-    nn_dir_path = get_data_path(data_path=data_path, sub_dir=sub_dir)
+    nn_dir_path = get_path(drnb_home=drnb_home, sub_dir=sub_dir)
     # probable nn files
     nn_file_paths = list(Path.glob(nn_dir_path, name + "*.idx.*"))
     if not nn_file_paths:
@@ -214,7 +214,7 @@ def read_neighbors(
     metric="euclidean",
     method=None,
     exact=False,
-    data_path=None,
+    drnb_home=None,
     sub_dir="nn",
     return_distance=True,
     verbose=False,
@@ -226,7 +226,7 @@ def read_neighbors(
         method=method,
         exact=exact,
         return_distance=return_distance,
-        data_path=data_path,
+        drnb_home=drnb_home,
         sub_dir=sub_dir,
     )
 
@@ -239,7 +239,7 @@ def read_neighbors(
         idx = read_data(
             dataset=candidate_info.name,
             suffix=candidate_info.idx_suffix,
-            data_path=data_path,
+            drnb_home=drnb_home,
             sub_dir=sub_dir,
             as_numpy=True,
             verbose=False,
@@ -249,7 +249,7 @@ def read_neighbors(
             dist = read_data(
                 dataset=candidate_info.name,
                 suffix=candidate_info.dist_suffix,
-                data_path=data_path,
+                drnb_home=drnb_home,
                 sub_dir=sub_dir,
                 as_numpy=True,
                 verbose=False,
@@ -271,7 +271,7 @@ def get_neighbors(
     return_distance=True,
     verbose=False,
     # used only by read
-    data_path=None,
+    drnb_home=None,
     sub_dir="nn",
     cache=True,
     # used only by calc
@@ -298,7 +298,7 @@ def get_neighbors(
         metric=metric,
         method=read_method,
         exact=read_exact,
-        data_path=data_path,
+        drnb_home=drnb_home,
         sub_dir=sub_dir,
         return_distance=return_distance,
         verbose=verbose,
@@ -325,7 +325,7 @@ def get_neighbors(
                 log.info("Caching calculated neighbor data")
             write_neighbors(
                 neighbor_data,
-                data_path=data_path,
+                drnb_home=drnb_home,
                 sub_dir=sub_dir,
                 create_sub_dir=True,
                 verbose=verbose,
@@ -335,7 +335,7 @@ def get_neighbors(
 
 def write_neighbors(
     neighbor_data,
-    data_path=None,
+    drnb_home=None,
     sub_dir="nn",
     create_sub_dir=True,
     file_type="npy",
@@ -348,7 +348,7 @@ def write_neighbors(
         x=neighbor_data.idx,
         name=neighbor_data.info.name,
         suffix=neighbor_data.info.idx_suffix,
-        data_path=data_path,
+        drnb_home=drnb_home,
         sub_dir=sub_dir,
         create_sub_dir=create_sub_dir,
         verbose=verbose,
@@ -360,7 +360,7 @@ def write_neighbors(
             x=neighbor_data.dist,
             name=neighbor_data.info.name,
             suffix=neighbor_data.info.dist_suffix,
-            data_path=data_path,
+            drnb_home=drnb_home,
             sub_dir=sub_dir,
             create_sub_dir=create_sub_dir,
             verbose=verbose,
@@ -380,7 +380,7 @@ def get_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None)
     )
     if ctx is not None:
         knn_defaults.update(
-            dict(data_path=ctx.data_path, sub_dir=ctx.nn_sub_dir, name=ctx.name)
+            dict(drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.name)
         )
     full_knn_params = knn_defaults | knn_params
 

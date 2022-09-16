@@ -1,6 +1,7 @@
 # Functions for reading and writing data
 
 import json
+import os
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,23 +11,37 @@ import pandas as pd
 
 from drnb.log import log
 from drnb.preprocess import numpyfy
-from drnb.util import get_method_and_args, islisty
+from drnb.util import islisty
 
-DATA_ROOT = Path.home() / "rdev" / "datasets"
+DRNB_HOME_ENV_VAR = "DRNB_HOME"
+# DATA_ROOT = Path.home() / "rdev" / "datasets"
 DEBUG = False
 
 
+def get_drnb_home():
+    if DRNB_HOME_ENV_VAR in os.environ:
+        return Path(os.environ[DRNB_HOME_ENV_VAR])
+    return None
+
+
 def data_relative_path(path):
-    if not DEBUG and path.is_relative_to(DATA_ROOT):
-        return path.relative_to(DATA_ROOT)
+    if not DEBUG and path.is_relative_to(get_drnb_home()):
+        return path.relative_to(get_drnb_home())
     return path
 
 
-def get_data_path(data_path=None, sub_dir=None, create_sub_dir=False, verbose=False):
-    if data_path is None:
-        data_path = DATA_ROOT
+def get_path(drnb_home=None, sub_dir=None, create_sub_dir=False, verbose=False):
+    if drnb_home is None:
+        drnb_home = get_drnb_home()
+        if drnb_home is None:
+            raise ValueError(
+                "No default path provided: " + f"set envvar {DRNB_HOME_ENV_VAR}"
+            )
+        if not drnb_home.is_dir():
+            raise ValueError(f"Data root is not a directory: {str(drnb_home)}")
+    data_path = drnb_home
     if sub_dir is not None:
-        data_path = data_path / sub_dir
+        data_path = drnb_home / sub_dir
     if not data_path.exists():
         if create_sub_dir:
             if verbose:
@@ -67,24 +82,24 @@ def get_data_file_path(
     name,
     ext,
     suffix=None,
-    data_path=None,
+    drnb_home=None,
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
 ):
-    data_path = get_data_path(data_path, sub_dir, create_sub_dir, verbose)
+    drnb_home = get_path(drnb_home, sub_dir, create_sub_dir, verbose)
     suffix = ensure_suffix(suffix, sub_dir)
     if suffix is not None:
         name = f"{name}{suffix}"
     name = ensure_file_extension(name, ext)
 
-    return data_path / name
+    return drnb_home / name
 
 
 def read_data(
     dataset,
     suffix=None,
-    data_path=None,
+    drnb_home=None,
     sub_dir="xy",
     as_numpy=False,
     verbose=False,
@@ -94,7 +109,7 @@ def read_data(
             data = reader_func(
                 dataset,
                 suffix=suffix,
-                data_path=data_path,
+                drnb_home=drnb_home,
                 sub_dir=sub_dir,
                 verbose=verbose,
             )
@@ -108,12 +123,12 @@ def read_data(
     raise FileNotFoundError(f"Data for {dataset} suffix={suffix} sub_dir={sub_dir}")
 
 
-def read_npy(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
+def read_npy(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
     data_file_path = get_data_file_path(
         name,
         ext="npy",
         suffix=suffix,
-        data_path=data_path,
+        drnb_home=drnb_home,
         sub_dir=sub_dir,
         create_sub_dir=False,
         verbose=verbose,
@@ -123,12 +138,12 @@ def read_npy(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
     return np.load(data_file_path)
 
 
-def read_pickle(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
+def read_pickle(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
     data_file_path = get_data_file_path(
         name,
         "pkl",
         suffix=suffix,
-        data_path=data_path,
+        drnb_home=drnb_home,
         sub_dir=sub_dir,
         create_sub_dir=False,
         verbose=verbose,
@@ -139,12 +154,12 @@ def read_pickle(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
         return pickle.load(f)
 
 
-def read_pandas_csv(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
+def read_pandas_csv(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
     data_file_path = get_data_file_path(
         name,
         "csv",
         suffix=suffix,
-        data_path=data_path,
+        drnb_home=drnb_home,
         sub_dir=sub_dir,
         create_sub_dir=False,
         verbose=verbose,
@@ -163,12 +178,12 @@ def read_pandas_csv(name, suffix=None, data_path=None, sub_dir=None, verbose=Fal
     return data
 
 
-def read_json(name, suffix=None, data_path=None, sub_dir=None, verbose=False):
+def read_json(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
     data_file_path = get_data_file_path(
         name,
         ".json",
         suffix=suffix,
-        data_path=data_path,
+        drnb_home=drnb_home,
         sub_dir=sub_dir,
         create_sub_dir=False,
         verbose=verbose,
@@ -194,13 +209,13 @@ def write_csv(
     x,
     name,
     suffix=None,
-    data_path=None,
+    drnb_home=None,
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
 ):
     output_path = get_data_file_path(
-        name, ".csv", suffix, data_path, sub_dir, create_sub_dir, verbose
+        name, ".csv", suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
     if verbose:
         log.info("Writing csv format to %s", data_relative_path(output_path))
@@ -217,13 +232,13 @@ def write_npy(
     x,
     name,
     suffix=None,
-    data_path=None,
+    drnb_home=None,
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
 ):
     output_path = get_data_file_path(
-        name, ".npy", suffix, data_path, sub_dir, create_sub_dir, verbose
+        name, ".npy", suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
     if verbose:
         log.info("Writing numpy format to %s", data_relative_path(output_path))
@@ -235,13 +250,13 @@ def write_pickle(
     x,
     name,
     suffix=None,
-    data_path=None,
+    drnb_home=None,
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
 ):
     output_path = get_data_file_path(
-        name, ".pkl", suffix, data_path, sub_dir, create_sub_dir, verbose
+        name, ".pkl", suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
     if verbose:
         log.info("Writing pkl format to %s", data_relative_path(output_path))
@@ -254,13 +269,13 @@ def write_json(
     x,
     name,
     suffix=None,
-    data_path=None,
+    drnb_home=None,
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
 ):
     output_path = get_data_file_path(
-        name, ".json", suffix, data_path, sub_dir, create_sub_dir, verbose
+        name, ".json", suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
     if verbose:
         log.info("Writing JSON format to %s", data_relative_path(output_path))
@@ -280,7 +295,7 @@ def write_data(
     x,
     name,
     suffix=None,
-    data_path=None,
+    drnb_home=None,
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
@@ -304,7 +319,7 @@ def write_data(
             x=x,
             name=name,
             suffix=suffix,
-            data_path=data_path,
+            drnb_home=drnb_home,
             sub_dir=sub_dir,
             create_sub_dir=create_sub_dir,
             verbose=verbose,
@@ -315,7 +330,7 @@ def write_data(
 
 @dataclass
 class FileExporter:
-    data_path: str = None
+    drnb_home: str = None
     sub_dir: str = None
     suffix: str = None
     create_sub_dir: bool = True
@@ -326,7 +341,9 @@ class FileExporter:
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def export(self, name, data, suffix=None, sub_dir=None):
+    def export(self, name, data, suffix=None, sub_dir=None, drnb_home=None):
+        if drnb_home is None:
+            drnb_home = self.drnb_home
         if suffix is None:
             suffix = self.suffix
         if sub_dir is None:
@@ -334,7 +351,7 @@ class FileExporter:
         output_path = write_data(
             data,
             name,
-            data_path=self.data_path,
+            drnb_home=drnb_home,
             sub_dir=sub_dir,
             suffix=suffix,
             create_sub_dir=self.create_sub_dir,
