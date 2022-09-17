@@ -14,7 +14,6 @@ from drnb.preprocess import numpyfy
 from drnb.util import islisty
 
 DRNB_HOME_ENV_VAR = "DRNB_HOME"
-# DATA_ROOT = Path.home() / "rdev" / "datasets"
 DEBUG = False
 
 
