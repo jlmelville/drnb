@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import trimap
 
 import drnb.embed
+import drnb.neighbors as knn
 from drnb.log import log
 
 
@@ -10,8 +11,23 @@ from drnb.log import log
 class Trimap(drnb.embed.Embedder):
     init: str = None
     return_every: int = None
+    use_precomputed_knn: bool = True
 
     def embed_impl(self, x, params, ctx=None):
+        knn_params = {}
+        if isinstance(self.use_precomputed_knn, dict):
+            knn_params = dict(self.use_precomputed_knn)
+            self.use_precomputed_knn = True
+
+        if self.use_precomputed_knn:
+            log.info("Using precomputed knn")
+            metric = params.get("metric", "euclidean")
+            n_neighbors = params.get("n_neighbors", 15)
+            precomputed_knn = knn.get_neighbors_with_ctx(
+                x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
+            )
+            params["knn_tuple"] = (precomputed_knn.idx, precomputed_knn.dist)
+
         return trimap_embed(x, params, self.init, self.return_every)
 
 
