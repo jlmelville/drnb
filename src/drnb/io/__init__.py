@@ -100,7 +100,7 @@ def read_data(
     dataset,
     suffix=None,
     drnb_home=None,
-    sub_dir="xy",
+    sub_dir="data",
     as_numpy=False,
     verbose=False,
 ):

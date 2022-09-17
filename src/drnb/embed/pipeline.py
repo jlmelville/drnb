@@ -57,6 +57,11 @@ class EmbedderPipeline:
         return embedded
 
 
+# helper method to create an embedder configuration
+def embedder(name, params=None, **kwargs):
+    return (name, kwargs | dict(params=params))
+
+
 def create_pipeline(
     method,
     data_config=None,
@@ -68,14 +73,15 @@ def create_pipeline(
     if data_config is None:
         data_config = {}
     importer = dataio.DatasetImporter(**data_config)
-    embedder = create_embedder(method)
+    # shut up pylint
+    _embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
     plotter = nbplot.create_plotter(plot)
     exporters = embedio.create_embed_exporters(get_embedder_name(method), export)
 
     return EmbedderPipeline(
         importer=importer,
-        embedder=embedder,
+        embedder=_embedder,
         evaluators=evaluators,
         plotter=plotter,
         exporters=exporters,
@@ -87,6 +93,6 @@ def create_pipeline(
 class DatasetContext:
     name: str
     drnb_home: pathlib.Path = nbio.get_drnb_home()
-    data_sub_dir: str = "xy"
+    data_sub_dir: str = "data"
     nn_sub_dir: str = "nn"
     triplet_sub_dir: str = "triplets"

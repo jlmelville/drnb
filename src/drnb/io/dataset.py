@@ -77,11 +77,12 @@ class DatasetImporter:
 
     # pylint: disable=unused-argument
     def import_data(self, name, x=None, y=None):
+        drnb_home = self.drnb_home
         if drnb_home is None:
             drnb_home = get_drnb_home()
         data, target = read_dataset(
             name,
-            drnb_home=self.drnb_home,
+            drnb_home=drnb_home,
             sub_dir=self.sub_dir,
             data_suffix=self.data_suffix,
             target_suffix=self.target_suffix,
