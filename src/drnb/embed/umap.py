@@ -20,7 +20,7 @@ class DummyNNDescent(pynndescent.NNDescent):
 
 @dataclass
 class Umap(drnb.embed.Embedder):
-    use_precomputed_knn: bool = False
+    use_precomputed_knn: bool = True
 
     def embed_impl(self, x, params, ctx=None):
         knn_params = {}
