@@ -1,16 +1,43 @@
 from dataclasses import dataclass
 
+import numpy as np
 import pacmap
+import pandas as pd
 
 import drnb.embed
+import drnb.neighbors as knn
 from drnb.log import log
 
 
 @dataclass
 class Pacmap(drnb.embed.Embedder):
+    use_precomputed_knn: bool = True
     init: str = None
 
     def embed_impl(self, x, params, ctx=None):
+        knn_params = {}
+        if isinstance(self.use_precomputed_knn, dict):
+            knn_params = dict(self.use_precomputed_knn)
+            self.use_precomputed_knn = True
+
+        if self.use_precomputed_knn:
+            log.info("Using precomputed knn")
+            metric = params.get("distance", "euclidean")
+            n_neighbors = params.get("n_neighbors", 10) + 1
+            precomputed_knn = knn.get_neighbors_with_ctx(
+                x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
+            )
+            pair_neighbors = (
+                pd.melt(pd.DataFrame(precomputed_knn.idx), [0])[[0, "value"]]
+                .to_numpy()
+                .astype(np.int32)
+            )
+            log.info(
+                "Converted knn to pair neighbors: %s",
+                pair_neighbors.shape,
+            )
+            params["pair_neighbors"] = pair_neighbors
+
         return embed_pacmap(x, params, self.init)
 
 
