@@ -17,7 +17,7 @@ from .triplets import (
 class RandomTripletEval(EmbeddingEval):
     random_state: int = None
     n_triplets_per_point: int = 5
-    use_precomputed_triplets: bool = False
+    use_precomputed_triplets: bool = True
     metric: str = "l2"
 
     def evaluate(self, X, coords, ctx=None):
