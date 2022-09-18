@@ -258,7 +258,7 @@ class DatasetPipeline(Jsonizable):
                         sub_dir="nn",
                         create_sub_dir=True,
                         file_type=self.neighbors_request.file_types,
-                        verbose=False,
+                        verbose=self.verbose,
                     )
                     neighbors_output_paths.append(
                         stringify_paths(idx_paths + dist_paths)
