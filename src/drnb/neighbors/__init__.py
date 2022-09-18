@@ -159,7 +159,7 @@ def find_candidate_neighbors_info(
 
     nn_dir_path = get_path(drnb_home=drnb_home, sub_dir=sub_dir)
     # probable nn files
-    nn_file_paths = list(Path.glob(nn_dir_path, name + "*.idx.*"))
+    nn_file_paths = list(Path.glob(nn_dir_path, name + ".*.idx.*"))
     if not nn_file_paths:
         return None
 
@@ -203,8 +203,14 @@ def find_candidate_neighbors_info(
         return None
 
     # the smallest file which has enough neighbors
-    candidate_info = sorted(nn_infos, key=lambda x: x.n_nbrs)[0]
+    candidate_infos = sorted(nn_infos, key=lambda x: x.n_nbrs)
+    candidate_info = candidate_infos[0]
 
+    # favor npy or pkl files over csv
+    preferred_exts = [".npy", ".pkl"]
+    for cinfo in candidate_infos:
+        if cinfo.idx_path.suffix in preferred_exts:
+            return cinfo
     return candidate_info
 
 

@@ -46,7 +46,7 @@ def find_triplet_files(
     triplet_dir_path = nbio.get_path(drnb_home=drnb_home, sub_dir=sub_dir)
     if not triplet_dir_path.exists():
         return []
-    triplet_file_paths = list(Path.glob(triplet_dir_path, name + "*.idx.*"))
+    triplet_file_paths = list(Path.glob(triplet_dir_path, name + ".*.idx.*"))
     triplet_infos = [
         TripletInfo.from_path(triplet_file_path, ignore_bad_path=True)
         for triplet_file_path in triplet_file_paths
@@ -63,6 +63,14 @@ def find_triplet_files(
     ]
     if not triplet_infos:
         return triplet_infos
+
+    # favor npy or pkl files over csv
+    preferred_exts = [".npy", ".pkl"]
+    ext_triplet_infos = [
+        info for info in triplet_infos if info.idx_path.suffix in preferred_exts
+    ]
+    if ext_triplet_infos:
+        triplet_infos = ext_triplet_infos
 
     # look for suitable distance files
     dist_triplet_infos = [
