@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from drnb.io import FileExporter, get_drnb_home, read_data, read_json
+from drnb.io import FileExporter, get_drnb_home, islisty, read_data, read_json
 from drnb.util import (
     READABLE_DATETIME_FMT,
     dts_to_str,
@@ -115,7 +115,15 @@ def read_data_pipeline(name, drnb_home=None, sub_dir="data"):
     return read_json(name=name, suffix="pipeline", drnb_home=drnb_home, sub_dir=sub_dir)
 
 
-def get_dataset_info(name, drnb_home=None, sub_dir="data"):
+def get_dataset_info(names, drnb_home=None, sub_dir="data"):
+    if not islisty(names):
+        return _get_dataset_info(names, drnb_home=drnb_home, sub_dir=sub_dir)
+    return pd.concat(
+        [_get_dataset_info(n, drnb_home=drnb_home, sub_dir=sub_dir) for n in names]
+    )
+
+
+def _get_dataset_info(name, drnb_home=None, sub_dir="data"):
     pipeline = read_data_pipeline(name=name, drnb_home=drnb_home, sub_dir=sub_dir)
     dshape = pipeline["data_shape"]
     tshape = pipeline["target_shape"]
@@ -157,7 +165,7 @@ def get_dataset_info(name, drnb_home=None, sub_dir="data"):
     ).set_index("name")
 
 
-def list_available_data(drnb_home=None, sub_dir="data", with_target=False):
+def list_available_datasets(drnb_home=None, sub_dir="data", with_target=False):
     if drnb_home is None:
         drnb_home = get_drnb_home()
     data_path = drnb_home
@@ -185,11 +193,9 @@ def list_available_data(drnb_home=None, sub_dir="data", with_target=False):
     return sorted(datasets)
 
 
-def get_available_data_info(drnb_home=None, sub_dir="data"):
-    dfs = [
-        get_dataset_info(name)
-        for name in list_available_data(
-            drnb_home=drnb_home, sub_dir=sub_dir, with_target=False
-        )
-    ]
+def get_available_dataset_info(drnb_home=None, sub_dir="data", names=None):
+    names = list_available_datasets(
+        drnb_home=drnb_home, sub_dir=sub_dir, with_target=False
+    )
+    dfs = [get_dataset_info(name) for name in names]
     return pd.concat(dfs)
