@@ -82,9 +82,8 @@ def get_tsne_affinities(
         return openTSNE.affinity.PerplexityBasedNN(
             perplexity=perplexity,
             knn_index=tsne_knn,
-            k_neighbors=n_neighbors,
         )
-    return openTSNE.affinity.Uniform(knn_index=tsne_knn, k_neighbors=n_neighbors)
+    return openTSNE.affinity.Uniform(knn_index=tsne_knn)
 
 
 @dataclass
