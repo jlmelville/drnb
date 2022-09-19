@@ -12,6 +12,7 @@ class PrecomputedKNNIndex:
     def __init__(self, indices, distances):
         self.indices = indices
         self.distances = distances
+        self.n_samples = indices.shape[0]
         self.k = indices.shape[1]
 
     def build(self):
@@ -27,11 +28,71 @@ class PrecomputedKNNIndex:
         return metric
 
 
+def get_n_neighbors_for_perplexity(perplexity, x):
+    n_samples = x.shape[0]
+    k_neighbors = min(n_samples - 1, int(3 * perplexity))
+    if k_neighbors < 3 * perplexity:
+        log.info(
+            "Using k_neighbors %d, < 3 * perplexity %.2f "
+            "may give unexpected results",
+            k_neighbors,
+            perplexity,
+        )
+    else:
+        log.info(
+            "Using k_neighbors (no self) = %d with perplexity %.2f",
+            k_neighbors,
+            perplexity,
+        )
+    return k_neighbors
+
+
+def get_tsne_affinities(
+    affinity_type,
+    perplexity=30,
+    n_neighbors=None,
+    x=None,
+    knn_params=None,
+    metric="euclidean",
+    ctx=None,
+):
+    if knn_params is None:
+        knn_params = {}
+    if affinity_type == "perplexity":
+        if n_neighbors is None:
+            n_neighbors = get_n_neighbors_for_perplexity(perplexity, x)
+    elif affinity_type == "uniform":
+        if n_neighbors is None:
+            raise ValueError("n_neighbors cannot be None")
+        log.info(
+            "Calculating uniform affinities with n_neighbors = %d",
+            n_neighbors,
+        )
+    else:
+        raise ValueError(f"Unknown affinity type '{affinity_type}'")
+    # openTSNE does not use self index so ask for one more
+    precomputed_knn = knn.get_neighbors_with_ctx(
+        x, metric, n_neighbors + 1, knn_params=knn_params, ctx=ctx
+    )
+    tsne_knn = PrecomputedKNNIndex(
+        precomputed_knn.idx[:, 1:], precomputed_knn.dist[:, 1:]
+    )
+
+    if affinity_type == "perplexity":
+        return openTSNE.affinity.PerplexityBasedNN(
+            perplexity=perplexity,
+            knn_index=tsne_knn,
+            k_neighbors=n_neighbors,
+        )
+    return openTSNE.affinity.Uniform(knn_index=tsne_knn, k_neighbors=n_neighbors)
+
+
 @dataclass
 class Tsne(drnb.embed.Embedder):
     use_precomputed_knn: bool = True
     initialization: str = None
-    k_neighbors: int = None
+    n_neighbors: int = None
+    affinity: str = "perplexity"
 
     def embed_impl(self, x, params, ctx=None):
         knn_params = {}
@@ -41,39 +102,16 @@ class Tsne(drnb.embed.Embedder):
 
         if self.use_precomputed_knn:
             log.info("Using precomputed knn")
-            metric = params.get("metric", "euclidean")
-            n_samples = x.shape[0]
-            perplexity = params.get("perplexity", 30)
-            if self.k_neighbors is None:
-                k_neighbors = min(n_samples - 1, int(3 * perplexity))
-            else:
-                k_neighbors = self.k_neighbors
-
-            if k_neighbors < 3 * perplexity:
-                log.info(
-                    "Using k_neighbors %d, < 3 * perplexity %.2f "
-                    "may give unexpected results",
-                    k_neighbors,
-                    perplexity,
-                )
-            else:
-                log.info(
-                    "Using k_neighbors (no self) = %d with perplexity %.2f",
-                    k_neighbors,
-                    perplexity,
-                )
-            # openTSNE does not use self index so ask for one more
-            precomputed_knn = knn.get_neighbors_with_ctx(
-                x, metric, k_neighbors + 1, knn_params=knn_params, ctx=ctx
-            )
-            tsne_knn = PrecomputedKNNIndex(
-                precomputed_knn.idx[:, 1:], precomputed_knn.dist[:, 1:]
+            affinities = get_tsne_affinities(
+                affinity_type=self.affinity,
+                perplexity=params.get("perplexity", 30),
+                n_neighbors=self.n_neighbors,
+                x=x,
+                knn_params=knn_params,
+                metric=params.get("metric", "euclidean"),
+                ctx=ctx,
             )
 
-            log.info("Calculating affinity for perplexity %.2f", perplexity)
-            affinities = openTSNE.affinity.PerplexityBasedNN(
-                perplexity=perplexity, knn_index=tsne_knn, k_neighbors=k_neighbors
-            )
         if self.initialization is not None:
             log.info("Using '%s' initialization", self.initialization)
 
