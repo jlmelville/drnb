@@ -4,13 +4,14 @@ from typing import Any
 
 import drnb.io as nbio
 import drnb.io.dataset as dataio
-import drnb.io.embed as embedio
 import drnb.plot as nbplot
 from drnb.embed import get_embedder_name
 from drnb.embed.factory import create_embedder
 from drnb.eval import evaluate_embedding
 from drnb.eval.factory import create_evaluators
+from drnb.io.embed import create_embed_exporter
 from drnb.log import log, log_verbosity
+from drnb.util import get_method_and_args
 
 
 @dataclass
@@ -46,9 +47,10 @@ class EmbedderPipeline:
         log.info("Plotting")
         self.plotter.plot(embedded, y, ctx=ctx)
 
-        log.info("Exporting")
-        for exporter in self.exporters:
-            exporter.export(name=name, embedded=embedded)
+        if self.exporters is not None:
+            log.info("Exporting")
+            for exporter in self.exporters:
+                exporter.export(name=name, embedded=embedded)
 
         if not isinstance(embedded, dict):
             embedded = dict(coords=embedded)
@@ -67,7 +69,7 @@ def create_pipeline(
     data_config=None,
     plot=True,
     eval_metrics=None,
-    export=False,
+    export=None,
     verbose=False,
 ):
     if data_config is None:
@@ -77,7 +79,15 @@ def create_pipeline(
     _embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
     plotter = nbplot.create_plotter(plot)
-    exporters = embedio.create_embed_exporters(get_embedder_name(method), export)
+    if export is not None:
+        out_type, export_kwargs = get_method_and_args(export)
+        export_kwargs["out_type"] = out_type
+        export_kwargs["embed_method"] = get_embedder_name(method)
+        if "verbose" not in export_kwargs:
+            export_kwargs["verbose"] = verbose
+        exporters = create_embed_exporter(**export_kwargs)
+    else:
+        exporters = None
 
     return EmbedderPipeline(
         importer=importer,

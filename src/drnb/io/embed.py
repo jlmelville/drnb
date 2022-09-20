@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from drnb.io import FileExporter, ensure_suffix
-from drnb.util import get_method_and_args, get_multi_config, islisty
+from drnb.util import islisty
 
 
 class NoEmbedExporter:
@@ -50,30 +50,36 @@ class FileEmbedExporter:
                 )
 
 
-def create_embed_exporter(embed_method, export=False):
-    export, export_kwargs = get_method_and_args(export)
-    if isinstance(export, bool):
-        if export:
-            export = "csv"
+# dnrb_home/<export-dir>/iris-umap.pkl
+
+# export=dict(ext=["pkl", "csv"], sub_dir="umap-pl", suffix="umap")
+def create_embed_exporter(
+    embed_method,
+    out_type,
+    sub_dir,
+    suffix=None,
+    create_sub_dir=True,
+    drnb_home=None,
+    verbose=False,
+):
+    if suffix is None:
+        suffix = embed_method
+    if not islisty(out_type):
+        out_type = [out_type]
+
+    exporters = []
+    for otype in out_type:
+        if otype in ("csv", "pkl", "npy"):
+            exporter_cls = FileEmbedExporter
         else:
-            export = "none"
-
-    if export in ("csv", "pkl", "npy"):
-        exporter_cls = FileEmbedExporter
-    elif export == "none":
-        exporter_cls = NoEmbedExporter
-    else:
-        raise ValueError(f"Unknown exporter type {export}")
-
-    if export_kwargs is None:
-        export_kwargs = dict(suffix=None, create_sub_dir=True, verbose=False)
-    if "sub_dir" not in export_kwargs:
-        export_kwargs["sub_dir"] = embed_method
-
-    exporter = exporter_cls.new(file_type=export, **export_kwargs)
-    return exporter
-
-
-def create_embed_exporters(embed_method, export=False):
-    export = get_multi_config(export)
-    return [create_embed_exporter(embed_method, ex) for ex in export]
+            raise ValueError(f"Unknown exporter type {otype}")
+        kwargs = dict(
+            file_type=otype,
+            drnb_home=drnb_home,
+            sub_dir=sub_dir,
+            suffix=suffix,
+            create_sub_dir=create_sub_dir,
+            verbose=verbose,
+        )
+        exporters.append(exporter_cls.new(**kwargs))
+    return exporters
