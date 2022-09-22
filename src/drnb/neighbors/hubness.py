@@ -10,6 +10,7 @@ from drnb.io import data_relative_path
 from drnb.io.dataset import get_dataset_info
 from drnb.log import log
 from drnb.neighbors import read_neighbors
+from drnb.util import islisty
 
 
 def k_occurrences(idx, n_neighbors=None):
@@ -39,12 +40,14 @@ def s_occurrences(idx, n_neighbors=None):
     if n_neighbors > idx.shape[1]:
         raise ValueError(f"{n_neighbors} > {idx.shape[1]}")
 
-    return _s_occurrences(idx, n_neighbors)
+    idx = idx[:n_neighbors]
+    return _s_occurrences(idx)
 
 
 @jit(nopython=True, parallel=True)
-def _s_occurrences(idx, n_neighbors):
+def _s_occurrences(idx):
     n_items = idx.shape[0]
+    n_neighbors = idx.shape[1]
     result = np.zeros(dtype=np.int32, shape=n_items)
 
     # pylint: disable=not-an-iterable
@@ -120,12 +123,13 @@ def nbr_stats(name, n_neighbors):
     ko_desc, ko = ko_data(nbrs)
     so_desc, so = so_data(nbrs)
     nc = n_components(nbrs)
-    ndim = get_dataset_info(name).n_dim
+    data_info = get_dataset_info(name)
     return dict(
         name=name,
-        ndim=ndim,
+        n_dim=data_info["n_dim"],
+        n_items=data_info["n_items"],
         idx_path=nbrs.info.idx_path,
-        nc=nc,
+        n_components=nc,
         n_neighbors=n_neighbors,
         ko_desc=ko_desc,
         so_desc=so_desc,
@@ -175,3 +179,106 @@ def read_nbr_stats(name, n_neighbors):
     stats_path = idx_to_stats_path(nbrs.info.name, nbrs.info.idx_path)
     with open(stats_path, "rb") as f:
         return pickle.load(f)
+
+
+def format_df(
+    df,
+    stats,
+    drop_cols=None,
+    rename_cols=None,
+    n_neighbors_norm_cols=None,
+    n_items_pct_cols=None,
+    int_cols=None,
+    float_cols=None,
+):
+    if drop_cols is not None:
+        df = df.drop(columns=drop_cols)
+    if rename_cols is not None:
+        df = df.rename(columns=rename_cols)
+    if n_neighbors_norm_cols is not None:
+        for col_to_norm in n_neighbors_norm_cols:
+            df[f"n{col_to_norm}"] = df[col_to_norm].astype(float) / stats["n_neighbors"]
+    if n_items_pct_cols is not None:
+        for col_to_norm in n_items_pct_cols:
+            df[f"{col_to_norm}%"] = 100.0 * df[col_to_norm] / stats["n_items"]
+
+    df[int_cols] = df[int_cols].astype(np.int32)
+    # pylint: disable=consider-using-f-string
+    df[float_cols] = df[float_cols].applymap("{0:.2f}".format)
+    return df
+
+
+def fetch_nbr_stats(name, n_neighbors, cache=True):
+    try:
+        return read_nbr_stats(name, n_neighbors)
+    except FileNotFoundError:
+        log.info(
+            "Calculating neighbor stats for %s n_neighbors = %d", name, n_neighbors
+        )
+        stats = nbr_stats(name, n_neighbors)
+        if cache:
+            log.info("Caching neighbor stats")
+            write_nbr_stats(stats)
+        return stats
+
+
+def nbr_stats_summary(names, n_neighbors, cache=True):
+    summaries = []
+    if not islisty(names):
+        names = [names]
+
+    for name in names:
+        stats_df = _nbr_stats_summary(name, n_neighbors, cache=cache)
+        if not stats_df.empty:
+            summaries.append(stats_df)
+
+    return pd.concat(summaries)
+
+
+def _nbr_stats_summary(name, n_neighbors, cache=True):
+    try:
+        stats = fetch_nbr_stats(name, n_neighbors, cache=cache)
+    except ValueError:
+        log.info("Skipping neighbor data for %s", name)
+        return pd.DataFrame()
+
+    kdf = pd.DataFrame(stats["ko_desc"]).T
+    kdf = format_df(
+        kdf,
+        stats,
+        drop_cols=["mean", "std", "25%", "75%"],
+        rename_cols={
+            "count": "n_items",
+            "50%": "kmedian",
+            "min": "kmin",
+            "max": "kmax",
+            "skew": "kskew",
+            "#0": "k#0",
+        },
+        n_neighbors_norm_cols=["kmax", "kmedian"],
+        n_items_pct_cols=["k#0"],
+        int_cols=["n_items", "kmin", "kmax", "k#0"],
+        float_cols=["nkmax", "nkmedian", "k#0%", "kskew"],
+    )
+
+    sdf = pd.DataFrame(stats["so_desc"]).T
+    sdf = format_df(
+        sdf,
+        stats,
+        drop_cols=["count", "std", "25%", "75%", "mean", "max"],
+        rename_cols={
+            "50%": "smedian",
+            "min": "smin",
+            "skew": "sskew",
+            "#0": "s#0",
+        },
+        n_neighbors_norm_cols=["smedian"],
+        n_items_pct_cols=["s#0"],
+        int_cols=["smin", "s#0"],
+        float_cols=["nsmedian", "s#0%", "sskew"],
+    )
+
+    df = pd.concat([kdf, sdf], axis=1)
+    df.insert(1, "n_comps", stats["n_components"])
+    df.insert(1, "n_dim", stats["n_dim"])
+    return df
