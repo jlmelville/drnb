@@ -1,7 +1,15 @@
+import pickle
+
 import numpy as np
+import pandas as pd
 import scipy.sparse
 from numba import jit, prange
 from scipy.sparse.csgraph import connected_components
+
+from drnb.io import data_relative_path
+from drnb.io.dataset import get_dataset_info
+from drnb.log import log
+from drnb.neighbors import read_neighbors
 
 
 def k_occurrences(idx, n_neighbors=None):
@@ -50,7 +58,7 @@ def _s_occurrences(idx, n_neighbors):
     return result
 
 
-def get_n_components(nbrs):
+def n_components(nbrs):
     wadj_graph = nn_to_sparse(nbrs)
     return connected_components(csgraph=wadj_graph, directed=True, return_labels=False)
 
@@ -82,3 +90,88 @@ def nn_to_sparse(nbrs):
     rows, cols, vals = _nn_to_sparse(idx, dist)
 
     return scipy.sparse.coo_matrix((vals, (rows, cols)), shape=(n_items, n_items))
+
+
+# https://stackoverflow.com/a/38547818/4096483
+def describe(df):
+    if isinstance(df, np.ndarray):
+        df = pd.Series(df)
+    d = df.describe()
+    return pd.concat(
+        [d, df.agg(["skew"]), pd.Series(df[df == 0].count(), index=["#0"])]
+    )
+
+
+def get_nbrs(name, n_neighbors):
+    nbrs = read_neighbors(
+        name,
+        n_neighbors=n_neighbors + 1,
+        exact=True,
+    )
+    if nbrs is None:
+        raise ValueError(f"Couldn't get {n_neighbors} for {name}")
+    nbrs.idx = nbrs.idx[:, 1:]
+    nbrs.dist = nbrs.dist[:, 1:]
+    return nbrs
+
+
+def nbr_stats(name, n_neighbors):
+    nbrs = get_nbrs(name, n_neighbors)
+    ko_desc, ko = ko_data(nbrs)
+    so_desc, so = so_data(nbrs)
+    nc = n_components(nbrs)
+    ndim = get_dataset_info(name).n_dim
+    return dict(
+        name=name,
+        ndim=ndim,
+        idx_path=nbrs.info.idx_path,
+        nc=nc,
+        n_neighbors=n_neighbors,
+        ko_desc=ko_desc,
+        so_desc=so_desc,
+        ko=ko,
+        so=so,
+    )
+
+
+def ko_data(nbrs, n_neighbors=None):
+    if n_neighbors is None:
+        n_neighbors = nbrs.idx.shape[1]
+    ko = k_occurrences(nbrs.idx, n_neighbors=n_neighbors)
+    ko_desc = describe(ko)
+    ko_desc.name = nbrs.info.name
+    return ko_desc, ko
+
+
+def so_data(nbrs, n_neighbors=None):
+    if n_neighbors is None:
+        n_neighbors = nbrs.idx.shape[1]
+    so = s_occurrences(nbrs.idx, n_neighbors=n_neighbors)
+    so_desc = describe(so)
+    so_desc.name = nbrs.info.name
+    return so_desc, so
+
+
+def idx_to_stats_path(name, idx_path):
+    return idx_path.parent / "".join(
+        [name] + idx_path.suffixes[:-2] + [".stats", ".npy"]
+    )
+
+
+def write_nbr_stats(nstats):
+    idx_path = nstats["idx_path"]
+    stats_path = idx_to_stats_path(nstats["name"], idx_path)
+    log.info("Writing pkl format to %s", data_relative_path(stats_path))
+    with open(stats_path, "wb") as f:
+        pickle.dump(nstats, f, pickle.HIGHEST_PROTOCOL)
+
+
+def read_nbr_stats(name, n_neighbors):
+    nbrs = get_nbrs(name, n_neighbors)
+    # unlike the neighbor data itself, the stats file has to be an exact match
+    # otherwise we won't find it
+    if nbrs.info.n_nbrs != n_neighbors + 1:
+        raise FileNotFoundError(f"Couldn't find nbr stats for {name}, {n_neighbors}")
+    stats_path = idx_to_stats_path(nbrs.info.name, nbrs.info.idx_path)
+    with open(stats_path, "rb") as f:
+        return pickle.load(f)
