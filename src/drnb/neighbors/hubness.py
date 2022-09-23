@@ -7,7 +7,7 @@ from numba import jit, prange
 from scipy.sparse.csgraph import connected_components
 
 from drnb.io import data_relative_path
-from drnb.io.dataset import get_dataset_info
+from drnb.io.dataset import get_dataset_info, list_available_datasets
 from drnb.log import log
 from drnb.neighbors import read_neighbors
 from drnb.util import islisty
@@ -222,11 +222,13 @@ def fetch_nbr_stats(name, n_neighbors, cache=True):
         return stats
 
 
-def nbr_stats_summary(names, n_neighbors, cache=True):
-    summaries = []
+def nbr_stats_summary(n_neighbors, names=None, cache=True):
+    if names is None:
+        names = list_available_datasets()
     if not islisty(names):
         names = [names]
 
+    summaries = []
     for name in names:
         stats_df = _nbr_stats_summary(name, n_neighbors, cache=cache)
         if not stats_df.empty:
