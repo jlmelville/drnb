@@ -7,6 +7,7 @@ import umap
 import drnb.embed
 import drnb.neighbors as knn
 from drnb.log import log
+from drnb.yinit import spca
 
 
 # A subclass of NNDescent which exists purely to escape the scrutiny of a validation
@@ -21,8 +22,15 @@ class DummyNNDescent(pynndescent.NNDescent):
 @dataclass
 class Umap(drnb.embed.Embedder):
     use_precomputed_knn: bool = True
+    drnb_init: str = None
 
     def embed_impl(self, x, params, ctx=None):
+        if self.drnb_init is not None:
+            if self.drnb_init == "spca":
+                params["init"] = spca(x)
+            else:
+                raise ValueError(f"Unknown drnb initialization '{self.drnb_init}'")
+
         knn_params = {}
         if isinstance(self.use_precomputed_knn, dict):
             knn_params = dict(self.use_precomputed_knn)
