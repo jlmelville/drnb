@@ -399,6 +399,7 @@ def get_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None)
     )
 
 
+# this should only be used for creating reduced neighbor data for writing
 def slice_neighbors(neighbors_data, n_neighbors):
     if neighbors_data.info.n_nbrs < n_neighbors:
         raise ValueError("Not enough neighbors")
