@@ -40,7 +40,7 @@ def s_occurrences(idx, n_neighbors=None):
     if n_neighbors > idx.shape[1]:
         raise ValueError(f"{n_neighbors} > {idx.shape[1]}")
 
-    idx = idx[:n_neighbors]
+    idx = idx[:, :n_neighbors]
     return _s_occurrences(idx)
 
 
