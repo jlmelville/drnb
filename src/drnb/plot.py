@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import matplotlib.pyplot as plt
@@ -25,33 +25,92 @@ class NoPlotter:
 
 
 @dataclass
+class ColorScale:
+    vmin: float = None
+    vmax: float = None
+    palette: Any = None
+
+    @classmethod
+    def new(cls, kwds):
+        if kwds is None:
+            return cls()
+        return cls(**kwds)
+
+    def __call__(self, y, vmin, vmax, palette):
+        _vmin = self.vmin
+        if _vmin is None:
+            _vmin = vmin
+        if _vmin is None:
+            _vmin = y.min()
+
+        _vmax = self.vmax
+        if _vmax is None:
+            _vmax = vmax
+        if _vmax is None:
+            _vmax = y.max()
+
+        _palette = self.palette
+        if _palette is None:
+            _palette = palette
+
+        norm = plt.Normalize(_vmin, _vmax)
+        sm = plt.cm.ScalarMappable(cmap=_palette, norm=norm)
+        sm.set_array([])
+
+        return sm
+
+
+@dataclass
 class ColorByKo:
     n_neighbors: int = 15
+    scale: ColorScale = ColorScale()
+    normalize: bool = True
     log1p: bool = False
 
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
         res = np.array(hub.fetch_nbr_stats(ctx.name, self.n_neighbors)["ko"])
+        if self.normalize:
+            res = res / self.n_neighbors
         if self.log1p:
             return np.log1p(res)
         return res
+
+    def __str__(self):
+        return (
+            f"ko{self.n_neighbors}"
+            f"{' log' if self.log1p else ''}{' norm' if self.normalize else ''}"
+        )
 
 
 @dataclass
 class ColorBySo:
     n_neighbors: int = 15
+    scale: ColorScale = ColorScale()
+    normalize: bool = True
     log1p: bool = False
+
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
         res = np.array(hub.fetch_nbr_stats(ctx.name, self.n_neighbors)["so"])
+        if self.normalize:
+            res = res / self.n_neighbors
         if self.log1p:
             return np.log1p(res)
         return res
+
+    def __str__(self):
+        return (
+            f"so{self.n_neighbors}"
+            f"{' log' if self.log1p else ''}{' norm' if self.normalize else ''}"
+        )
 
 
 @dataclass
 class ColorByNbrPres:
     n_neighbors: int = 15
+    scale: ColorScale = ColorScale()
+
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
         return nbr_presv(
@@ -60,12 +119,24 @@ class ColorByNbrPres:
             n_nbrs=self.n_neighbors,
         )
 
+    def __str__(self):
+        return f"nbrpres{self.n_neighbors}"
+
+
+@dataclass
+class MultiPlotter:
+    uniplotters: field(default_factory=list)
+
+    def plot(self, embedded, data, y, ctx=None):
+        for plotter in self.uniplotters:
+            plotter.plot(embedded, data, y, ctx)
+
 
 @dataclass
 class SeabornPlotter:
     cex: int = 10
     alpha_scale: float = 1.0
-    title: str = ""
+    title: str = None
     figsize: tuple = None
     legend: bool = True
     palette: Any = None
@@ -80,24 +151,18 @@ class SeabornPlotter:
     def plot(self, embedded, data, y, ctx=None):
         coords = get_coords(embedded)
 
+        title = self.title
         palette = self.palette
         if palette is None:
             palette = self.get_palette(ctx)
-
         sm = None
         if isinstance(self.color_by, Callable):
             y = self.color_by(data, y, coords, ctx)
-            if self.vmin is None:
-                vmin = y.min()
-            else:
-                vmin = self.vmin
-            if self.vmax is None:
-                vmax = y.max()
-            else:
-                vmax = self.vmax
-            norm = plt.Normalize(vmin, vmax)
-            sm = plt.cm.ScalarMappable(cmap=palette, norm=norm)
-            sm.set_array([])
+            if hasattr(self.color_by, "scale") and self.color_by.scale is not None:
+                sm = self.color_by.scale(y, self.vmin, self.vmax, palette)
+                palette = self.color_by.scale.palette
+                if title is None:
+                    title = self.color_by
 
         ax = sns_embed_plot(
             coords,
@@ -105,11 +170,11 @@ class SeabornPlotter:
             cex=self.cex,
             alpha_scale=self.alpha_scale,
             palette=palette,
-            title=self.title,
+            title=title,
             figsize=self.figsize,
             legend=self.legend,
         )
-        if isinstance(self.color_by, Callable):
+        if sm is not None:
             if ax.get_legend() is not None:
                 ax.get_legend().remove()
             ax.figure.colorbar(sm)
@@ -133,6 +198,20 @@ def create_plotter(plot=True, plot_kwargs=None):
     if isinstance(plot, dict):
         plot_kwargs = plot
         plot = True
+
+    color_by = plot_kwargs.get("color_by")
+    if islisty(color_by):
+        # default plot
+        pkwargs1 = dict(plot_kwargs)
+        del pkwargs1["color_by"]
+        uniplotters = [create_plotter(pkwargs1)]
+
+        # Add extra plots
+        for cby in color_by:
+            pkwargs1 = dict(plot_kwargs)
+            pkwargs1["color_by"] = cby
+            uniplotters.append(create_plotter(pkwargs1))
+        return MultiPlotter(uniplotters)
 
     if plot:
         plotter_cls = SeabornPlotter
@@ -197,6 +276,8 @@ def sns_embed_plot(
     figsize=None,
     legend=True,
 ):
+    if title is None:
+        title = ""
     scatter_kwargs = {}
 
     if color_col is None:
@@ -267,6 +348,6 @@ def sns_embed_plot(
             ncol=nlegcol,
             title=leg_title,
         )
-        plt.tight_layout()
+        # plt.tight_layout()
 
     return plot

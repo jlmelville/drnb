@@ -108,13 +108,23 @@ class DatasetContext:
     triplet_sub_dir: str = "triplets"
 
 
-def color_by_ko(n_neighbors, log1p=False):
-    return nbplot.ColorByKo(n_neighbors, log1p=log1p)
+def color_by_ko(n_neighbors, color_scale=None, normalize=True, log1p=False):
+    return nbplot.ColorByKo(
+        n_neighbors,
+        scale=nbplot.ColorScale.new(color_scale),
+        normalize=normalize,
+        log1p=log1p,
+    )
 
 
-def color_by_so(n_neighbors, log1p=False):
-    return nbplot.ColorBySo(n_neighbors, log1p=log1p)
+def color_by_so(n_neighbors, log1p=False, normalize=True, color_scale=None):
+    return nbplot.ColorBySo(
+        n_neighbors,
+        scale=nbplot.ColorScale.new(color_scale),
+        normalize=normalize,
+        log1p=log1p,
+    )
 
 
-def color_by_nbr_pres(n_neighbors):
-    return nbplot.ColorByNbrPres(n_neighbors)
+def color_by_nbr_pres(n_neighbors, color_scale=None):
+    return nbplot.ColorByNbrPres(n_neighbors, scale=nbplot.ColorScale.new(color_scale))
