@@ -45,7 +45,7 @@ class EmbedderPipeline:
         evaluations = evaluate_embedding(self.evaluators, x, embedded, ctx=ctx)
 
         log.info("Plotting")
-        self.plotter.plot(embedded, y, ctx=ctx)
+        self.plotter.plot(embedded, data=x, y=y, ctx=ctx)
 
         if self.exporters is not None:
             log.info("Exporting")
@@ -106,3 +106,15 @@ class DatasetContext:
     data_sub_dir: str = "data"
     nn_sub_dir: str = "nn"
     triplet_sub_dir: str = "triplets"
+
+
+def color_by_ko(n_neighbors, log1p=False):
+    return nbplot.ColorByKo(n_neighbors, log1p=log1p)
+
+
+def color_by_so(n_neighbors, log1p=False):
+    return nbplot.ColorBySo(n_neighbors, log1p=log1p)
+
+
+def color_by_nbr_pres(n_neighbors):
+    return nbplot.ColorByNbrPres(n_neighbors)

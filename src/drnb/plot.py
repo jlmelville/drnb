@@ -1,12 +1,14 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
 
+import drnb.neighbors.hubness as hub
 from drnb.embed import get_coords
+from drnb.eval.nbrpres import nbr_presv
 from drnb.io import read_pickle
 from drnb.log import log
 
@@ -16,8 +18,46 @@ class NoPlotter:
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def plot(self, embedded, y, ctx=None):
+    # pylint: disable=unused-argument
+    def plot(self, embedded, data, y, ctx=None):
         pass
+
+
+@dataclass
+class ColorByKo:
+    n_neighbors: int = 15
+    log1p: bool = False
+
+    # pylint: disable=unused-argument
+    def __call__(self, data, target, coords, ctx=None):
+        res = np.array(hub.fetch_nbr_stats(ctx.name, self.n_neighbors)["ko"])
+        if self.log1p:
+            return np.log1p(res)
+        return res
+
+
+@dataclass
+class ColorBySo:
+    n_neighbors: int = 15
+    log1p: bool = False
+    # pylint: disable=unused-argument
+    def __call__(self, data, target, coords, ctx=None):
+        res = np.array(hub.fetch_nbr_stats(ctx.name, self.n_neighbors)["so"])
+        if self.log1p:
+            return np.log1p(res)
+        return res
+
+
+@dataclass
+class ColorByNbrPres:
+    n_neighbors: int = 15
+    # pylint: disable=unused-argument
+    def __call__(self, data, target, coords, ctx=None):
+        return nbr_presv(
+            X=data,
+            Y=coords,
+            n_nbrs=self.n_neighbors,
+        )
 
 
 @dataclass
@@ -28,17 +68,37 @@ class SeabornPlotter:
     figsize: tuple = None
     legend: bool = True
     palette: Any = None
+    color_by: Any = None
+    vmin: float = None
+    vmax: float = None
 
     @classmethod
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def plot(self, embedded, y, ctx=None):
+    def plot(self, embedded, data, y, ctx=None):
         coords = get_coords(embedded)
-        palette = self.get_palette(ctx)
+
+        palette = self.palette
         if palette is None:
-            palette = self.palette
-        sns_embed_plot(
+            palette = self.get_palette(ctx)
+
+        sm = None
+        if isinstance(self.color_by, Callable):
+            y = self.color_by(data, y, coords, ctx)
+            if self.vmin is None:
+                vmin = y.min()
+            else:
+                vmin = self.vmin
+            if self.vmax is None:
+                vmax = y.max()
+            else:
+                vmax = self.vmax
+            norm = plt.Normalize(vmin, vmax)
+            sm = plt.cm.ScalarMappable(cmap=palette, norm=norm)
+            sm.set_array([])
+
+        ax = sns_embed_plot(
             coords,
             color_col=y,
             cex=self.cex,
@@ -48,6 +108,10 @@ class SeabornPlotter:
             figsize=self.figsize,
             legend=self.legend,
         )
+        if isinstance(self.color_by, Callable):
+            if ax.get_legend() is not None:
+                ax.get_legend().remove()
+            ax.figure.colorbar(sm)
 
     def get_palette(self, ctx):
         if ctx is None:
@@ -202,3 +266,5 @@ def sns_embed_plot(
             title=leg_title,
         )
         plt.tight_layout()
+
+    return plot
