@@ -138,3 +138,12 @@ def color_by_rte(n_triplets_per_point, normalize=True, color_scale=None):
         normalize=normalize,
         scale=nbplot.ColorScale.new(color_scale),
     )
+
+
+def diag_plots():
+    return [
+        color_by_nbr_pres(15, color_scale=dict(palette="Spectral")),
+        color_by_ko(15, color_scale=dict(palette="Spectral")),
+        color_by_so(15, color_scale=dict(palette="Spectral")),
+        color_by_rte(5, color_scale=dict(palette="Spectral")),
+    ]
