@@ -11,6 +11,7 @@ from drnb.embed import get_coords
 from drnb.eval.nbrpres import nbr_presv
 from drnb.io import read_pickle
 from drnb.log import log
+from drnb.util import islisty
 
 
 class NoPlotter:
@@ -173,8 +174,9 @@ def hex_to_rgb(hexcode, scale=False):
 
 
 def is_hex(col):
+    if islisty(col):
+        col = pd.Series(col)
     if not isinstance(col, pd.Series):
-        # TODO: deal with a list/tuple or np array
         return False
     if not is_string_series(col):
         return False
