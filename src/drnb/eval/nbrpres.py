@@ -9,11 +9,12 @@ from drnb.util import islisty
 from .base import EmbeddingEval
 
 
-def nn_accv(approx_indices, true_indices):
+def nn_accv(approx_indices, true_indices, normalize=True):
     result = np.zeros(approx_indices.shape[0])
     for i in range(approx_indices.shape[0]):
         n_correct = np.intersect1d(approx_indices[i], true_indices[i]).shape[0]
-        result[i] = n_correct / true_indices.shape[1]
+        if normalize:
+            result[i] = n_correct / true_indices.shape[1]
     return result
 
 
@@ -169,6 +170,7 @@ def nbr_presv(
     y_metric="euclidean",
     y_method_kwds=None,
     include_self=False,
+    normalize=True,
     verbose=False,
     x_nbrs=None,
     y_nbrs=None,
@@ -194,10 +196,7 @@ def nbr_presv(
         drnb_home=drnb_home,
         sub_dir=sub_dir,
     )
-    return nn_accv(
-        approx_indices=y_nbrs,
-        true_indices=x_nbrs,
-    )
+    return nn_accv(approx_indices=y_nbrs, true_indices=x_nbrs, normalize=normalize)
 
 
 @dataclass

@@ -9,6 +9,7 @@ import seaborn as sns
 import drnb.neighbors.hubness as hub
 from drnb.embed import get_coords
 from drnb.eval.nbrpres import nbr_presv
+from drnb.eval.rte import random_triplet_evalv
 from drnb.io import read_pickle
 from drnb.log import log
 from drnb.util import islisty
@@ -110,17 +111,36 @@ class ColorBySo:
 class ColorByNbrPres:
     n_neighbors: int = 15
     scale: ColorScale = ColorScale()
+    normalize: bool = True
 
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
         return nbr_presv(
-            X=data,
-            Y=coords,
-            n_nbrs=self.n_neighbors,
+            X=data, Y=coords, n_nbrs=self.n_neighbors, normalize=self.normalize
         )
 
     def __str__(self):
-        return f"nbrpres{self.n_neighbors}"
+        return f"nbrpres{self.n_neighbors}{' norm' if self.normalize else ''}"
+
+
+@dataclass
+class ColorByRte:
+    n_triplets_per_point: int = 5
+    scale: ColorScale = ColorScale()
+    normalize: bool = True
+
+    # pylint: disable=unused-argument
+    def __call__(self, data, target, coords, ctx=None):
+        return random_triplet_evalv(
+            X=data,
+            X_new=coords,
+            n_triplets_per_point=self.n_triplets_per_point,
+            normalize=self.normalize,
+            return_triplets=False,
+        )
+
+    def __str__(self):
+        return f"rte{self.n_triplets_per_point}{' norm' if self.normalize else ''}"
 
 
 @dataclass

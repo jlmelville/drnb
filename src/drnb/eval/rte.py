@@ -79,6 +79,37 @@ def random_triplet_eval(
     n_triplets_per_point=5,
     return_triplets=False,
     X_dist=None,
+    normalize=True,
+):
+
+    res = random_triplet_evalv(
+        X,
+        X_new,
+        triplets=triplets,
+        random_state=random_state,
+        n_triplets_per_point=n_triplets_per_point,
+        return_triplets=return_triplets,
+        X_dist=X_dist,
+        normalize=normalize,
+    )
+
+    accv = res[0]
+    acc = np.mean(accv)
+
+    if return_triplets:
+        return acc, res[1], res[2]
+    return acc
+
+
+def random_triplet_evalv(
+    X,
+    X_new,
+    triplets=None,
+    random_state=None,
+    n_triplets_per_point=5,
+    return_triplets=False,
+    X_dist=None,
+    normalize=True,
 ):
     n_obs = X.shape[0]
 
@@ -112,9 +143,9 @@ def random_triplet_eval(
     X_new_dist = calc_distances(X_new, bpairs)
     pred_vals = X_new_dist[:, :, 0] < X_new_dist[:, :, 1]
 
-    correct = np.sum(pred_vals == labels)
-    acc = correct / n_obs / n_triplets_per_point
-
+    accv = np.sum(pred_vals == labels, axis=1, dtype=float)
+    if normalize:
+        accv /= float(n_triplets_per_point)
     if return_triplets:
-        return acc, triplets, X_dist
-    return acc
+        return accv, X_dist, n_triplets_per_point
+    return accv

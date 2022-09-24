@@ -126,5 +126,15 @@ def color_by_so(n_neighbors, log1p=False, normalize=True, color_scale=None):
     )
 
 
-def color_by_nbr_pres(n_neighbors, color_scale=None):
-    return nbplot.ColorByNbrPres(n_neighbors, scale=nbplot.ColorScale.new(color_scale))
+def color_by_nbr_pres(n_neighbors, normalize=True, color_scale=None):
+    return nbplot.ColorByNbrPres(
+        n_neighbors, normalize=normalize, scale=nbplot.ColorScale.new(color_scale)
+    )
+
+
+def color_by_rte(n_triplets_per_point, normalize=True, color_scale=None):
+    return nbplot.ColorByRte(
+        n_triplets_per_point,
+        normalize=normalize,
+        scale=nbplot.ColorScale.new(color_scale),
+    )
