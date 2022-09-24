@@ -92,8 +92,10 @@ def random_triplet_eval(
         X_dist=X_dist,
         normalize=normalize,
     )
-
-    accv = res[0]
+    if return_triplets:
+        accv = res[0]
+    else:
+        accv = res
     acc = np.mean(accv)
 
     if return_triplets:
