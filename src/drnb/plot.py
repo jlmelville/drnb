@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -154,8 +155,8 @@ class MultiPlotter:
 
 @dataclass
 class SeabornPlotter:
-    cex: int = 10
-    alpha_scale: float = 1.0
+    cex: int = None
+    alpha_scale: float = None
     title: str = None
     figsize: tuple = None
     legend: bool = True
@@ -184,11 +185,24 @@ class SeabornPlotter:
                 if title is None:
                     title = self.color_by
 
+        # did a log-log plot of N vs the average 15-NN distance in the embedded space
+        # multiplying the 15-NN distance by 100 gave a good-enough value for the
+        # point size when figsize=(9, 6)
+        cex = 100.0 * (10.0 ** (0.4591008 - 0.3722813 * math.log10(coords.shape[0])))
+
+        if self.alpha_scale is None:
+            estimated_cex = 10.0 ** (
+                0.4591008 - 0.3722813 * math.log10(coords.shape[0])
+            )
+            alpha_scale = np.clip(estimated_cex * 2.0, 0.05, 0.8)
+        else:
+            alpha_scale = self.alpha_scale
+
         ax = sns_embed_plot(
             coords,
             color_col=y,
-            cex=self.cex,
-            alpha_scale=self.alpha_scale,
+            cex=cex,
+            alpha_scale=alpha_scale,
             palette=palette,
             title=title,
             figsize=self.figsize,
