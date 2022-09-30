@@ -1,31 +1,11 @@
 from dataclasses import dataclass
 
 import openTSNE
+import openTSNE.nearest_neighbors as tsnenn
 
 import drnb.embed
 import drnb.neighbors as knn
 from drnb.log import log
-
-
-# Dummy knn class that cannot be used for transforming new data (but that's ok)
-class PrecomputedKNNIndex:
-    def __init__(self, indices, distances):
-        self.indices = indices
-        self.distances = distances
-        self.n_samples = indices.shape[0]
-        self.k = indices.shape[1]
-
-    def build(self):
-        return self.indices, self.distances
-
-    def query(self, query, k):
-        raise NotImplementedError("No query with a pre-computed knn")
-
-    def check_metric(self, metric):
-        if callable(metric):
-            pass
-
-        return metric
 
 
 def get_n_neighbors_for_perplexity(perplexity, x):
@@ -74,7 +54,7 @@ def get_tsne_affinities(
     precomputed_knn = knn.get_neighbors_with_ctx(
         x, metric, n_neighbors + 1, knn_params=knn_params, ctx=ctx
     )
-    tsne_knn = PrecomputedKNNIndex(
+    tsne_knn = tsnenn.PrecomputedNeighbors(
         precomputed_knn.idx[:, 1:], precomputed_knn.dist[:, 1:]
     )
 
