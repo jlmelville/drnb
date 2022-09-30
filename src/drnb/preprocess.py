@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
 from drnb.log import log
 from drnb.util import get_method_and_args
@@ -32,8 +32,11 @@ def scale_data(data, scale_type=None, params=None):
         log.info("Z-Scaling")
         return zscale(data)
     if scale_type in ("range", "minmax"):
-        log.info("range scaling")
+        log.info("Range scaling")
         return range_scale(data, **params)
+    if scale_type == "robust":
+        log.info("Robust scaling")
+        return robust_scale(data)
     raise ValueError(f"Unknown scale type {scale_type}")
 
 
@@ -55,6 +58,10 @@ def zscale(data):
 
 def range_scale(data, minval=0, maxval=1):
     return MinMaxScaler(feature_range=(minval, maxval)).fit_transform(data)
+
+
+def robust_scale(data):
+    return RobustScaler().fit_transform(data)
 
 
 def filter_columns(data, cols):
