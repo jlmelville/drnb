@@ -3,6 +3,8 @@ import datetime
 import json
 from dataclasses import asdict
 
+import pandas as pd
+
 
 def get_method_and_args(method):
     kwds = None
@@ -65,3 +67,13 @@ def dts_to_dt(dts):
 
 def categorize(df, colname):
     df[colname] = df[colname].astype("category")
+
+
+# convert the numpy array of integer codes to a pandas category series with name
+# col_name using the list of category_names
+def codes_to_categories(y, category_names, col_name):
+    return pd.Series(
+        list(map(category_names.__getitem__, y.astype(int))),
+        name=col_name,
+        dtype="category",
+    )
