@@ -406,8 +406,15 @@ def create_triplets_request(triplets_kwds):
 
 
 def create_default_pipeline(
-    drnb_home=None, check_for_duplicates=False, scale=None, reduce=None, csv=True
+    drnb_home=None,
+    check_for_duplicates=False,
+    scale=None,
+    reduce=None,
+    csv=True,
+    metric=None,
 ):
+    if metric is None:
+        metric = ["euclidean"]
     data_export = ["npy"]
     target_export = ["pkl"]
     triplet_file_types = ["npy"]
@@ -427,7 +434,7 @@ def create_default_pipeline(
         neighbors=dict(
             n_neighbors=[15, 50, 150],
             method="exact",
-            metric=["euclidean"],
+            metric=metric,
             file_types=triplet_file_types,
         ),
         triplets=dict(
