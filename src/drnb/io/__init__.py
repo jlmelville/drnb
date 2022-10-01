@@ -29,6 +29,10 @@ def data_relative_path(path):
     return path
 
 
+def stringify_paths(paths):
+    return [str(data_relative_path(path)) for path in paths]
+
+
 def get_path(drnb_home=None, sub_dir=None, create_sub_dir=False, verbose=False):
     if drnb_home is None:
         drnb_home = get_drnb_home()

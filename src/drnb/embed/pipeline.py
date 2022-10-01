@@ -9,6 +9,7 @@ from drnb.embed import get_embedder_name
 from drnb.embed.factory import create_embedder
 from drnb.eval import evaluate_embedding
 from drnb.eval.factory import create_evaluators
+from drnb.eval.triplets import TripletsRequest, create_triplets_request
 from drnb.io.embed import create_embed_exporter
 from drnb.log import log, log_verbosity
 from drnb.util import dts_to_str, islisty
@@ -26,6 +27,7 @@ class EmbedderPipeline:
     plotter: Any = nbplot.NoPlotter()
     exporter: Any = None
     verbose: bool = False
+    triplets_request: TripletsRequest = None
 
     def run(self, dataset_name, experiment=None, verbose=None):
         if verbose is None:
@@ -73,8 +75,12 @@ class EmbedderPipeline:
 @dataclass
 class EmbedPipelineExporter:
     out_types: field(default_factory=list)
+    triplets_request: Any = None
 
     def export(self, embedding_result, ctx):
+        embed_coords = embedding_result["coords"]
+        export_dict = {}
+
         if self.out_types is not None:
             if ctx.embed_method_label:
                 embed_method_label = ctx.embed_method_label
@@ -90,14 +96,29 @@ class EmbedPipelineExporter:
                 verbose=True,
             )
             for exporter in exporters:
-                exporter.export(
-                    name=ctx.dataset_name, embedded=embedding_result["coords"]
-                )
+                exporter.export(name=ctx.dataset_name, embedded=embed_coords)
+        if self.triplets_request is not None:
+            log.info("Calculating embedded triplets")
+
+            triplet_output_paths = self.triplets_request.create_triplets(
+                embed_coords,
+                dataset_name=ctx.dataset_name,
+                suffix=embed_method_label,
+                triplet_dir=ctx.experiment_name,
+            )
+            export_dict["triplets"] = dict(
+                request=self.triplets_request,
+                paths=nbio.stringify_paths(triplet_output_paths),
+            )
+
         if "evaluations" in embedding_result:
+            export_dict["evaluations"] = embedding_result["evaluations"]
+
+        if export_dict:
             nbio.write_json(
-                embedding_result["evaluations"],
+                export_dict,
                 name=ctx.dataset_name,
-                suffix=[embed_method_label, "evaluations"],
+                suffix=embed_method_label,
                 drnb_home=ctx.drnb_home,
                 sub_dir=ctx.experiment_name,
                 create_sub_dir=True,
@@ -110,11 +131,29 @@ def embedder(name, params=None, **kwargs):
     return (name, kwargs | dict(params=params))
 
 
+def create_exporter(export, triplets=None):
+    if export is not None:
+        if not islisty(export):
+            if isinstance(export, bool):
+                if export:
+                    export = ["pkl"]
+                else:
+                    export = None
+            else:
+                export = [export]
+    if export is not None:
+        return EmbedPipelineExporter(
+            out_types=export, triplets_request=create_triplets_request(triplets)
+        )
+    return None
+
+
 def create_pipeline(
     method,
     data_config=None,
     plot=True,
     eval_metrics=None,
+    triplets=None,
     export=None,
     verbose=False,
     embed_method_label="",
@@ -126,19 +165,7 @@ def create_pipeline(
     _embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
     plotter = nbplot.create_plotter(plot)
-    if export is not None:
-        if not islisty(export):
-            if isinstance(export, bool):
-                if export:
-                    export = ["pkl"]
-                else:
-                    export = None
-            else:
-                export = [export]
-    if export is not None:
-        exporter = EmbedPipelineExporter(out_types=export)
-    else:
-        exporter = None
+    exporter = create_exporter(export, triplets=triplets)
 
     return EmbedderPipeline(
         embed_method_name=get_embedder_name(method),

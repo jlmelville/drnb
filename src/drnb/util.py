@@ -3,6 +3,8 @@ import datetime
 import json
 from dataclasses import asdict
 
+# pylint: disable=unused-import
+import json_fix
 import pandas as pd
 
 
@@ -35,6 +37,9 @@ class Jsonizable:
 
     def to_json(self, indent=None):
         return json.dumps(self.__dict__, indent=indent, ensure_ascii=False)
+
+    def __json__(self):
+        return self.__dict__
 
 
 class FromDict:

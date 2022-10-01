@@ -7,7 +7,7 @@ from numba import jit, prange
 import drnb.io as nbio
 from drnb.distance import distance_function
 from drnb.log import log
-from drnb.util import FromDict
+from drnb.util import FromDict, Jsonizable, islisty
 
 
 def calculate_triplets(
@@ -105,8 +105,9 @@ def write_triplets(
     file_type="npy",
     verbose=False,
     dist=None,
-    metric="l2",
+    metric="euclidean",
     flattened=False,
+    suffix=None,
 ):
     if not flattened and idx.shape[1] != n_triplets_per_point:
         raise ValueError(
@@ -114,11 +115,14 @@ def write_triplets(
             + f"{n_triplets_per_point} triplets per point, but was {idx.shape[1]}"
         )
 
+    idx_suffix = f".{n_triplets_per_point}.{seed}.idx"
+    if suffix is not None:
+        idx_suffix = nbio.ensure_suffix(suffix) + idx_suffix
     # e.g. mnist.5.42.idx.npy
     idx_paths = nbio.write_data(
         idx,
         name,
-        suffix=f".{n_triplets_per_point}.{seed}.idx",
+        suffix=idx_suffix,
         drnb_home=drnb_home,
         sub_dir=sub_dir,
         create_sub_dir=create_sub_dir,
@@ -126,12 +130,16 @@ def write_triplets(
         file_type=file_type,
     )
     # e.g. mnist.5.42.l2.npy
+
+    dist_suffix = f".{n_triplets_per_point}.{seed}.{metric}"
+    if suffix is not None:
+        dist_suffix = nbio.ensure_suffix(suffix) + dist_suffix
     dist_paths = []
     if dist is not None:
         dist_paths = nbio.write_data(
             dist,
             name,
-            suffix=f".{n_triplets_per_point}.{seed}.{metric}",
+            suffix=dist_suffix,
             drnb_home=drnb_home,
             sub_dir=sub_dir,
             create_sub_dir=create_sub_dir,
@@ -252,8 +260,69 @@ class TripletInfo:
 
 
 @dataclass
-class TripletsRequest(FromDict):
+class TripletsRequest(FromDict, Jsonizable):
     n_triplets_per_point: int = 5
     seed: int = 42
-    file_types: list = field(default_factory=list)
+    file_types: list = field(default_factory=lambda: ["pkl"])
     metric: list = field(default_factory=lambda: ["euclidean"])
+
+    def create_triplets(self, data, dataset_name, triplet_dir, suffix=None):
+        if not islisty(self.metric):
+            metrics = [self.metric]
+        else:
+            metrics = self.metric
+
+        triplet_output_paths = []
+        for metric in metrics:
+            idx, dist = calculate_triplets(
+                data,
+                seed=self.seed,
+                n_triplets_per_point=self.n_triplets_per_point,
+                return_distance=True,
+                metric=metric,
+            )
+
+            file_types = self.file_types
+            if "csv" in file_types:
+                # treat CSV specially because we need to flatten distances
+                file_types = [ft for ft in self.file_types if ft != "csv"]
+                csv_idx_paths, csv_dist_paths = write_triplets(
+                    idx.flatten(),
+                    name=dataset_name,
+                    n_triplets_per_point=self.n_triplets_per_point,
+                    seed=self.seed,
+                    sub_dir=triplet_dir,
+                    create_sub_dir=True,
+                    file_type="csv",
+                    verbose=True,
+                    dist=dist.flatten(),
+                    flattened=True,
+                    metric=metric,
+                    suffix=suffix,
+                )
+                triplet_output_paths += csv_idx_paths + csv_dist_paths
+
+            triplet_idx_paths, triplet_dist_paths = write_triplets(
+                idx,
+                dataset_name,
+                self.n_triplets_per_point,
+                self.seed,
+                sub_dir=triplet_dir,
+                create_sub_dir=True,
+                file_type=file_types,
+                verbose=True,
+                dist=dist,
+                metric=metric,
+                suffix=suffix,
+            )
+            triplet_output_paths += triplet_idx_paths + triplet_dist_paths
+        return triplet_output_paths
+
+
+# triplets = (
+#   n_triplets_per_point=5,
+#   seed=42,
+def create_triplets_request(triplets_kwds):
+    if triplets_kwds is None:
+        return None
+    return TripletsRequest.new(**triplets_kwds)

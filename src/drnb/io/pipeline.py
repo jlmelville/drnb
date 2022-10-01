@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import sklearn.decomposition
 
-from drnb.eval.triplets import TripletsRequest, calculate_triplets, write_triplets
-from drnb.io import data_relative_path, write_json, write_pickle
+from drnb.eval.triplets import TripletsRequest, create_triplets_request
+from drnb.io import stringify_paths, write_json, write_pickle
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
 from drnb.neighbors import (
@@ -275,64 +275,11 @@ class DatasetPipeline(Jsonizable):
             return None
         log.info("Calculating triplets")
 
-        triplet_output_paths = []
-        if not islisty(self.triplets_request.metric):
-            metrics = [self.triplets_request.metric]
-        else:
-            metrics = self.triplets_request.metric
-        for metric in metrics:
-            idx, dist = calculate_triplets(
-                data,
-                seed=self.triplets_request.seed,
-                n_triplets_per_point=self.triplets_request.n_triplets_per_point,
-                return_distance=True,
-                metric=metric,
-            )
+        triplet_output_paths = self.triplets_request.create_triplets(
+            data, dataset_name=name, triplet_dir="triplets"
+        )
 
-            file_types = self.triplets_request.file_types
-            idx_paths = []
-            dist_paths = []
-            if "csv" in file_types:
-                # treat CSV specially because we need to flatten distances
-                file_types = [
-                    ft for ft in self.triplets_request.file_types if ft != "csv"
-                ]
-                csv_idx_paths, csv_dist_paths = write_triplets(
-                    idx.flatten(),
-                    name,
-                    self.triplets_request.n_triplets_per_point,
-                    self.triplets_request.seed,
-                    sub_dir="triplets",
-                    create_sub_dir=True,
-                    file_type="csv",
-                    verbose=True,
-                    dist=dist.flatten(),
-                    flattened=True,
-                    metric=metric,
-                )
-                idx_paths += csv_idx_paths
-                dist_paths += csv_dist_paths
-
-            triplet_idx_paths, triplet_dist_paths = write_triplets(
-                idx,
-                name,
-                self.triplets_request.n_triplets_per_point,
-                self.triplets_request.seed,
-                sub_dir="triplets",
-                create_sub_dir=True,
-                file_type=file_types,
-                verbose=True,
-                dist=dist,
-                metric=metric,
-            )
-            triplet_output_paths += stringify_paths(
-                idx_paths + triplet_idx_paths + dist_paths + triplet_dist_paths
-            )
-        return triplet_output_paths
-
-
-def stringify_paths(paths):
-    return [str(data_relative_path(path)) for path in paths]
+        return stringify_paths(triplet_output_paths)
 
 
 @dataclass
@@ -407,15 +354,6 @@ def create_neighbors_request(neighbors_kwds):
         n_nbrs + 1 for n_nbrs in neighbors_request.n_neighbors
     ]
     return neighbors_request
-
-
-# triplets = (
-#   n_triplets_per_point=5,
-#   seed=42,
-def create_triplets_request(triplets_kwds):
-    if triplets_kwds is None:
-        return None
-    return TripletsRequest.new(**triplets_kwds)
 
 
 def create_default_pipeline(
