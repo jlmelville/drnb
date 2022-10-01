@@ -12,6 +12,7 @@ from drnb.eval.factory import create_evaluators
 from drnb.eval.triplets import TripletsRequest, create_triplets_request
 from drnb.io.embed import create_embed_exporter
 from drnb.log import log, log_verbosity
+from drnb.neighbors import NeighborsRequest, create_neighbors_request
 from drnb.util import dts_to_str, islisty
 
 
@@ -75,7 +76,8 @@ class EmbedderPipeline:
 @dataclass
 class EmbedPipelineExporter:
     out_types: field(default_factory=list)
-    triplets_request: Any = None
+    triplets_request: TripletsRequest = None
+    neighbors_request: NeighborsRequest = None
 
     def export(self, embedding_result, ctx):
         embed_coords = embedding_result["coords"]
@@ -111,6 +113,20 @@ class EmbedPipelineExporter:
                 paths=nbio.stringify_paths(triplet_output_paths),
             )
 
+        if self.neighbors_request is not None:
+            log.info("Calculating embedded neighbors")
+
+            neighbors_output_paths = self.neighbors_request.create_neighbors(
+                embed_coords,
+                dataset_name=ctx.dataset_name,
+                suffix=embed_method_label,
+                nbr_dir=ctx.experiment_name,
+            )
+            export_dict["neighbors"] = dict(
+                request=self.neighbors_request,
+                paths=nbio.stringify_paths(neighbors_output_paths),
+            )
+
         if "evaluations" in embedding_result:
             export_dict["evaluations"] = embedding_result["evaluations"]
 
@@ -131,7 +147,7 @@ def embedder(name, params=None, **kwargs):
     return (name, kwargs | dict(params=params))
 
 
-def create_exporter(export, triplets=None):
+def create_exporter(export, triplets=None, neighbors=None):
     if export is not None:
         if not islisty(export):
             if isinstance(export, bool):
@@ -143,7 +159,9 @@ def create_exporter(export, triplets=None):
                 export = [export]
     if export is not None:
         return EmbedPipelineExporter(
-            out_types=export, triplets_request=create_triplets_request(triplets)
+            out_types=export,
+            triplets_request=create_triplets_request(triplets),
+            neighbors_request=create_neighbors_request(neighbors),
         )
     return None
 
@@ -154,6 +172,7 @@ def create_pipeline(
     plot=True,
     eval_metrics=None,
     triplets=None,
+    neighbors=None,
     export=None,
     verbose=False,
     embed_method_label="",
@@ -165,7 +184,7 @@ def create_pipeline(
     _embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
     plotter = nbplot.create_plotter(plot)
-    exporter = create_exporter(export, triplets=triplets)
+    exporter = create_exporter(export, triplets=triplets, neighbors=neighbors)
 
     return EmbedderPipeline(
         embed_method_name=get_embedder_name(method),

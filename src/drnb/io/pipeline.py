@@ -10,14 +10,9 @@ from drnb.eval.triplets import TripletsRequest, create_triplets_request
 from drnb.io import stringify_paths, write_json, write_pickle
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
-from drnb.neighbors import (
-    NeighborsRequest,
-    calculate_neighbors,
-    slice_neighbors,
-    write_neighbors,
-)
+from drnb.neighbors import NeighborsRequest, create_neighbors_request
 from drnb.preprocess import create_scale_kwargs, filter_columns, numpyfy, scale_data
-from drnb.util import Jsonizable, dts_now, islisty
+from drnb.util import Jsonizable, dts_now
 
 
 @dataclass
@@ -238,37 +233,12 @@ class DatasetPipeline(Jsonizable):
         if self.neighbors_request is None:
             return None
         log.info("Calculating nearest neighbors")
-        for metric in self.neighbors_request.metric:
-            max_n_neighbors = np.max(self.neighbors_request.n_neighbors)
-            neighbors_data = calculate_neighbors(
-                data=data,
-                n_neighbors=max_n_neighbors,
-                metric=metric,
-                return_distance=True,
-                **self.neighbors_request.params,
-                verbose=self.verbose,
-                name=name,
-            )
-            neighbors_output_paths = []
-            for n_neighbors in self.neighbors_request.n_neighbors:
-                try:
-                    sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)
-                    idx_paths, dist_paths = write_neighbors(
-                        neighbor_data=sliced_neighbors,
-                        sub_dir="nn",
-                        create_sub_dir=True,
-                        file_type=self.neighbors_request.file_types,
-                        verbose=self.verbose,
-                    )
-                    neighbors_output_paths.append(
-                        stringify_paths(idx_paths + dist_paths)
-                    )
-                except ValueError:
-                    log.warning(
-                        "Unable to save %d neighbors (probably not enough neigbors)",
-                        n_neighbors,
-                    )
-        return neighbors_output_paths
+
+        neighbors_output_paths = self.neighbors_request.create_neighbors(
+            data, dataset_name=name, nbr_dir="nn"
+        )
+
+        return stringify_paths(neighbors_output_paths)
 
     def calculate_triplets(self, data, name):
         if self.triplets_request is None:
@@ -337,23 +307,6 @@ def create_data_pipeline(
             triplets_request=create_triplets_request(triplets),
             verbose=verbose,
         )
-
-
-#   # for method = "exact" or "approximate" we can't know what algo we will get
-#   # so need to nest the names inside?
-#   method_kwds = dict("annoy"=dict(), hnsw=dict() ... )
-def create_neighbors_request(neighbors_kwds):
-    if neighbors_kwds is None:
-        return None
-    for key in ["metric", "n_neighbors"]:
-        if key in neighbors_kwds and not islisty(neighbors_kwds[key]):
-            neighbors_kwds[key] = [neighbors_kwds[key]]
-    neighbors_request = NeighborsRequest.new(**neighbors_kwds)
-    log.info("Requesting one extra neighbor to account for self-neighbor")
-    neighbors_request.n_neighbors = [
-        n_nbrs + 1 for n_nbrs in neighbors_request.n_neighbors
-    ]
-    return neighbors_request
 
 
 def create_default_pipeline(

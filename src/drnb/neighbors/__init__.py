@@ -3,13 +3,21 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import numpy as np
 import sklearn.metrics
 
 import drnb.neighbors.sklearn as sknbrs
-from drnb.io import data_relative_path, get_path, read_data, write_data
+from drnb.io import (
+    data_relative_path,
+    dataset,
+    ensure_suffix,
+    get_path,
+    read_data,
+    write_data,
+)
 from drnb.log import log
 from drnb.preprocess import numpyfy
-from drnb.util import FromDict
+from drnb.util import FromDict, Jsonizable, default_dict, default_list, islisty
 
 from . import annoy, faiss, hnsw, pynndescent
 from .nbrinfo import NbrInfo, NearestNeighbors
@@ -350,10 +358,14 @@ def write_neighbors(
     # e.g. mnist.150.euclidean.exact.faiss.dist.npy
     if neighbor_data.info.name is None:
         raise ValueError("No neighbor data info name")
+
+    idx_suffix = neighbor_data.info.idx_suffix
+    log.info("idx_suffix = %s", idx_suffix)
+
     idx_paths = write_data(
         x=neighbor_data.idx,
         name=neighbor_data.info.name,
-        suffix=neighbor_data.info.idx_suffix,
+        suffix=idx_suffix,
         drnb_home=drnb_home,
         sub_dir=sub_dir,
         create_sub_dir=create_sub_dir,
@@ -362,10 +374,14 @@ def write_neighbors(
     )
     dist_paths = []
     if neighbor_data.dist is not None:
+
+        dist_suffix = neighbor_data.info.dist_suffix
+        log.info("dist_suffix = %s", dist_suffix)
+
         dist_paths = write_data(
             x=neighbor_data.dist,
             name=neighbor_data.info.name,
-            suffix=neighbor_data.info.dist_suffix,
+            suffix=dist_suffix,
             drnb_home=drnb_home,
             sub_dir=sub_dir,
             create_sub_dir=create_sub_dir,
@@ -413,9 +429,69 @@ def slice_neighbors(neighbors_data, n_neighbors):
 
 
 @dataclass
-class NeighborsRequest(FromDict):
-    n_neighbors: list = field(default_factory=list)
+class NeighborsRequest(FromDict, Jsonizable):
+    n_neighbors: list = default_list([15])
     method: str = "exact"
-    metric: str = "euclidean"
-    file_types: list = field(default_factory=list)
-    params: dict = field(default_factory=dict)
+    metric: str = default_list(["euclidean"])
+    file_types: list = default_list(["pkl"])
+    params: dict = default_dict()
+    verbose: bool = False
+
+    def create_neighbors(self, data, dataset_name, nbr_dir="nn", suffix=None):
+        if not self.n_neighbors:
+            log.info("Neighbor request but no n_neighbors specified")
+            return []
+        max_n_neighbors = np.max(self.n_neighbors)
+
+        nbrs_name = dataset_name
+        if suffix is not None or suffix:
+            nbrs_name = f"{nbrs_name}-{suffix}"
+
+        if not islisty(self.metric):
+            self.metric = [self.metric]
+        for metric in self.metric:
+            neighbors_data = calculate_neighbors(
+                data=data,
+                n_neighbors=max_n_neighbors,
+                metric=metric,
+                return_distance=True,
+                verbose=self.verbose,
+                name=nbrs_name,
+                **self.params,
+            )
+
+            neighbors_output_paths = []
+            for n_neighbors in self.n_neighbors:
+                try:
+                    sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)
+                    idx_paths, dist_paths = write_neighbors(
+                        neighbor_data=sliced_neighbors,
+                        sub_dir=nbr_dir,
+                        create_sub_dir=True,
+                        file_type=self.file_types,
+                        verbose=self.verbose,
+                    )
+                    neighbors_output_paths += idx_paths + dist_paths
+                except ValueError:
+                    log.warning(
+                        "Unable to save %d neighbors (probably not enough neigbors)",
+                        n_neighbors,
+                    )
+        return neighbors_output_paths
+
+
+#   # for method = "exact" or "approximate" we can't know what algo we will get
+#   # so need to nest the names inside?
+#   method_kwds = dict("annoy"=dict(), hnsw=dict() ... )
+def create_neighbors_request(neighbors_kwds):
+    if neighbors_kwds is None:
+        return None
+    for key in ["metric", "n_neighbors"]:
+        if key in neighbors_kwds and not islisty(neighbors_kwds[key]):
+            neighbors_kwds[key] = [neighbors_kwds[key]]
+    neighbors_request = NeighborsRequest.new(**neighbors_kwds)
+    log.info("Requesting one extra neighbor to account for self-neighbor")
+    neighbors_request.n_neighbors = [
+        n_nbrs + 1 for n_nbrs in neighbors_request.n_neighbors
+    ]
+    return neighbors_request
