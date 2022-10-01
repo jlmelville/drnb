@@ -1,7 +1,7 @@
 import collections.abc
 import datetime
 import json
-from dataclasses import asdict
+from dataclasses import asdict, field
 
 # pylint: disable=unused-import
 import json_fix
@@ -82,3 +82,15 @@ def codes_to_categories(y, category_names, col_name):
         name=col_name,
         dtype="category",
     )
+
+
+def default_list(val=None):
+    if val is None:
+        return field(default_factory=list)
+    return field(default_factory=lambda: val)
+
+
+def default_dict(val=None):
+    if val is None:
+        return field(default_factory=dict)
+    return field(default_factory=lambda: val)
