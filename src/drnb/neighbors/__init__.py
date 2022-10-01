@@ -386,7 +386,7 @@ def get_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None)
     )
     if ctx is not None:
         knn_defaults.update(
-            dict(drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.name)
+            dict(drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.dataset_name)
         )
     full_knn_params = knn_defaults | knn_params
 

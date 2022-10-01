@@ -50,11 +50,9 @@ class FileEmbedExporter:
                 )
 
 
-# dnrb_home/<export-dir>/iris-umap.pkl
-
-# export=dict(ext=["pkl", "csv"], sub_dir="umap-pl", suffix="umap")
+# export=dict(ext=["pkl", "csv"], sub_dir="umap-pl", embed_method_label="densvis")
 def create_embed_exporter(
-    embed_method,
+    embed_method_label,
     out_type,
     sub_dir,
     suffix=None,
@@ -63,7 +61,7 @@ def create_embed_exporter(
     verbose=False,
 ):
     if suffix is None:
-        suffix = embed_method
+        suffix = embed_method_label
     if not islisty(out_type):
         out_type = [out_type]
 

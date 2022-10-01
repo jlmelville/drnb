@@ -71,7 +71,7 @@ class ColorByKo:
 
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
-        res = np.array(hub.fetch_nbr_stats(ctx.name, self.n_neighbors)["ko"])
+        res = np.array(hub.fetch_nbr_stats(ctx.dataset_name, self.n_neighbors)["ko"])
         if self.normalize:
             res = res / self.n_neighbors
         if self.log1p:
@@ -94,7 +94,7 @@ class ColorBySo:
 
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
-        res = np.array(hub.fetch_nbr_stats(ctx.name, self.n_neighbors)["so"])
+        res = np.array(hub.fetch_nbr_stats(ctx.dataset_name, self.n_neighbors)["so"])
         if self.normalize:
             res = res / self.n_neighbors
         if self.log1p:
@@ -240,7 +240,7 @@ class SeabornPlotter:
             return None
         try:
             return read_pickle(
-                ctx.name,
+                ctx.dataset_name,
                 suffix="target-palette",
                 drnb_home=ctx.drnb_home,
                 sub_dir=ctx.data_sub_dir,

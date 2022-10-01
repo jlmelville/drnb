@@ -166,7 +166,7 @@ def read_triplets_from_info(triplet_info, metric="l2", verbose=False):
 def find_precomputed_triplets(ctx, n_triplets_per_point, metric):
     log.info("Looking for precomputed triplets")
     triplet_infos = find_triplet_files(
-        name=ctx.name,
+        name=ctx.dataset_name,
         n_triplets_per_point=n_triplets_per_point,
         drnb_home=ctx.drnb_home,
         sub_dir=ctx.triplet_sub_dir,
@@ -188,7 +188,7 @@ def cache_triplets(idx, dist, ctx, n_triplets_per_point, metric, random_state):
     log.info("Caching triplets")
     write_triplets(
         idx,
-        name=ctx.name,
+        name=ctx.dataset_name,
         n_triplets_per_point=n_triplets_per_point,
         seed=random_state,
         drnb_home=ctx.drnb_home,

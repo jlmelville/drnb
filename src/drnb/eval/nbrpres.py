@@ -210,7 +210,7 @@ class NbrPreservationEval(EmbeddingEval):
     def evaluate(self, X, coords, ctx=None):
         if ctx is not None:
             nnp_kwargs = dict(
-                drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.name
+                drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.dataset_name
             )
         else:
             nnp_kwargs = {}
