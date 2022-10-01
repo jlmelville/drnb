@@ -203,6 +203,7 @@ class SeabornPlotter:
             if hasattr(self.color_by, "scale") and self.color_by.scale is not None:
                 sm = self.color_by.scale(y, self.vmin, self.vmax, palette)
                 palette = self.color_by.scale.palette
+                self.legend = False
                 if title is None:
                     title = self.color_by
 
@@ -243,7 +244,7 @@ class SeabornPlotter:
                 suffix="target-palette",
                 drnb_home=ctx.drnb_home,
                 sub_dir=ctx.data_sub_dir,
-                verbose=True,
+                verbose=False,
             )
         except FileNotFoundError:
             return None
