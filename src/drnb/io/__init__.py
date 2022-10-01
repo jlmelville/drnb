@@ -280,7 +280,11 @@ def write_json(
         log.info("Writing JSON format to %s", data_relative_path(output_path))
 
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(x.to_json(indent=2))
+        if hasattr(x, "to_json"):
+            f.write(x.to_json(indent=2))
+        else:
+            # here goes nothing
+            f.write(json.dumps(x, indent=2, ensure_ascii=False))
     return output_path
 
 
@@ -302,6 +306,8 @@ def write_data(
 ):
     if not islisty(file_type):
         file_type = [file_type]
+
+    suffix = ensure_suffix(suffix)
 
     output_paths = []
     for ftype in file_type:
