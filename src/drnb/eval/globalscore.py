@@ -3,17 +3,25 @@ from dataclasses import dataclass
 import numpy as np
 from sklearn.decomposition import PCA
 
+from drnb.eval import EvalResult
+from drnb.util import Jsonizable
+
 from .base import EmbeddingEval
 
 
 @dataclass
-class GlobalScore(EmbeddingEval):
+class GlobalScore(EmbeddingEval, Jsonizable):
     def evaluate(self, X, coords, ctx=None):
         gs = global_score(
             X,
             coords,
         )
-        return ("gs", gs)
+        return EvalResult(
+            eval_type="GS",
+            label=str(self),
+            info={},
+            value=float(gs),
+        )
 
     def __str__(self):
         return "Global Score Evaluation"
