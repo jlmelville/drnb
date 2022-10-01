@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from drnb.distance import distance_function
+from drnb.eval import EvalResult
 
 from ..log import log
 from .base import EmbeddingEval
@@ -45,7 +46,13 @@ class RandomTripletEval(EmbeddingEval):
             X_dist=X_dist,
             metric=self.metric,
         )
-        return (str(self), rte_result)
+
+        return EvalResult(
+            eval_type="RTE",
+            label=str(self),
+            info=dict(metric=self.metric, ntpp=self.n_triplets_per_point),
+            value=rte_result,
+        )
 
     def __str__(self):
         return f"rte-{self.n_triplets_per_point}-{self.metric}"

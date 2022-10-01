@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import scipy.stats
 
 from drnb.distance import distance_function
+from drnb.eval import EvalResult
 from drnb.log import log
 
 from .base import EmbeddingEval
@@ -80,7 +81,12 @@ class RandomPairCorrelEval(EmbeddingEval):
             metric=self.metric,
         )
 
-        return (str(self), rpc_result)
+        return EvalResult(
+            eval_type="RPC",
+            label=str(self),
+            info=dict(metric=self.metric, ntpp=self.n_triplets_per_point),
+            value=rpc_result,
+        )
 
     def __str__(self):
         return f"rpc-{self.n_triplets_per_point}-{self.metric}"

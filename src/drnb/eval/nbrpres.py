@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from drnb.eval import EvalResult
 from drnb.log import log
 from drnb.neighbors import calculate_neighbors, get_neighbors
 from drnb.util import islisty
@@ -227,7 +228,13 @@ class NbrPreservationEval(EmbeddingEval):
         if not islisty(self.n_neighbors):
             self.n_neighbors = [self.n_neighbors]
         return [
-            (self.to_str(n_nbrs), nnp) for n_nbrs, nnp in zip(self.n_neighbors, nnps)
+            EvalResult(
+                eval_type="NNP",
+                label=self.to_str(n_nbrs),
+                info=dict(metric=self.metric, n_neighbors=n_nbrs),
+                value=nnp,
+            )
+            for n_nbrs, nnp in zip(self.n_neighbors, nnps)
         ]
 
     def to_str(self, n_neighbors):
