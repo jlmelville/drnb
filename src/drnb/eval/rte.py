@@ -41,13 +41,10 @@ class RandomTripletEval(EmbeddingEval):
             X_dist=X_dist,
             metric=self.metric,
         )
-        return ("rte", rte_result)
+        return (str(self), rte_result)
 
     def __str__(self):
-        return (
-            "Random Triplet Evaluation "
-            + f"num triplets per point: {self.n_triplets_per_point}"
-        )
+        return f"rte-{self.n_triplets_per_point}-{self.metric}"
 
 
 # Based on:

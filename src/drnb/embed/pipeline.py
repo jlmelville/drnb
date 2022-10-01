@@ -126,24 +126,32 @@ def color_by_so(n_neighbors, log1p=False, normalize=True, color_scale=None):
     )
 
 
-def color_by_nbr_pres(n_neighbors, normalize=True, color_scale=None):
+def color_by_nbr_pres(
+    n_neighbors, normalize=True, color_scale=None, metric="euclidean"
+):
     return nbplot.ColorByNbrPres(
-        n_neighbors, normalize=normalize, scale=nbplot.ColorScale.new(color_scale)
+        n_neighbors,
+        normalize=normalize,
+        scale=nbplot.ColorScale.new(color_scale),
+        metric=metric,
     )
 
 
-def color_by_rte(n_triplets_per_point, normalize=True, color_scale=None):
+def color_by_rte(
+    n_triplets_per_point, normalize=True, color_scale=None, metric="euclidean"
+):
     return nbplot.ColorByRte(
         n_triplets_per_point,
         normalize=normalize,
         scale=nbplot.ColorScale.new(color_scale),
+        metric=metric,
     )
 
 
-def diag_plots():
+def diag_plots(metric="euclidean"):
     return [
         color_by_ko(15, color_scale=dict(palette="Spectral")),
         color_by_so(15, color_scale=dict(palette="Spectral")),
-        color_by_nbr_pres(15, color_scale=dict(palette="Spectral")),
-        color_by_rte(5, color_scale=dict(palette="Spectral")),
+        color_by_nbr_pres(15, color_scale=dict(palette="Spectral"), metric=metric),
+        color_by_rte(5, color_scale=dict(palette="Spectral"), metric=metric),
     ]

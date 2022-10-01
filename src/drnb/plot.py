@@ -9,8 +9,8 @@ import seaborn as sns
 
 import drnb.neighbors.hubness as hub
 from drnb.embed import get_coords
-from drnb.eval.nbrpres import nbr_presv
-from drnb.eval.rte import random_triplet_evalv
+from drnb.eval.nbrpres import NbrPreservationEval, nbr_presv
+from drnb.eval.rte import RandomTripletEval, random_triplet_evalv
 from drnb.io import read_pickle
 from drnb.log import log
 from drnb.util import islisty
@@ -113,15 +113,27 @@ class ColorByNbrPres:
     n_neighbors: int = 15
     scale: ColorScale = ColorScale()
     normalize: bool = True
+    metric: str = "euclidean"
 
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
         return nbr_presv(
-            X=data, Y=coords, n_nbrs=self.n_neighbors, normalize=self.normalize
+            X=data,
+            Y=coords,
+            n_nbrs=self.n_neighbors,
+            normalize=self.normalize,
+            x_metric=self.metric,
         )
 
     def __str__(self):
-        return f"nbrpres{self.n_neighbors}{' norm' if self.normalize else ''}"
+        return (
+            str(
+                NbrPreservationEval(
+                    metric=self.metric, n_neighbors=self.n_neighbors, include_self=False
+                )
+            )
+            + f"{' norm' if self.normalize else ''}"
+        )
 
 
 @dataclass
@@ -129,6 +141,7 @@ class ColorByRte:
     n_triplets_per_point: int = 5
     scale: ColorScale = ColorScale()
     normalize: bool = True
+    metric: str = "euclidean"
 
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
@@ -138,10 +151,18 @@ class ColorByRte:
             n_triplets_per_point=self.n_triplets_per_point,
             normalize=self.normalize,
             return_triplets=False,
+            metric=self.metric,
         )
 
     def __str__(self):
-        return f"rte{self.n_triplets_per_point}{' norm' if self.normalize else ''}"
+        return (
+            str(
+                RandomTripletEval(
+                    metric=self.metric, n_triplets_per_point=self.n_triplets_per_point
+                )
+            )
+            + f"{' norm' if self.normalize else ''}"
+        )
 
 
 @dataclass

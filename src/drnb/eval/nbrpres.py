@@ -201,7 +201,8 @@ def nbr_presv(
 
 @dataclass
 class NbrPreservationEval(EmbeddingEval):
-    x_metric: str = "euclidean"
+    # this translates to the x-metric in the nbr_pres
+    metric: str = "euclidean"
     n_neighbors: int = 15  # can also be a list
     include_self: bool = False
     verbose: bool = False
@@ -218,18 +219,21 @@ class NbrPreservationEval(EmbeddingEval):
             X,
             coords,
             n_nbrs=self.n_neighbors,
-            x_metric=self.x_metric,
+            x_metric=self.metric,
             include_self=self.include_self,
             verbose=self.verbose,
             **nnp_kwargs,
         )
         if not islisty(self.n_neighbors):
             self.n_neighbors = [self.n_neighbors]
-        return [(f"nnp{n_nbrs}", nnp) for n_nbrs, nnp in zip(self.n_neighbors, nnps)]
+        return [
+            (self.to_str(n_nbrs), nnp) for n_nbrs, nnp in zip(self.n_neighbors, nnps)
+        ]
+
+    def to_str(self, n_neighbors):
+        include_self_str = "self" if self.include_self else "noself"
+        return f"nnp-{n_neighbors}-{include_self_str}-{self.metric}"
 
     def __str__(self):
-        include_self_str = "including" if self.include_self else "excluding"
-        return (
-            f"Neighbor Preservation for n_neighbors: {self.n_neighbors} "
-            f"({include_self_str} self)"
-        )
+        include_self_str = "self" if self.include_self else "noself"
+        return f"nnp-{self.n_neighbors}-{include_self_str}-{self.metric}"

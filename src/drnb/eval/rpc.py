@@ -76,10 +76,7 @@ class RandomPairCorrelEval(EmbeddingEval):
             metric=self.metric,
         )
 
-        return ("rpc", rpc_result)
+        return (str(self), rpc_result)
 
     def __str__(self):
-        return (
-            "Random Pair Correlation "
-            + f"num triplets per point: {self.n_triplets_per_point}"
-        )
+        return f"rpc-{self.n_triplets_per_point}-{self.metric}"
