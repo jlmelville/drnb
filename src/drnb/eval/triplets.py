@@ -163,13 +163,19 @@ def read_triplets_from_info(triplet_info, metric="l2", verbose=False):
     return idx, dist
 
 
-def find_precomputed_triplets(ctx, n_triplets_per_point, metric):
+def find_precomputed_triplets(
+    dataset_name,
+    triplet_sub_dir,
+    n_triplets_per_point,
+    metric="euclidean",
+    drnb_home=None,
+):
     log.info("Looking for precomputed triplets")
     triplet_infos = find_triplet_files(
-        name=ctx.dataset_name,
+        name=dataset_name,
         n_triplets_per_point=n_triplets_per_point,
-        drnb_home=ctx.drnb_home,
-        sub_dir=ctx.triplet_sub_dir,
+        drnb_home=drnb_home,
+        sub_dir=triplet_sub_dir,
         metric=metric,
     )
     if not triplet_infos:

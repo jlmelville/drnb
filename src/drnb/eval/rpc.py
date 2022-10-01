@@ -61,7 +61,11 @@ class RandomPairCorrelEval(EmbeddingEval):
 
         if self.use_precomputed_triplets and ctx is not None:
             idx, X_dist = find_precomputed_triplets(
-                ctx, self.n_triplets_per_point, self.metric
+                dataset_name=ctx.dataset_name,
+                triplet_sub_dir=ctx.triplet_sub_dir,
+                n_triplets_per_point=self.n_triplets_per_point,
+                metric=self.metric,
+                drnb_home=ctx.drnb_home,
             )
             if idx is None:
                 log.info("No precomputed triplets found")
