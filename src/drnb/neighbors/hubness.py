@@ -105,21 +105,20 @@ def describe(df):
     )
 
 
-def get_nbrs(name, n_neighbors):
-    nbrs = read_neighbors(
-        name,
-        n_neighbors=n_neighbors + 1,
-        exact=True,
-    )
+def get_nbrs(name, n_neighbors, metric="euclidean"):
+    nbrs = read_neighbors(name, n_neighbors=n_neighbors + 1, exact=True, metric=metric)
     if nbrs is None:
-        raise ValueError(f"Couldn't get {n_neighbors} for {name}")
+        raise ValueError(
+            f"Couldn't get exact {n_neighbors} neighbors"
+            f" with metric '{metric}' for '{name}'"
+        )
     nbrs.idx = nbrs.idx[:, 1:]
     nbrs.dist = nbrs.dist[:, 1:]
     return nbrs
 
 
-def nbr_stats(name, n_neighbors):
-    nbrs = get_nbrs(name, n_neighbors)
+def nbr_stats(name, n_neighbors, metric="euclidean"):
+    nbrs = get_nbrs(name, n_neighbors, metric=metric)
     ko_desc, ko = ko_data(nbrs)
     so_desc, so = so_data(nbrs)
     nc = n_components(nbrs)
@@ -170,8 +169,8 @@ def write_nbr_stats(nstats):
         pickle.dump(nstats, f, pickle.HIGHEST_PROTOCOL)
 
 
-def read_nbr_stats(name, n_neighbors):
-    nbrs = get_nbrs(name, n_neighbors)
+def read_nbr_stats(name, n_neighbors, metric="euclidean"):
+    nbrs = get_nbrs(name, n_neighbors, metric=metric)
     # unlike the neighbor data itself, the stats file has to be an exact match
     # otherwise we won't find it
     if nbrs.info.n_nbrs != n_neighbors + 1:
@@ -208,21 +207,21 @@ def format_df(
     return df
 
 
-def fetch_nbr_stats(name, n_neighbors, cache=True):
+def fetch_nbr_stats(name, n_neighbors, metric="euclidean", cache=True):
     try:
-        return read_nbr_stats(name, n_neighbors)
+        return read_nbr_stats(name, n_neighbors, metric=metric)
     except FileNotFoundError:
         log.info(
             "Calculating neighbor stats for %s n_neighbors = %d", name, n_neighbors
         )
-        stats = nbr_stats(name, n_neighbors)
+        stats = nbr_stats(name, n_neighbors, metric=metric)
         if cache:
             log.info("Caching neighbor stats")
             write_nbr_stats(stats)
         return stats
 
 
-def nbr_stats_summary(n_neighbors, names=None, cache=True):
+def nbr_stats_summary(n_neighbors, names=None, metric="euclidean", cache=True):
     if names is None:
         names = list_available_datasets()
     if not islisty(names):
@@ -230,16 +229,16 @@ def nbr_stats_summary(n_neighbors, names=None, cache=True):
 
     summaries = []
     for name in names:
-        stats_df = _nbr_stats_summary(name, n_neighbors, cache=cache)
+        stats_df = _nbr_stats_summary(name, n_neighbors, metric=metric, cache=cache)
         if not stats_df.empty:
             summaries.append(stats_df)
 
     return pd.concat(summaries)
 
 
-def _nbr_stats_summary(name, n_neighbors, cache=True):
+def _nbr_stats_summary(name, n_neighbors, metric="euclidean", cache=True):
     try:
-        stats = fetch_nbr_stats(name, n_neighbors, cache=cache)
+        stats = fetch_nbr_stats(name, n_neighbors, metric=metric, cache=cache)
     except ValueError:
         log.info("Skipping neighbor data for %s", name)
         return pd.DataFrame()
