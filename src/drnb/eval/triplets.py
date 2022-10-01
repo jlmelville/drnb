@@ -2,19 +2,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
+from numba import jit, prange
 
 import drnb.io as nbio
+from drnb.distance import distance_function
 from drnb.log import log
 from drnb.util import FromDict
 
 
-def calculate_triplets(data, seed=None, n_triplets_per_point=5, return_distance=True):
+def calculate_triplets(
+    data, seed=None, n_triplets_per_point=5, return_distance=True, metric="euclidean"
+):
     idx = get_triplets(X=data, seed=seed, n_triplets_per_point=n_triplets_per_point)
     if return_distance:
-        n_obs = data.shape[0]
-        anchors = np.arange(n_obs).reshape((-1, 1, 1))
-        bpairs = np.broadcast(anchors, idx)
-        dist = calc_distances(data, bpairs)
+        dist_fun = distance_function(metric)
+        dist = calc_distances(data, idx, dist_fun)
         return idx, dist
     return idx
 
@@ -27,9 +29,17 @@ def get_triplets(X, seed=None, n_triplets_per_point=5):
     return triplets
 
 
-def calc_distances(X, pairs):
-    distances = np.empty(pairs.shape)
-    distances.flat = [np.linalg.norm(X[u] - X[v]) for (u, v) in pairs]
+@jit(nopython=True, parallel=True)
+def calc_distances(X, idx, dist_fun):
+    n_items, n_triplets_per_item, n_others = idx.shape
+    distances = np.empty(idx.shape, dtype=np.float32)
+    # pylint: disable=not-an-iterable
+    for i in prange(n_items):
+        item_pairs = idx[i]
+        for j in range(n_triplets_per_item):
+            pair = item_pairs[j]
+            for k in range(n_others):
+                distances[i, j, k] = dist_fun(X[i], X[pair[k]])
     return distances
 
 
@@ -160,20 +170,18 @@ def find_precomputed_triplets(ctx, n_triplets_per_point, metric):
         n_triplets_per_point=n_triplets_per_point,
         drnb_home=ctx.drnb_home,
         sub_dir=ctx.triplet_sub_dir,
+        metric=metric,
     )
     if not triplet_infos:
-        return None, None, True
+        return None, None
 
     triplet_info = triplet_infos[0]
     log.info("Using triplets from %s", nbio.data_relative_path(triplet_info.idx_path))
-    idx, dist = read_triplets_from_info(triplet_info=triplet_info)
+    idx, dist = read_triplets_from_info(triplet_info=triplet_info, metric=metric)
     if dist is not None:
         log.info("Also found corresponding %s distances", metric)
 
-    # if we wanted pre-computed triplets but couldn't get them and now have
-    # the opportunity to cache them, then return the triplet data
-    return_triplets = idx is None or dist is None
-    return idx, dist, return_triplets
+    return idx, dist
 
 
 def cache_triplets(idx, dist, ctx, n_triplets_per_point, metric, random_state):
@@ -242,3 +250,4 @@ class TripletsRequest(FromDict):
     n_triplets_per_point: int = 5
     seed: int = 42
     file_types: list = field(default_factory=list)
+    metric: list = field(default_factory=lambda: ["euclidean"])

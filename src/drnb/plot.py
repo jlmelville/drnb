@@ -229,6 +229,8 @@ class SeabornPlotter:
 
 
 def create_plotter(plot=True, plot_kwargs=None):
+    if plot_kwargs is None:
+        plot_kwargs = {}
     if isinstance(plot, dict):
         plot_kwargs = plot
         plot = True

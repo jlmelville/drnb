@@ -274,48 +274,61 @@ class DatasetPipeline(Jsonizable):
         if self.triplets_request is None:
             return None
         log.info("Calculating triplets")
-        idx, dist = calculate_triplets(
-            data,
-            seed=self.triplets_request.seed,
-            n_triplets_per_point=self.triplets_request.n_triplets_per_point,
-            return_distance=True,
-        )
 
-        file_types = self.triplets_request.file_types
-        idx_paths = []
-        dist_paths = []
-        if "csv" in file_types:
-            # treat CSV specially because we need to flatten distances
-            file_types = [ft for ft in self.triplets_request.file_types if ft != "csv"]
-            csv_idx_paths, csv_dist_paths = write_triplets(
-                idx.flatten(),
+        triplet_output_paths = []
+        if not islisty(self.triplets_request.metric):
+            metrics = [self.triplets_request.metric]
+        else:
+            metrics = self.triplets_request.metric
+        for metric in metrics:
+            idx, dist = calculate_triplets(
+                data,
+                seed=self.triplets_request.seed,
+                n_triplets_per_point=self.triplets_request.n_triplets_per_point,
+                return_distance=True,
+                metric=metric,
+            )
+
+            file_types = self.triplets_request.file_types
+            idx_paths = []
+            dist_paths = []
+            if "csv" in file_types:
+                # treat CSV specially because we need to flatten distances
+                file_types = [
+                    ft for ft in self.triplets_request.file_types if ft != "csv"
+                ]
+                csv_idx_paths, csv_dist_paths = write_triplets(
+                    idx.flatten(),
+                    name,
+                    self.triplets_request.n_triplets_per_point,
+                    self.triplets_request.seed,
+                    sub_dir="triplets",
+                    create_sub_dir=True,
+                    file_type="csv",
+                    verbose=True,
+                    dist=dist.flatten(),
+                    flattened=True,
+                    metric=metric,
+                )
+                idx_paths += csv_idx_paths
+                dist_paths += csv_dist_paths
+
+            triplet_idx_paths, triplet_dist_paths = write_triplets(
+                idx,
                 name,
                 self.triplets_request.n_triplets_per_point,
                 self.triplets_request.seed,
                 sub_dir="triplets",
                 create_sub_dir=True,
-                file_type="csv",
+                file_type=file_types,
                 verbose=True,
-                dist=dist.flatten(),
-                flattened=True,
+                dist=dist,
+                metric=metric,
             )
-            idx_paths += csv_idx_paths
-            dist_paths += csv_dist_paths
-
-        triplet_idx_paths, triplet_dist_paths = write_triplets(
-            idx,
-            name,
-            self.triplets_request.n_triplets_per_point,
-            self.triplets_request.seed,
-            sub_dir="triplets",
-            create_sub_dir=True,
-            file_type=file_types,
-            verbose=True,
-            dist=dist,
-        )
-        return stringify_paths(
-            idx_paths + triplet_idx_paths + dist_paths + triplet_dist_paths
-        )
+            triplet_output_paths += stringify_paths(
+                idx_paths + triplet_idx_paths + dist_paths + triplet_dist_paths
+            )
+        return triplet_output_paths
 
 
 def stringify_paths(paths):
