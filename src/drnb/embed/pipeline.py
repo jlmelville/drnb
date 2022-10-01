@@ -9,10 +9,10 @@ from drnb.embed import get_embedder_name
 from drnb.embed.factory import create_embedder
 from drnb.eval import evaluate_embedding
 from drnb.eval.factory import create_evaluators
-from drnb.eval.triplets import TripletsRequest, create_triplets_request
 from drnb.io.embed import create_embed_exporter
 from drnb.log import log, log_verbosity
 from drnb.neighbors import NeighborsRequest, create_neighbors_request
+from drnb.triplets import TripletsRequest, create_triplets_request
 from drnb.util import dts_to_str, islisty
 
 

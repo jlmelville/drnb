@@ -6,13 +6,13 @@ from drnb.distance import distance_function
 from drnb.eval import EvalResult
 from drnb.log import log
 
-from .base import EmbeddingEval
-from .triplets import (
+from ..triplets import (
     calc_distances,
     find_precomputed_triplets,
     get_triplets,
     validate_triplets,
 )
+from .base import EmbeddingEval
 
 
 def random_pair_correl_eval(

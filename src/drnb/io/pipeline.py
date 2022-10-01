@@ -6,12 +6,12 @@ import numpy as np
 import pandas as pd
 import sklearn.decomposition
 
-from drnb.eval.triplets import TripletsRequest, create_triplets_request
 from drnb.io import stringify_paths, write_json, write_pickle
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
 from drnb.neighbors import NeighborsRequest, create_neighbors_request
 from drnb.preprocess import create_scale_kwargs, filter_columns, numpyfy, scale_data
+from drnb.triplets import TripletsRequest, create_triplets_request
 from drnb.util import Jsonizable, dts_now
 
 
