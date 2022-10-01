@@ -6,8 +6,8 @@ from dataclasses import asdict
 import pandas as pd
 
 
-def get_method_and_args(method):
-    kwds = None
+def get_method_and_args(method, default=None):
+    kwds = default
     if isinstance(method, tuple):
         if len(method) != 2:
             raise ValueError("Unexpected format for method")

@@ -1,5 +1,7 @@
 from typing import Iterable
 
+from drnb.util import get_method_and_args
+
 from .globalscore import GlobalScore
 from .nbrpres import NbrPreservationEval
 from .rpc import RandomPairCorrelEval
@@ -15,14 +17,7 @@ def create_evaluators(eval_metrics=None):
 
     evaluators = []
     for embed_eval in eval_metrics:
-        if isinstance(embed_eval, tuple):
-            if len(embed_eval) != 2:
-                raise ValueError("Bad format for eval spec")
-            embed_eval_name = embed_eval[0]
-            eval_kwds = embed_eval[1]
-        else:
-            embed_eval_name = embed_eval
-            eval_kwds = {}
+        embed_eval_name, eval_kwds = get_method_and_args(embed_eval, {})
 
         embed_eval_name = embed_eval_name.lower()
         if embed_eval_name == "gs":

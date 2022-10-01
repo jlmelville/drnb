@@ -41,9 +41,7 @@ def scale_data(data, scale_type=None, params=None):
 
 
 def create_scale_kwargs(scale):
-    scale, kwds = get_method_and_args(scale)
-    if kwds is None:
-        kwds = {}
+    scale, kwds = get_method_and_args(scale, {})
     kwds["scale_type"] = scale
     return kwds
 

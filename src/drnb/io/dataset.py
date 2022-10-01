@@ -91,14 +91,13 @@ class DatasetImporter:
 
 
 def create_dataset_exporter(export_config):
-    export, export_kwargs = get_method_and_args(export_config)
+    export, export_kwargs = get_method_and_args(
+        export_config, dict(suffix=None, create_sub_dir=True, verbose=False)
+    )
     if export in ("csv", "pkl", "npy"):
         exporter_cls = FileExporter
     else:
         raise ValueError(f"Unknown exporter type {export}")
-
-    if export_kwargs is None:
-        export_kwargs = dict(suffix=None, create_sub_dir=True, verbose=False)
 
     exporter = exporter_cls.new(file_type=export, **export_kwargs)
     return exporter
