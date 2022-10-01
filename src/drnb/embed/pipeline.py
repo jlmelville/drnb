@@ -28,7 +28,6 @@ class EmbedderPipeline:
     plotter: Any = nbplot.NoPlotter()
     exporter: Any = None
     verbose: bool = False
-    triplets_request: TripletsRequest = None
 
     def run(self, dataset_name, experiment=None, verbose=None):
         if verbose is None:

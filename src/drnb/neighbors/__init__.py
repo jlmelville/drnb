@@ -359,13 +359,10 @@ def write_neighbors(
     if neighbor_data.info.name is None:
         raise ValueError("No neighbor data info name")
 
-    idx_suffix = neighbor_data.info.idx_suffix
-    log.info("idx_suffix = %s", idx_suffix)
-
     idx_paths = write_data(
         x=neighbor_data.idx,
         name=neighbor_data.info.name,
-        suffix=idx_suffix,
+        suffix=neighbor_data.info.idx_suffix,
         drnb_home=drnb_home,
         sub_dir=sub_dir,
         create_sub_dir=create_sub_dir,
@@ -374,14 +371,10 @@ def write_neighbors(
     )
     dist_paths = []
     if neighbor_data.dist is not None:
-
-        dist_suffix = neighbor_data.info.dist_suffix
-        log.info("dist_suffix = %s", dist_suffix)
-
         dist_paths = write_data(
             x=neighbor_data.dist,
             name=neighbor_data.info.name,
-            suffix=dist_suffix,
+            suffix=neighbor_data.info.dist_suffix,
             drnb_home=drnb_home,
             sub_dir=sub_dir,
             create_sub_dir=create_sub_dir,
