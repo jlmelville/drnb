@@ -98,7 +98,8 @@ class EmbedPipelineExporter:
                 verbose=True,
             )
             for exporter in exporters:
-                exporter.export(name=ctx.dataset_name, embedded=embed_coords)
+                exporter.export(name=ctx.dataset_name, embedded=embedding_result)
+
         if self.triplets_request is not None:
             log.info("Calculating embedded triplets")
 
