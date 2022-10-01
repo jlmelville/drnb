@@ -55,7 +55,7 @@ def dt_now():
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def dts_to_str(dts, fmt=DATETIME_FMT):
+def dts_to_str(dts=None, fmt=DATETIME_FMT):
     if dts is None:
         dts = dts_now()
     return dts_to_dt(dts).strftime(fmt)
