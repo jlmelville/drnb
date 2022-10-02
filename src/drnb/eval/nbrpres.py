@@ -208,6 +208,18 @@ class NbrPreservationEval(EmbeddingEval):
     include_self: bool = False
     verbose: bool = False
 
+    def listify_n_neighbors(self):
+        if not islisty(self.n_neighbors):
+            self.n_neighbors = [self.n_neighbors]
+
+    def requires(self):
+        self.listify_n_neighbors()
+        return dict(
+            name="neighbors",
+            metric=self.metric,
+            n_neighbors=int(np.max(self.n_neighbors)),
+        )
+
     def evaluate(self, X, coords, ctx=None):
         if ctx is not None:
             nnp_kwargs = dict(
@@ -225,8 +237,9 @@ class NbrPreservationEval(EmbeddingEval):
             verbose=self.verbose,
             **nnp_kwargs,
         )
-        if not islisty(self.n_neighbors):
-            self.n_neighbors = [self.n_neighbors]
+
+        self.listify_n_neighbors()
+
         return [
             EvalResult(
                 eval_type="NNP",

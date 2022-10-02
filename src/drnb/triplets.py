@@ -51,7 +51,12 @@ def validate_triplets(triplets, n_obs):
 
 
 def find_triplet_files(
-    name, n_triplets_per_point=5, metric="l2", drnb_home=None, sub_dir="triplets"
+    name,
+    n_triplets_per_point=5,
+    metric="l2",
+    drnb_home=None,
+    sub_dir="triplets",
+    seed=None,
 ):
     triplet_dir_path = nbio.get_path(drnb_home=drnb_home, sub_dir=sub_dir)
     if not triplet_dir_path.exists():
@@ -73,6 +78,11 @@ def find_triplet_files(
     ]
     if not triplet_infos:
         return triplet_infos
+
+    if seed is not None:
+        triplet_infos = [info for info in triplet_infos if info.seed == seed]
+        if not triplet_infos:
+            return triplet_infos
 
     # favor npy or pkl files over csv
     preferred_exts = [".npy", ".pkl"]

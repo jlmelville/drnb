@@ -56,6 +56,14 @@ class RandomPairCorrelEval(EmbeddingEval):
     use_precomputed_triplets: bool = True
     metric: str = "euclidean"
 
+    def requires(self):
+        return dict(
+            name="triplets",
+            n_triplets_per_point=self.n_triplets_per_point,
+            metric=self.metric,
+            random_state=self.random_state,
+        )
+
     def evaluate(self, X, coords, ctx=None):
         idx = None
         X_dist = None

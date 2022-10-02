@@ -11,9 +11,9 @@ from drnb.eval import evaluate_embedding
 from drnb.eval.factory import create_evaluators
 from drnb.io.embed import create_embed_exporter
 from drnb.log import log, log_verbosity
-from drnb.neighbors import NeighborsRequest, create_neighbors_request
-from drnb.triplets import TripletsRequest, create_triplets_request
-from drnb.util import dts_to_str, islisty
+from drnb.neighbors import create_neighbors_request, find_candidate_neighbors_info
+from drnb.triplets import create_triplets_request, find_triplet_files
+from drnb.util import default_dict, default_list, dts_to_str, islisty
 
 
 @dataclass
@@ -21,7 +21,7 @@ class EmbedderPipeline:
     embed_method_name: str
     # a way to refer to a specific parameterization of an embedding method,
     # e.g. the method might be umap, but you may want to refer to it as densvis
-    embed_method_label: str = ""
+    embed_method_variant: str = ""
     importer: Any = dataio.DatasetImporter()
     embedder: Any = None
     evaluators: list = field(default_factory=list)
@@ -42,7 +42,7 @@ class EmbedderPipeline:
 
         ctx = EmbedContext(
             embed_method_name=self.embed_method_name,
-            embed_method_label=self.embed_method_label,
+            embed_method_variant=self.embed_method_variant,
             dataset_name=dataset_name,
             drnb_home=self.importer.drnb_home,
             data_sub_dir=self.importer.sub_dir,
@@ -52,43 +52,161 @@ class EmbedderPipeline:
         x, y = self.importer.import_data(ctx.dataset_name)
 
         log.info("Embedding")
-        embedded = self.embedder.embed(x, ctx=ctx)
+        embedding_result = self.embedder.embed(x, ctx=ctx)
+        if not isinstance(embedding_result, dict):
+            embedding_result = dict(coords=embedding_result)
+
+        if self.exporter is not None:
+            log.info("Caching data")
+            self.exporter.cache_data(self.evaluators, embedding_result, ctx)
 
         log.info("Evaluating")
-        evaluations = evaluate_embedding(self.evaluators, x, embedded, ctx=ctx)
-
-        if not isinstance(embedded, dict):
-            embedded = dict(coords=embedded)
-            if evaluations:
-                embedded["evaluations"] = evaluations
+        evaluations = evaluate_embedding(self.evaluators, x, embedding_result, ctx=ctx)
+        if evaluations:
+            embedding_result["evaluations"] = evaluations
 
         if self.exporter is not None:
             log.info("Exporting")
-            self.exporter.export(embedding_result=embedded, ctx=ctx)
+            self.exporter.export(embedding_result=embedding_result, ctx=ctx)
 
         log.info("Plotting")
-        self.plotter.plot(embedded, data=x, y=y, ctx=ctx)
+        self.plotter.plot(embedding_result, data=x, y=y, ctx=ctx)
 
-        return embedded
+        return embedding_result
 
 
 @dataclass
 class EmbedPipelineExporter:
-    out_types: field(default_factory=list)
-    triplets_request: TripletsRequest = None
-    neighbors_request: NeighborsRequest = None
+    out_types: default_list()
+    triplets_requests: list = default_list()
+    export_dict: dict = default_dict()
+
+    def cache_data(self, evaluators, embedding_result, ctx):
+        embed_coords = embedding_result["coords"]
+
+        # do we need triplets?
+        for evaluator in evaluators:
+            require = evaluator.requires()
+            require_name = require.get("name", "unknown")
+            if require_name == "triplets":
+                self.cache_triplets(require, embed_coords, ctx)
+            elif require_name == "neighbors":
+                self.cache_neighbors(require, embed_coords, ctx)
+            else:
+                log.info("Don't know how to cache %s, skipping", require_name)
+
+    def cache_triplets(self, require, embed_coords, ctx):
+        log.info(
+            "Need triplets with metric %s n_triplets %d seed %s",
+            require["metric"],
+            require["n_triplets_per_point"],
+            require["random_state"],
+        )
+
+        triplet_info = find_triplet_files(
+            name=ctx.embed_triplets_name,
+            n_triplets_per_point=require["n_triplets_per_point"],
+            drnb_home=ctx.drnb_home,
+            sub_dir=ctx.experiment_name,
+            metric=require["metric"],
+            seed=require["random_state"],
+        )
+        if triplet_info:
+            log.info("Already created needed triplets for embedded data")
+            return
+
+        triplet_info = find_triplet_files(
+            name=ctx.dataset_name,
+            n_triplets_per_point=require["n_triplets_per_point"],
+            drnb_home=ctx.drnb_home,
+            sub_dir=ctx.triplet_sub_dir,
+            metric=require["metric"],
+            seed=require["random_state"],
+        )
+        if not triplet_info:
+            return
+
+        triplet_info = triplet_info[0]
+        triplets_request = create_triplets_request(
+            dict(
+                n_triplets_per_point=triplet_info.n_triplets_per_point,
+                seed=triplet_info.seed,
+                metric=require["metric"],
+            )
+        )
+        triplet_output_paths = triplets_request.create_triplets(
+            embed_coords,
+            dataset_name=ctx.embed_triplets_name,
+            triplet_dir=ctx.experiment_name,
+        )
+
+        if "triplets" not in self.export_dict:
+            self.export_dict["triplets"] = []
+        self.export_dict["triplets"].append(
+            dict(
+                request=triplets_request,
+                paths=nbio.stringify_paths(triplet_output_paths),
+            )
+        )
+
+    def cache_neighbors(self, require, embed_coords, ctx):
+        log.info(
+            "Need neighbors with metric %s n_neighbors %d",
+            require["metric"],
+            require["n_neighbors"],
+        )
+
+        neighbors_info = find_candidate_neighbors_info(
+            name=ctx.embed_nn_name,
+            n_neighbors=require["n_neighbors"],
+            metric=require["metric"],
+            exact=True,
+            return_distance=True,
+            drnb_home=ctx.drnb_home,
+            sub_dir=ctx.experiment_name,
+        )
+
+        if neighbors_info:
+            log.info("Already created needed neighbors for embedded data")
+            return
+
+        neighbors_info = find_candidate_neighbors_info(
+            name=ctx.dataset_name,
+            n_neighbors=require["n_neighbors"],
+            metric=require["metric"],
+            exact=True,
+            return_distance=False,
+            drnb_home=ctx.drnb_home,
+            sub_dir=ctx.nn_sub_dir,
+        )
+        if not neighbors_info:
+            return
+
+        neighbors_request = create_neighbors_request(
+            dict(
+                n_neighbors=require["n_neighbors"],
+                metric=require["metric"],
+            )
+        )
+        neighbors_output_paths = neighbors_request.create_neighbors(
+            embed_coords,
+            dataset_name=ctx.embed_nn_name,
+            nbr_dir=ctx.experiment_name,
+        )
+
+        if "neighbors" not in self.export_dict:
+            self.export_dict["neighbors"] = []
+        self.export_dict["neighbors"].append(
+            dict(
+                request=neighbors_request,
+                paths=nbio.stringify_paths(neighbors_output_paths),
+            )
+        )
 
     def export(self, embedding_result, ctx):
-        embed_coords = embedding_result["coords"]
-        export_dict = {}
-
         if self.out_types is not None:
-            if ctx.embed_method_label:
-                embed_method_label = ctx.embed_method_label
-            else:
-                embed_method_label = ctx.embed_method_name
             exporters = create_embed_exporter(
-                embed_method_label=embed_method_label,
+                embed_method_label=ctx.embed_method_label,
                 out_type=self.out_types,
                 sub_dir=ctx.experiment_name,
                 suffix=None,
@@ -99,47 +217,20 @@ class EmbedPipelineExporter:
             for exporter in exporters:
                 exporter.export(name=ctx.dataset_name, embedded=embedding_result)
 
-        if self.triplets_request is not None:
-            log.info("Calculating embedded triplets")
-
-            triplet_output_paths = self.triplets_request.create_triplets(
-                embed_coords,
-                dataset_name=ctx.dataset_name,
-                suffix=embed_method_label,
-                triplet_dir=ctx.experiment_name,
-            )
-            export_dict["triplets"] = dict(
-                request=self.triplets_request,
-                paths=nbio.stringify_paths(triplet_output_paths),
-            )
-
-        if self.neighbors_request is not None:
-            log.info("Calculating embedded neighbors")
-
-            neighbors_output_paths = self.neighbors_request.create_neighbors(
-                embed_coords,
-                dataset_name=ctx.dataset_name,
-                suffix=embed_method_label,
-                nbr_dir=ctx.experiment_name,
-            )
-            export_dict["neighbors"] = dict(
-                request=self.neighbors_request,
-                paths=nbio.stringify_paths(neighbors_output_paths),
-            )
-
         if "evaluations" in embedding_result:
-            export_dict["evaluations"] = embedding_result["evaluations"]
+            self.export_dict["evaluations"] = embedding_result["evaluations"]
 
-        if export_dict:
+        if self.export_dict:
             nbio.write_json(
-                export_dict,
+                self.export_dict,
                 name=ctx.dataset_name,
-                suffix=embed_method_label,
+                suffix=ctx.embed_method_label,
                 drnb_home=ctx.drnb_home,
                 sub_dir=ctx.experiment_name,
                 create_sub_dir=True,
                 verbose=True,
             )
+            self.export_dict.clear()
 
 
 # helper method to create an embedder configuration
@@ -147,7 +238,7 @@ def embedder(name, params=None, **kwargs):
     return (name, kwargs | dict(params=params))
 
 
-def create_exporter(export, triplets=None, neighbors=None):
+def create_exporter(export):
     if export is not None:
         if not islisty(export):
             if isinstance(export, bool):
@@ -160,8 +251,6 @@ def create_exporter(export, triplets=None, neighbors=None):
     if export is not None:
         return EmbedPipelineExporter(
             out_types=export,
-            triplets_request=create_triplets_request(triplets),
-            neighbors_request=create_neighbors_request(neighbors),
         )
     return None
 
@@ -171,11 +260,9 @@ def create_pipeline(
     data_config=None,
     plot=True,
     eval_metrics=None,
-    triplets=None,
-    neighbors=None,
     export=None,
     verbose=False,
-    embed_method_label="",
+    embed_method_variant="",
 ):
     if data_config is None:
         data_config = {}
@@ -184,11 +271,11 @@ def create_pipeline(
     _embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
     plotter = nbplot.create_plotter(plot)
-    exporter = create_exporter(export, triplets=triplets, neighbors=neighbors)
+    exporter = create_exporter(export)
 
     return EmbedderPipeline(
         embed_method_name=get_embedder_name(method),
-        embed_method_label=embed_method_label,
+        embed_method_variant=embed_method_variant,
         importer=importer,
         embedder=_embedder,
         evaluators=evaluators,
@@ -202,12 +289,26 @@ def create_pipeline(
 class EmbedContext:
     dataset_name: str
     embed_method_name: str
-    embed_method_label: str = ""
+    embed_method_variant: str = ""
     drnb_home: pathlib.Path = nbio.get_drnb_home()
     data_sub_dir: str = "data"
     nn_sub_dir: str = "nn"
     triplet_sub_dir: str = "triplets"
     experiment_name: str = None
+
+    @property
+    def embed_method_label(self):
+        if self.embed_method_variant:
+            return self.embed_method_variant
+        return self.embed_method_name
+
+    @property
+    def embed_nn_name(self):
+        return f"{self.dataset_name}-{self.embed_method_label}-nn"
+
+    @property
+    def embed_triplets_name(self):
+        return f"{self.dataset_name}-{self.embed_method_label}-triplets"
 
 
 def color_by_ko(n_neighbors, color_scale=None, normalize=True, log1p=False):
