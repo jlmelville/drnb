@@ -350,3 +350,7 @@ def diag_plots(metric="euclidean"):
         color_by_nbr_pres(15, color_scale=dict(palette="Spectral"), metric=metric),
         color_by_rte(5, color_scale=dict(palette="Spectral"), metric=metric),
     ]
+
+
+def extra_plots():
+    return ["nnphist", "rthist", "rpscatter"]

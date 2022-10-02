@@ -50,6 +50,7 @@ def validate_triplets(triplets, n_obs):
         )
 
 
+# pylint:disable=too-many-return-statements
 def find_triplet_files(
     name,
     n_triplets_per_point=5,
@@ -58,7 +59,11 @@ def find_triplet_files(
     sub_dir="triplets",
     seed=None,
 ):
-    triplet_dir_path = nbio.get_path(drnb_home=drnb_home, sub_dir=sub_dir)
+    try:
+        triplet_dir_path = nbio.get_path(drnb_home=drnb_home, sub_dir=sub_dir)
+    except FileNotFoundError:
+        return []
+
     if not triplet_dir_path.exists():
         return []
     triplet_file_paths = list(Path.glob(triplet_dir_path, name + ".*.idx.*"))

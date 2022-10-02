@@ -10,6 +10,7 @@ import seaborn as sns
 import drnb.neighbors.hubness as hub
 from drnb.embed import get_coords
 from drnb.eval.nbrpres import NbrPreservationEval
+from drnb.eval.rpc import RandomPairCorrelEval
 from drnb.eval.rte import RandomTripletEval
 from drnb.io import read_pickle
 from drnb.log import log
@@ -217,6 +218,7 @@ class SeabornPlotter:
             if ax.get_legend() is not None:
                 ax.get_legend().remove()
             ax.figure.colorbar(sm)
+        plt.show()
 
     def get_palette(self, ctx):
         if ctx is None:
@@ -240,36 +242,130 @@ class SeabornPlotter:
         return reqs
 
 
+@dataclass
+class NbrPreservationHistogram:
+    n_neighbors: int = 15
+    metric: str = "euclidean"
+    normalize: bool = True
+
+    def npe(self):
+        return NbrPreservationEval(
+            metric=self.metric, n_neighbors=self.n_neighbors, include_self=False
+        )
+
+    def requires(self):
+        return self.npe().requires()
+
+    # pylint: disable=unused-argument
+    def plot(self, embedded, data, y, ctx=None):
+        vec = self.npe().evaluatev(data, embedded["coords"], ctx=ctx)[0]
+        plot = sns.histplot(x=vec, bins=self.n_neighbors + 1)
+        plot.set(title=str(self))
+        plot.set_xlabel("neighbor preservation")
+        plt.show()
+
+    def __str__(self):
+        return str(self.npe()) + f"{' norm' if self.normalize else ''}"
+
+
+@dataclass
+class RandomTripletHistogram:
+    n_triplets_per_point: int = 5
+    normalize: bool = True
+    metric: str = "euclidean"
+    random_state: int = None
+
+    def rte(self):
+        return RandomTripletEval(
+            random_state=self.random_state,
+            metric=self.metric,
+            n_triplets_per_point=self.n_triplets_per_point,
+        )
+
+    # pylint: disable=unused-argument
+    def plot(self, embedded, data, y, ctx=None):
+        vec = self.rte().evaluatev(data, embedded["coords"], ctx)
+        plot = sns.histplot(x=vec, bins=self.n_triplets_per_point + 1)
+        plot.set(title=str(self))
+        plot.set_xlabel("random triplet accuracy")
+        plt.show()
+
+    def __str__(self):
+        return str(self.rte()) + f"{' norm' if self.normalize else ''}"
+
+    def requires(self):
+        return self.rte().requires()
+
+
+@dataclass
+class RandomPairDistanceScatterplot:
+    n_triplets_per_point: int = 5
+    metric: str = "euclidean"
+    random_state: int = None
+
+    def rpc(self):
+        return RandomPairCorrelEval(
+            random_state=self.random_state,
+            metric=self.metric,
+            n_triplets_per_point=self.n_triplets_per_point,
+        )
+
+    # pylint: disable=unused-argument
+    def plot(self, embedded, data, y, ctx=None):
+        vec = self.rpc().evaluatev(data, embedded["coords"], ctx)
+        plot = sns.scatterplot(x=vec[0], y=vec[1], s=1, alpha=0.5)
+        plot.set(title=str(self))
+        plot.set_xlabel("ambient distances")
+        plot.set_ylabel("embedded distances")
+        plt.show()
+
+    def __str__(self):
+        return str(self.rpc())
+
+    def requires(self):
+        return self.rpc().requires()
+
+
 def create_plotters(plot=True, plot_kwargs=None):
     if plot_kwargs is None:
         plot_kwargs = {}
     if isinstance(plot, dict):
         plot_kwargs = plot
         plot = True
+    if not plot:
+        return []
 
-    color_by = plot_kwargs.get("color_by")
-    if islisty(color_by):
-        # default plot
+    plotters = []
+    plotter_cls = SeabornPlotter
+
+    color_by = []
+    if "color_by" in plot_kwargs:
+        color_by = plot_kwargs["color_by"]
+        if not islisty(color_by):
+            color_by = [color_by]
+        del plot_kwargs["color_by"]
+
+    extras = []
+    if "extras" in plot_kwargs:
+        extras = plot_kwargs["extras"]
+        del plot_kwargs["extras"]
+
+    plotters.append(plotter_cls.new(**plot_kwargs))
+    for cby in color_by:
         pkwargs1 = dict(plot_kwargs)
-        del pkwargs1["color_by"]
-        uniplotters = create_plotters(pkwargs1)
+        pkwargs1["color_by"] = cby
+        plotters.append(plotter_cls.new(**pkwargs1))
 
-        # Add extra plots
-        for cby in color_by:
-            pkwargs1 = dict(plot_kwargs)
-            pkwargs1["color_by"] = cby
-            uniplotters += create_plotters(pkwargs1)
-        return uniplotters
-
-    if plot:
-        plotter_cls = SeabornPlotter
-    else:
-        plotter_cls = NoPlotter
-    if plot_kwargs is None:
-        plot_kwargs = {}
-
-    plotter = plotter_cls.new(**plot_kwargs)
-    return [plotter]
+    for extra in extras:
+        if extra == "nnphist":
+            plotters.append(NbrPreservationHistogram())
+        elif extra == "rthist":
+            plotters.append(RandomTripletHistogram())
+        elif extra == "rpscatter":
+            plotters.append(RandomPairDistanceScatterplot())
+        else:
+            raise ValueError(f"Unknown plot type '{extra}'")
+    return plotters
 
 
 def plot_embedded(embedded, y, plot_kwargs=None):
@@ -397,5 +493,4 @@ def sns_embed_plot(
             title=leg_title,
         )
         # plt.tight_layout()
-
     return plot

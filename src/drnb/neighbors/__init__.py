@@ -158,7 +158,11 @@ def find_candidate_neighbors_info(
     if name is None:
         return None
 
-    nn_dir_path = get_path(drnb_home=drnb_home, sub_dir=sub_dir)
+    try:
+        nn_dir_path = get_path(drnb_home=drnb_home, sub_dir=sub_dir)
+    except FileNotFoundError:
+        return None
+
     # probable nn files
     nn_file_paths = list(Path.glob(nn_dir_path, name + ".*.idx.*"))
     if not nn_file_paths:

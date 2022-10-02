@@ -15,13 +15,12 @@ from ..triplets import (
 from .base import EmbeddingEval
 
 
-def random_pair_correl_eval(
+def _random_pair_setup(
     X,
     X_new,
     triplets=None,
     random_state=None,
     n_triplets_per_point=5,
-    return_triplets=False,
     X_dist=None,
     metric="euclidean",
     Xnew_dist=None,
@@ -47,10 +46,63 @@ def random_pair_correl_eval(
     else:
         validate_triplets(Xnew_dist, n_obs)
 
+    return (
+        X_dist,
+        Xnew_dist,
+        triplets,
+    )
+
+
+def random_pair_correl_eval(
+    X,
+    X_new,
+    triplets=None,
+    random_state=None,
+    n_triplets_per_point=5,
+    return_triplets=False,
+    X_dist=None,
+    metric="euclidean",
+    Xnew_dist=None,
+):
+    X_dist, Xnew_dist, triplets = _random_pair_setup(
+        X,
+        X_new,
+        triplets=triplets,
+        random_state=random_state,
+        n_triplets_per_point=n_triplets_per_point,
+        X_dist=X_dist,
+        metric=metric,
+        Xnew_dist=Xnew_dist,
+    )
+
     correl = scipy.stats.pearsonr(X_dist.flatten(), Xnew_dist.flatten()).statistic
     if return_triplets:
         return correl, triplets, X_dist
     return correl
+
+
+def random_pairv(
+    X,
+    X_new,
+    triplets=None,
+    random_state=None,
+    n_triplets_per_point=5,
+    X_dist=None,
+    metric="euclidean",
+    Xnew_dist=None,
+):
+    X_dist, Xnew_dist, triplets = _random_pair_setup(
+        X,
+        X_new,
+        triplets=triplets,
+        random_state=random_state,
+        n_triplets_per_point=n_triplets_per_point,
+        X_dist=X_dist,
+        metric=metric,
+        Xnew_dist=Xnew_dist,
+    )
+
+    return X_dist.flatten(), Xnew_dist.flatten()
 
 
 @dataclass
@@ -68,7 +120,7 @@ class RandomPairCorrelEval(EmbeddingEval):
             random_state=self.random_state,
         )
 
-    def evaluate(self, X, coords, ctx=None):
+    def _evaluate_setup(self, ctx):
         idx = None
         X_dist = None
         Xnew_dist = None
@@ -91,6 +143,11 @@ class RandomPairCorrelEval(EmbeddingEval):
                 drnb_home=ctx.drnb_home,
             )
 
+        return idx, X_dist, Xnew_dist
+
+    def evaluate(self, X, coords, ctx=None):
+        idx, X_dist, Xnew_dist = self._evaluate_setup(ctx=ctx)
+
         rpc_result = random_pair_correl_eval(
             X,
             coords,
@@ -107,6 +164,20 @@ class RandomPairCorrelEval(EmbeddingEval):
             label=str(self),
             info=dict(metric=self.metric, ntpp=self.n_triplets_per_point),
             value=rpc_result,
+        )
+
+    def evaluatev(self, X, coords, ctx=None):
+        idx, X_dist, Xnew_dist = self._evaluate_setup(ctx=ctx)
+
+        return random_pairv(
+            X,
+            coords,
+            random_state=self.random_state,
+            triplets=idx,
+            n_triplets_per_point=self.n_triplets_per_point,
+            X_dist=X_dist,
+            metric=self.metric,
+            Xnew_dist=Xnew_dist,
         )
 
     def __str__(self):
