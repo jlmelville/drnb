@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from drnb.distance import distance_function
+from drnb.distances import distance_function
 from drnb.eval import EvalResult
 
 from ..log import log
