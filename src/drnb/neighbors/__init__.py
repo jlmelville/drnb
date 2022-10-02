@@ -7,14 +7,7 @@ import numpy as np
 import sklearn.metrics
 
 import drnb.neighbors.sklearn as sknbrs
-from drnb.io import (
-    data_relative_path,
-    dataset,
-    ensure_suffix,
-    get_path,
-    read_data,
-    write_data,
-)
+from drnb.io import data_relative_path, get_path, read_data, write_data
 from drnb.log import log
 from drnb.preprocess import numpyfy
 from drnb.util import FromDict, Jsonizable, default_dict, default_list, islisty

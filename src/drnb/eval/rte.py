@@ -45,6 +45,14 @@ class RandomTripletEval(EmbeddingEval):
             if idx is None:
                 log.info("No precomputed triplets found")
 
+            _, Xnew_dist = find_precomputed_triplets(
+                dataset_name=ctx.embed_triplets_name,
+                triplet_sub_dir=ctx.experiment_name,
+                n_triplets_per_point=self.n_triplets_per_point,
+                metric=self.metric,
+                drnb_home=ctx.drnb_home,
+            )
+
         rte_result = random_triplet_eval(
             X,
             coords,
@@ -53,6 +61,7 @@ class RandomTripletEval(EmbeddingEval):
             triplets=idx,
             X_dist=X_dist,
             metric=self.metric,
+            Xnew_dist=Xnew_dist,
         )
 
         return EvalResult(
@@ -78,6 +87,7 @@ def random_triplet_evalv(
     X_dist=None,
     normalize=True,
     metric="euclidean",
+    Xnew_dist=None,
 ):
     dist_fun = distance_function(metric)
     n_obs = X.shape[0]
@@ -97,11 +107,13 @@ def random_triplet_evalv(
         X_dist = calc_distances(X, triplets, dist_fun)
     else:
         validate_triplets(X_dist, n_obs)
-
     labels = X_dist[:, :, 0] < X_dist[:, :, 1]
 
     # Calculate distances for LD
-    Xnew_dist = calc_distances(X_new, triplets, dist_fun)
+    if Xnew_dist is None:
+        Xnew_dist = calc_distances(X_new, triplets, dist_fun)
+    else:
+        validate_triplets(Xnew_dist, n_obs)
     pred_vals = Xnew_dist[:, :, 0] < Xnew_dist[:, :, 1]
 
     accv = np.sum(pred_vals == labels, axis=1, dtype=float)
@@ -122,6 +134,7 @@ def random_triplet_eval(
     X_dist=None,
     normalize=True,
     metric="euclidean",
+    Xnew_dist=None,
 ):
     res = random_triplet_evalv(
         X,
@@ -133,6 +146,7 @@ def random_triplet_eval(
         X_dist=X_dist,
         normalize=normalize,
         metric=metric,
+        Xnew_dist=Xnew_dist,
     )
     if return_triplets:
         accv = res[0]

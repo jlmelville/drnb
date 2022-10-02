@@ -24,6 +24,7 @@ def random_pair_correl_eval(
     return_triplets=False,
     X_dist=None,
     metric="euclidean",
+    Xnew_dist=None,
 ):
     dist_fun = distance_function(metric)
 
@@ -41,7 +42,10 @@ def random_pair_correl_eval(
     else:
         validate_triplets(X_dist, n_obs)
 
-    Xnew_dist = calc_distances(X_new, triplets, dist_fun)
+    if Xnew_dist is None:
+        Xnew_dist = calc_distances(X_new, triplets, dist_fun)
+    else:
+        validate_triplets(Xnew_dist, n_obs)
 
     correl = scipy.stats.pearsonr(X_dist.flatten(), Xnew_dist.flatten()).statistic
     if return_triplets:
@@ -78,6 +82,13 @@ class RandomPairCorrelEval(EmbeddingEval):
             )
             if idx is None:
                 log.info("No precomputed triplets found")
+            _, Xnew_dist = find_precomputed_triplets(
+                dataset_name=ctx.embed_triplets_name,
+                triplet_sub_dir=ctx.experiment_name,
+                n_triplets_per_point=self.n_triplets_per_point,
+                metric=self.metric,
+                drnb_home=ctx.drnb_home,
+            )
 
         rpc_result = random_pair_correl_eval(
             X,
@@ -87,6 +98,7 @@ class RandomPairCorrelEval(EmbeddingEval):
             n_triplets_per_point=self.n_triplets_per_point,
             X_dist=X_dist,
             metric=self.metric,
+            Xnew_dist=Xnew_dist,
         )
 
         return EvalResult(
