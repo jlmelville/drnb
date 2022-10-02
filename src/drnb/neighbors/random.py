@@ -8,7 +8,6 @@ def random_neighbors(data, n_neighbors=None, distance="euclidean", random_state=
     n_items = data.shape[0]
     if n_neighbors is None:
         n_neighbors = np.ceil(np.log(n_items)).astype(int)
-        print(n_neighbors)
     idx = random_idx(n_items, n_neighbors, random_state=random_state)
     dist = neighbor_distances(data, idx, distance)
 
