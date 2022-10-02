@@ -98,5 +98,5 @@ class NbrInfo:
 @dataclass
 class NearestNeighbors:
     idx: np.ndarray
-    info: NbrInfo
+    info: NbrInfo = None
     dist: np.ndarray = None
