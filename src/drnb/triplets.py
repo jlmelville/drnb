@@ -5,7 +5,7 @@ import numpy as np
 from numba import jit, prange
 
 import drnb.io as nbio
-from drnb.distance import distance_function
+from drnb.distances import distance_function
 from drnb.log import log
 from drnb.util import FromDict, Jsonizable, islisty
 
