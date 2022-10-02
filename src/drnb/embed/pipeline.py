@@ -25,7 +25,7 @@ class EmbedderPipeline:
     importer: Any = dataio.DatasetImporter()
     embedder: Any = None
     evaluators: list = field(default_factory=list)
-    plotter: Any = nbplot.NoPlotter()
+    plotters: list = default_list()
     exporter: Any = None
     verbose: bool = False
 
@@ -58,7 +58,9 @@ class EmbedderPipeline:
 
         if self.exporter is not None:
             log.info("Caching data")
-            self.exporter.cache_data(self.evaluators, embedding_result, ctx)
+            self.exporter.cache_data(
+                self.evaluators + self.plotters, embedding_result, ctx
+            )
 
         log.info("Evaluating")
         evaluations = evaluate_embedding(self.evaluators, x, embedding_result, ctx=ctx)
@@ -69,8 +71,10 @@ class EmbedderPipeline:
             log.info("Exporting")
             self.exporter.export(embedding_result=embedding_result, ctx=ctx)
 
-        log.info("Plotting")
-        self.plotter.plot(embedding_result, data=x, y=y, ctx=ctx)
+        if self.plotters:
+            log.info("Plotting")
+            for plotter in self.plotters:
+                plotter.plot(embedding_result, data=x, y=y, ctx=ctx)
 
         return embedding_result
 
@@ -78,31 +82,27 @@ class EmbedderPipeline:
 @dataclass
 class EmbedPipelineExporter:
     out_types: default_list()
-    triplets_requests: list = default_list()
     export_dict: dict = default_dict()
 
-    def cache_data(self, evaluators, embedding_result, ctx):
+    def cache_data(self, requirers, embedding_result, ctx):
         embed_coords = embedding_result["coords"]
 
-        # do we need triplets?
-        for evaluator in evaluators:
-            require = evaluator.requires()
-            require_name = require.get("name", "unknown")
-            if require_name == "triplets":
-                self.cache_triplets(require, embed_coords, ctx)
-            elif require_name == "neighbors":
-                self.cache_neighbors(require, embed_coords, ctx)
-            else:
-                log.info("Don't know how to cache %s, skipping", require_name)
+        for requirer in requirers:
+            requires = requirer.requires()
+            if requires is None or not requires:
+                continue
+            if isinstance(requires, dict):
+                requires = [requires]
+            for require in requires:
+                require_name = require.get("name", "unknown")
+                if require_name == "triplets":
+                    self.cache_triplets(require, embed_coords, ctx)
+                elif require_name == "neighbors":
+                    self.cache_neighbors(require, embed_coords, ctx)
+                else:
+                    log.info("Don't know how to cache %s, skipping", require_name)
 
     def cache_triplets(self, require, embed_coords, ctx):
-        log.info(
-            "Need triplets with metric %s n_triplets %d seed %s",
-            require["metric"],
-            require["n_triplets_per_point"],
-            require["random_state"],
-        )
-
         triplet_info = find_triplet_files(
             name=ctx.embed_triplets_name,
             n_triplets_per_point=require["n_triplets_per_point"],
@@ -112,7 +112,6 @@ class EmbedPipelineExporter:
             seed=require["random_state"],
         )
         if triplet_info:
-            log.info("Already created needed triplets for embedded data")
             return
 
         triplet_info = find_triplet_files(
@@ -150,12 +149,6 @@ class EmbedPipelineExporter:
         )
 
     def cache_neighbors(self, require, embed_coords, ctx):
-        log.info(
-            "Need neighbors with metric %s n_neighbors %d",
-            require["metric"],
-            require["n_neighbors"],
-        )
-
         neighbors_info = find_candidate_neighbors_info(
             name=ctx.embed_nn_name,
             n_neighbors=require["n_neighbors"],
@@ -167,7 +160,6 @@ class EmbedPipelineExporter:
         )
 
         if neighbors_info:
-            log.info("Already created needed neighbors for embedded data")
             return
 
         neighbors_info = find_candidate_neighbors_info(
@@ -270,7 +262,7 @@ def create_pipeline(
     # shut up pylint
     _embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
-    plotter = nbplot.create_plotter(plot)
+    plotters = nbplot.create_plotters(plot)
     exporter = create_exporter(export)
 
     return EmbedderPipeline(
@@ -279,7 +271,7 @@ def create_pipeline(
         importer=importer,
         embedder=_embedder,
         evaluators=evaluators,
-        plotter=plotter,
+        plotters=plotters,
         exporter=exporter,
         verbose=verbose,
     )
@@ -344,7 +336,7 @@ def color_by_rte(
     n_triplets_per_point, normalize=True, color_scale=None, metric="euclidean"
 ):
     return nbplot.ColorByRte(
-        n_triplets_per_point,
+        n_triplets_per_point=n_triplets_per_point,
         normalize=normalize,
         scale=nbplot.ColorScale.new(color_scale),
         metric=metric,

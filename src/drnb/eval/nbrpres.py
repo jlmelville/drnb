@@ -197,7 +197,23 @@ def nbr_presv(
         drnb_home=drnb_home,
         sub_dir=sub_dir,
     )
-    return nn_accv(approx_indices=y_nbrs, true_indices=x_nbrs, normalize=normalize)
+
+    if isinstance(n_nbrs, int):
+        n_nbrs = [n_nbrs]
+
+    max_n_nbrs = x_nbrs.shape[1]
+
+    # contents of n_nbrs may still be larger than the number of neighbors that can be
+    # sensibly calculated so check and use NaN for those cases
+    nn_accvs = []
+    for nbrs in n_nbrs:
+        if nbrs <= max_n_nbrs:
+            nn_accvs.append(
+                nn_accv(approx_indices=y_nbrs, true_indices=x_nbrs, normalize=normalize)
+            )
+        else:
+            nn_accvs.append([])
+    return nn_accvs
 
 
 @dataclass
@@ -221,7 +237,7 @@ class NbrPreservationEval(EmbeddingEval):
             n_neighbors=int(np.max(self.n_neighbors)),
         )
 
-    def evaluate(self, X, coords, ctx=None):
+    def _evaluate_setup(self, ctx=None):
         self.listify_n_neighbors()
 
         if ctx is not None:
@@ -246,7 +262,6 @@ class NbrPreservationEval(EmbeddingEval):
                 sub_dir=ctx.nn_sub_dir,
                 return_distance=True,
             )
-
             y_nbrs = read_neighbors(
                 name=ctx.embed_nn_name,
                 n_neighbors=n_nbrs,
@@ -256,6 +271,26 @@ class NbrPreservationEval(EmbeddingEval):
                 sub_dir=ctx.experiment_name,
                 return_distance=True,
             )
+
+        return x_nbrs, y_nbrs, nnp_kwargs
+
+    def evaluatev(self, X, coords, ctx=None):
+        x_nbrs, y_nbrs, nnp_kwargs = self._evaluate_setup(ctx)
+
+        return nbr_presv(
+            X,
+            coords,
+            n_nbrs=self.n_neighbors,
+            x_metric=self.metric,
+            include_self=self.include_self,
+            verbose=self.verbose,
+            x_nbrs=x_nbrs,
+            y_nbrs=y_nbrs,
+            **nnp_kwargs,
+        )
+
+    def evaluate(self, X, coords, ctx=None):
+        x_nbrs, y_nbrs, nnp_kwargs = self._evaluate_setup(ctx)
 
         nnps = nbr_pres(
             X,

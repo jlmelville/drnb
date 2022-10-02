@@ -1,5 +1,5 @@
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable
 
 import matplotlib.pyplot as plt
@@ -9,8 +9,8 @@ import seaborn as sns
 
 import drnb.neighbors.hubness as hub
 from drnb.embed import get_coords
-from drnb.eval.nbrpres import NbrPreservationEval, nbr_presv
-from drnb.eval.rte import RandomTripletEval, random_triplet_evalv
+from drnb.eval.nbrpres import NbrPreservationEval
+from drnb.eval.rte import RandomTripletEval
 from drnb.io import read_pickle
 from drnb.log import log
 from drnb.util import islisty
@@ -115,25 +115,20 @@ class ColorByNbrPres:
     normalize: bool = True
     metric: str = "euclidean"
 
-    # pylint: disable=unused-argument
-    def __call__(self, data, target, coords, ctx=None):
-        return nbr_presv(
-            X=data,
-            Y=coords,
-            n_nbrs=self.n_neighbors,
-            normalize=self.normalize,
-            x_metric=self.metric,
+    def npe(self):
+        return NbrPreservationEval(
+            metric=self.metric, n_neighbors=self.n_neighbors, include_self=False
         )
 
+    # pylint: disable=unused-argument
+    def __call__(self, data, target, coords, ctx=None):
+        return self.npe().evaluatev(data, coords, ctx=ctx)[0]
+
     def __str__(self):
-        return (
-            str(
-                NbrPreservationEval(
-                    metric=self.metric, n_neighbors=self.n_neighbors, include_self=False
-                )
-            )
-            + f"{' norm' if self.normalize else ''}"
-        )
+        return str(self.npe()) + f"{' norm' if self.normalize else ''}"
+
+    def requires(self):
+        return self.npe().requires()
 
 
 @dataclass
@@ -142,36 +137,24 @@ class ColorByRte:
     scale: ColorScale = ColorScale()
     normalize: bool = True
     metric: str = "euclidean"
+    random_state: int = None
+
+    def rte(self):
+        return RandomTripletEval(
+            random_state=self.random_state,
+            metric=self.metric,
+            n_triplets_per_point=self.n_triplets_per_point,
+        )
 
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
-        return random_triplet_evalv(
-            X=data,
-            X_new=coords,
-            n_triplets_per_point=self.n_triplets_per_point,
-            normalize=self.normalize,
-            return_triplets=False,
-            metric=self.metric,
-        )
+        return self.rte().evaluatev(data, coords, ctx)
 
     def __str__(self):
-        return (
-            str(
-                RandomTripletEval(
-                    metric=self.metric, n_triplets_per_point=self.n_triplets_per_point
-                )
-            )
-            + f"{' norm' if self.normalize else ''}"
-        )
+        return str(self.rte()) + f"{' norm' if self.normalize else ''}"
 
-
-@dataclass
-class MultiPlotter:
-    uniplotters: field(default_factory=list)
-
-    def plot(self, embedded, data, y, ctx=None):
-        for plotter in self.uniplotters:
-            plotter.plot(embedded, data, y, ctx)
+    def requires(self):
+        return self.rte().requires()
 
 
 @dataclass
@@ -249,8 +232,15 @@ class SeabornPlotter:
         except FileNotFoundError:
             return None
 
+    def requires(self):
+        reqs = []
+        if self.color_by is not None:
+            if hasattr(self.color_by, "requires"):
+                reqs.append(self.color_by.requires())
+        return reqs
 
-def create_plotter(plot=True, plot_kwargs=None):
+
+def create_plotters(plot=True, plot_kwargs=None):
     if plot_kwargs is None:
         plot_kwargs = {}
     if isinstance(plot, dict):
@@ -262,14 +252,14 @@ def create_plotter(plot=True, plot_kwargs=None):
         # default plot
         pkwargs1 = dict(plot_kwargs)
         del pkwargs1["color_by"]
-        uniplotters = [create_plotter(pkwargs1)]
+        uniplotters = create_plotters(pkwargs1)
 
         # Add extra plots
         for cby in color_by:
             pkwargs1 = dict(plot_kwargs)
             pkwargs1["color_by"] = cby
-            uniplotters.append(create_plotter(pkwargs1))
-        return MultiPlotter(uniplotters)
+            uniplotters += create_plotters(pkwargs1)
+        return uniplotters
 
     if plot:
         plotter_cls = SeabornPlotter
@@ -279,7 +269,7 @@ def create_plotter(plot=True, plot_kwargs=None):
         plot_kwargs = {}
 
     plotter = plotter_cls.new(**plot_kwargs)
-    return plotter
+    return [plotter]
 
 
 def plot_embedded(embedded, y, plot_kwargs=None):

@@ -30,9 +30,10 @@ class RandomTripletEval(EmbeddingEval):
             random_state=self.random_state,
         )
 
-    def evaluate(self, X, coords, ctx=None):
+    def _evaluate_setup(self, ctx=None):
         idx = None
         X_dist = None
+        Xnew_dist = None
 
         if self.use_precomputed_triplets and ctx is not None:
             idx, X_dist = find_precomputed_triplets(
@@ -52,6 +53,10 @@ class RandomTripletEval(EmbeddingEval):
                 metric=self.metric,
                 drnb_home=ctx.drnb_home,
             )
+        return idx, X_dist, Xnew_dist
+
+    def evaluate(self, X, coords, ctx=None):
+        idx, X_dist, Xnew_dist = self._evaluate_setup(ctx=ctx)
 
         rte_result = random_triplet_eval(
             X,
@@ -69,6 +74,20 @@ class RandomTripletEval(EmbeddingEval):
             label=str(self),
             info=dict(metric=self.metric, ntpp=self.n_triplets_per_point),
             value=rte_result,
+        )
+
+    def evaluatev(self, X, coords, ctx=None):
+        idx, X_dist, Xnew_dist = self._evaluate_setup(ctx=ctx)
+
+        return random_triplet_evalv(
+            X,
+            coords,
+            random_state=self.random_state,
+            n_triplets_per_point=self.n_triplets_per_point,
+            triplets=idx,
+            X_dist=X_dist,
+            metric=self.metric,
+            Xnew_dist=Xnew_dist,
         )
 
     def __str__(self):
