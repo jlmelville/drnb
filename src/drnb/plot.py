@@ -14,7 +14,7 @@ from drnb.eval.rpc import RandomPairCorrelEval
 from drnb.eval.rte import RandomTripletEval
 from drnb.io import read_pickle
 from drnb.log import log
-from drnb.util import islisty
+from drnb.util import get_method_and_args, islisty
 
 
 class NoPlotter:
@@ -357,12 +357,14 @@ def create_plotters(plot=True, plot_kwargs=None):
         plotters.append(plotter_cls.new(**pkwargs1))
 
     for extra in extras:
+        extra, extra_kwds = get_method_and_args(extra, {})
+
         if extra == "nnphist":
-            plotters.append(NbrPreservationHistogram())
+            plotters.append(NbrPreservationHistogram(**extra_kwds))
         elif extra == "rthist":
-            plotters.append(RandomTripletHistogram())
+            plotters.append(RandomTripletHistogram(**extra_kwds))
         elif extra == "rpscatter":
-            plotters.append(RandomPairDistanceScatterplot())
+            plotters.append(RandomPairDistanceScatterplot(**extra_kwds))
         else:
             raise ValueError(f"Unknown plot type '{extra}'")
     return plotters

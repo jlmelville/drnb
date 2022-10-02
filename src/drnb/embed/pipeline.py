@@ -352,5 +352,9 @@ def diag_plots(metric="euclidean"):
     ]
 
 
-def extra_plots():
-    return ["nnphist", "rthist", "rpscatter"]
+def extra_plots(metric="euclidean"):
+    return [
+        ("nnphist", dict(metric=metric)),
+        ("rthist", dict(metric=metric)),
+        ("rpscatter", dict(metric=metric)),
+    ]
