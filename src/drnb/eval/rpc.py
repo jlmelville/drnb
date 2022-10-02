@@ -71,6 +71,7 @@ class RandomPairCorrelEval(EmbeddingEval):
     def evaluate(self, X, coords, ctx=None):
         idx = None
         X_dist = None
+        Xnew_dist = None
 
         if self.use_precomputed_triplets and ctx is not None:
             idx, X_dist = find_precomputed_triplets(

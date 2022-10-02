@@ -4,7 +4,7 @@ import numpy as np
 
 from drnb.eval import EvalResult
 from drnb.log import log
-from drnb.neighbors import calculate_neighbors, get_neighbors
+from drnb.neighbors import calculate_neighbors, get_neighbors, read_neighbors
 from drnb.util import islisty
 
 from .base import EmbeddingEval
@@ -64,7 +64,7 @@ def get_xy_nbr_idxs(
         log.info("Getting Y neighbors")
     calc_y_nbrs = True
     if y_nbrs is not None:
-        calc_y_nbrs = max_n_nbrs > y_nbrs.shape[1]
+        calc_y_nbrs = max_n_nbrs > y_nbrs.idx.shape[1]
 
     if calc_y_nbrs:
         y_nbrs = calculate_neighbors(
@@ -81,7 +81,7 @@ def get_xy_nbr_idxs(
         log.info("Getting X neighbors")
     calc_x_nbrs = True
     if x_nbrs is not None:
-        calc_x_nbrs = max_n_nbrs > x_nbrs.shape[1]
+        calc_x_nbrs = max_n_nbrs > x_nbrs.idx.shape[1]
 
     if calc_x_nbrs:
         cache = name is not None
@@ -202,6 +202,7 @@ def nbr_presv(
 
 @dataclass
 class NbrPreservationEval(EmbeddingEval):
+    use_precomputed_neighbors: bool = True
     # this translates to the x-metric in the nbr_pres
     metric: str = "euclidean"
     n_neighbors: int = 15  # can also be a list
@@ -221,12 +222,40 @@ class NbrPreservationEval(EmbeddingEval):
         )
 
     def evaluate(self, X, coords, ctx=None):
+        self.listify_n_neighbors()
+
         if ctx is not None:
             nnp_kwargs = dict(
                 drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.dataset_name
             )
         else:
             nnp_kwargs = {}
+
+        x_nbrs = None
+        y_nbrs = None
+        if self.use_precomputed_neighbors and ctx is not None:
+            n_nbrs = int(np.max(self.n_neighbors))
+            if not self.include_self:
+                n_nbrs += 1
+            x_nbrs = read_neighbors(
+                name=ctx.dataset_name,
+                n_neighbors=n_nbrs,
+                metric=self.metric,
+                exact=True,
+                drnb_home=ctx.drnb_home,
+                sub_dir=ctx.nn_sub_dir,
+                return_distance=True,
+            )
+
+            y_nbrs = read_neighbors(
+                name=ctx.embed_nn_name,
+                n_neighbors=n_nbrs,
+                metric=self.metric,
+                exact=True,
+                drnb_home=ctx.drnb_home,
+                sub_dir=ctx.experiment_name,
+                return_distance=True,
+            )
 
         nnps = nbr_pres(
             X,
@@ -235,10 +264,10 @@ class NbrPreservationEval(EmbeddingEval):
             x_metric=self.metric,
             include_self=self.include_self,
             verbose=self.verbose,
+            x_nbrs=x_nbrs,
+            y_nbrs=y_nbrs,
             **nnp_kwargs,
         )
-
-        self.listify_n_neighbors()
 
         return [
             EvalResult(
