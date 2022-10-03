@@ -7,7 +7,8 @@ import umap
 import drnb.embed
 import drnb.neighbors as knn
 from drnb.log import log
-from drnb.yinit import spca
+from drnb.util import get_method_and_args
+from drnb.yinit import gspectral, spca
 
 
 # A subclass of NNDescent which exists purely to escape the scrutiny of a validation
@@ -19,18 +20,23 @@ class DummyNNDescent(pynndescent.NNDescent):
         return
 
 
+def umap_knn(precomputed_knn):
+    # we aren't going to transform new data so we don't need the search index
+    # to actually work
+    dummy_search_index = DummyNNDescent()
+    return (
+        precomputed_knn.idx,
+        precomputed_knn.dist,
+        dummy_search_index,
+    )
+
+
 @dataclass
 class Umap(drnb.embed.Embedder):
     use_precomputed_knn: bool = True
     drnb_init: str = None
 
     def embed_impl(self, x, params, ctx=None):
-        if self.drnb_init is not None:
-            if self.drnb_init == "spca":
-                params["init"] = spca(x)
-            else:
-                raise ValueError(f"Unknown drnb initialization '{self.drnb_init}'")
-
         knn_params = {}
         if isinstance(self.use_precomputed_knn, dict):
             knn_params = dict(self.use_precomputed_knn)
@@ -44,18 +50,26 @@ class Umap(drnb.embed.Embedder):
                 x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
             )
 
-            # we aren't going to transform new data so we don't need the search index
-            # to actually work
-            dummy_search_index = DummyNNDescent()
-            precomputed_knn = (
-                precomputed_knn.idx,
-                precomputed_knn.dist,
-                dummy_search_index,
-            )
-            params["precomputed_knn"] = precomputed_knn
+            params["precomputed_knn"] = umap_knn(precomputed_knn)
             # also UMAP complains when a precomputed knn is used with a smaller dataset
             # unless this flag is set
             params["force_approximation_algorithm"] = True
+
+        if self.drnb_init is not None:
+            drnb_init, init_params = get_method_and_args(self.drnb_init, {})
+            if drnb_init == "spca":
+                params["init"] = spca(x)
+            elif drnb_init == "global_spectral":
+                params["init"] = gspectral(
+                    x,
+                    knn=params["precomputed_knn"],
+                    op=init_params.get("op", "intersection"),
+                    weight=init_params.get("weight", 0.2),
+                    metric=params.get("metric", "euclidean"),
+                    random_state=params.get("random_state", 42),
+                )
+            else:
+                raise ValueError(f"Unknown drnb initialization '{self.drnb_init}'")
 
         return embed_umap(x, params)
 
