@@ -5,10 +5,10 @@ import pynndescent
 import umap
 
 import drnb.embed
-import drnb.neighbors as knn
+import drnb.neighbors as nbrs
 from drnb.log import log
 from drnb.util import get_method_and_args
-from drnb.yinit import gspectral, spca
+from drnb.yinit import gspectral, spca, tsvd_warm_spectral
 
 
 # A subclass of NNDescent which exists purely to escape the scrutiny of a validation
@@ -31,6 +31,18 @@ def umap_knn(precomputed_knn):
     )
 
 
+def umap_graph(x, knn):
+    knn_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
+        X=x,
+        knn_indices=knn[0],
+        knn_dists=knn[1],
+        n_neighbors=knn[0].shape[1],
+        random_state=None,
+        metric=None,
+    )
+    return knn_fss
+
+
 @dataclass
 class Umap(drnb.embed.Embedder):
     use_precomputed_knn: bool = True
@@ -46,7 +58,7 @@ class Umap(drnb.embed.Embedder):
             log.info("Using precomputed knn")
             metric = params.get("metric", "euclidean")
             n_neighbors = params.get("n_neighbors", 15)
-            precomputed_knn = knn.get_neighbors_with_ctx(
+            precomputed_knn = nbrs.get_neighbors_with_ctx(
                 x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
             )
 
@@ -66,6 +78,14 @@ class Umap(drnb.embed.Embedder):
                     op=init_params.get("op", "intersection"),
                     weight=init_params.get("weight", 0.2),
                     metric=params.get("metric", "euclidean"),
+                    random_state=params.get("random_state", 42),
+                )
+            elif drnb_init == "tsvd_spectral":
+                log.info("Initializing via truncated SVD-warmed spectral")
+                graph = umap_graph(x, params["precomputed_knn"])
+                params["init"] = tsvd_warm_spectral(
+                    graph,
+                    dim=2,
                     random_state=params.get("random_state", 42),
                 )
             else:

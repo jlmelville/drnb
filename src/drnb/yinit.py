@@ -1,6 +1,7 @@
 import numpy as np
 import openTSNE.initialization
 import scipy.sparse.csgraph
+import sklearn.decomposition
 import umap
 from sklearn.utils import check_random_state
 
@@ -97,3 +98,46 @@ def gspectral(
     )
 
     return noisy_scale_coords(init, seed=random_state.randint(np.iinfo(np.uint32).max))
+
+
+def scale1(x):
+    return x / np.linalg.norm(x)
+
+
+def tsvd_warm_spectral(
+    graph,
+    dim=2,
+    random_state=42,
+):
+    n_components, _ = scipy.sparse.csgraph.connected_components(graph)
+    if n_components > 1:
+        raise ValueError("Multiple components detected")
+
+    diag_data = np.asarray(graph.sum(axis=0))
+    D = scipy.sparse.spdiags(
+        1.0 / np.sqrt(diag_data), 0, graph.shape[0], graph.shape[0]
+    )
+    L = D * graph * D
+
+    k = dim + 1
+
+    tsvd = sklearn.decomposition.TruncatedSVD(
+        n_components=k, random_state=random_state, algorithm="arpack", tol=1e-2
+    )
+    guess = tsvd.fit_transform(L)
+    guess[:, 0] = np.sqrt(scale1(diag_data[0]))
+
+    Eye = scipy.sparse.identity(graph.shape[0], dtype=np.float64)
+    eigenvalues, eigenvectors = scipy.sparse.linalg.lobpcg(
+        Eye - L,
+        guess,
+        largest=False,
+        tol=1e-4,
+        maxiter=graph.shape[0] * 5,
+    )
+
+    order = np.argsort(eigenvalues)[0:k]
+    init = eigenvectors[:, order[1:]]
+    return noisy_scale_coords(
+        init, seed=check_random_state(random_state).randint(np.iinfo(np.uint32).max)
+    )
