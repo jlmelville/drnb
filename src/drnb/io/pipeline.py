@@ -185,6 +185,8 @@ class DatasetPipeline(Jsonizable):
     def process_target(
         self, target, name, dropna_index, target_cols=None, target_palette=None
     ):
+        if isinstance(target, pd.Series):
+            target = target.to_frame()
         target_shape = None
         target_output_paths = []
         if target is not None:
