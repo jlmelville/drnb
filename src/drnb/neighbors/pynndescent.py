@@ -1,5 +1,9 @@
 import numpy as np
 import pynndescent
+from numba import jit, prange
+from pynndescent.utils import deheap_sort, make_heap, simple_heap_push
+
+from drnb.distances import distance_function
 
 PYNNDESCENT_METRICS = pynndescent.pynndescent_.pynnd_dist.named_distances
 
@@ -62,3 +66,38 @@ def pynndescent_neighbors(
 #     2D array with the same shape as init_graph,
 #     such that metric(data[i], data[init_graph[i, j]]) equals
 #     init_dist[i, j]
+
+
+def pynndescent_exact_neighbors(
+    data, n_neighbors, metric="euclidean", return_distance=True
+):
+    if metric == "euclidean":
+        dist_fun = distance_function("squared_euclidean")
+    else:
+        dist_fun = distance_function(metric)
+    nbrs = _brute_force_knn(data, n_neighbors, dist_fun)
+    if return_distance:
+        if metric == "euclidean":
+            return nbrs[0], np.sqrt(nbrs[1])
+        return nbrs[0], nbrs[1]
+    return nbrs[0]
+
+
+@jit(nopython=True, parallel=True)
+def _brute_force_knn(data, n_neighbors, dist_fun):
+    n_items = data.shape[0]
+    heap = make_heap(n_items, n_neighbors)
+    # pylint: disable=not-an-iterable
+    for i in prange(n_items):
+        data_i = data[i]
+        priorities = heap[1][i]
+        indices = heap[0][i]
+        for j in range(n_items):
+            d = dist_fun(data_i, data[j])
+            simple_heap_push(
+                priorities,
+                indices,
+                d,
+                j,
+            )
+    return deheap_sort(heap[0], heap[1])

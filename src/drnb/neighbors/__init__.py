@@ -39,10 +39,10 @@ def calculate_neighbors(
             method = find_exact_method(metric)
         else:
             method = find_fast_method(metric)
-    if verbose and method == "sklearn" and (n_items > 10000 or data.shape[1] > 10000):
-        log.warning(
-            "Using sklearn to find exact nearest neighbors: this might take a while"
-        )
+        if verbose:
+            log.info("Using '%s' to find nearest neighbors", method)
+    if verbose and method != "faiss" and (n_items > 10000 or data.shape[1] > 10000):
+        log.warning("Exact nearest neighbors search with %s might take a while", method)
 
     if method == "sklearn":
         nn_func = sknbrs.sklearn_neighbors
@@ -53,6 +53,9 @@ def calculate_neighbors(
     elif method == "pynndescent":
         nn_func = pynndescent.pynndescent_neighbors
         default_method_kwds = pynndescent.PYNNDESCENT_DEFAULTS
+    elif method == "pynndescentbf":
+        nn_func = pynndescent.pynndescent_exact_neighbors
+        default_method_kwds = {}
     elif method == "hnsw":
         nn_func = hnsw.hnsw_neighbors
         default_method_kwds = hnsw.HNSW_DEFAULTS
@@ -136,8 +139,10 @@ def preferred_fast_methods():
 
 def preferred_exact_methods():
     metric_algs = defaultdict(list)
-    for metric, method in zip_algs(faiss.FAISS_METRICS, "faiss") + zip_algs(
-        sknbrs.SKLEARN_METRICS.keys(), "sklearn"
+    for metric, method in (
+        zip_algs(faiss.FAISS_METRICS, "faiss")
+        + zip_algs(sknbrs.SKLEARN_METRICS.keys(), "sklearn")
+        + zip_algs(pynndescent.PYNNDESCENT_METRICS.keys(), "pynndescentbf")
     ):
         metric_algs[metric].append(method)
 
