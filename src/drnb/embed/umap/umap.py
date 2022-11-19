@@ -48,7 +48,7 @@ class Umap(drnb.embed.Embedder):
     use_precomputed_knn: bool = True
     drnb_init: str = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def update_params(self, x, params, ctx=None):
         knn_params = {}
         if isinstance(self.use_precomputed_knn, dict):
             knn_params = dict(self.use_precomputed_knn)
@@ -93,6 +93,13 @@ class Umap(drnb.embed.Embedder):
             else:
                 raise ValueError(f"Unknown drnb initialization '{self.drnb_init}'")
 
+        if isinstance(x, np.ndarray) and x.shape[0] == x.shape[1]:
+            params["metric"] = "precomputed"
+
+        return params
+
+    def embed_impl(self, x, params, ctx=None):
+        params = self.update_params(x, params, ctx)
         return embed_umap(x, params)
 
 
@@ -100,9 +107,6 @@ def embed_umap(
     x,
     params,
 ):
-    if isinstance(x, np.ndarray) and x.shape[0] == x.shape[1]:
-        params["metric"] = "precomputed"
-
     log.info("Running UMAP")
     embedder = umap.UMAP(
         **params,

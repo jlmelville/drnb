@@ -32,6 +32,8 @@ def create_embedder(method, embed_kwds=None):
         from drnb.embed.tsvd import Tsvd as ctor
     elif method == "umap":
         from drnb.embed.umap import Umap as ctor
+    elif method == "negumap":
+        from drnb.embed.umap.negumap import NegUmap as ctor
     else:
         raise ValueError(f"Unknown method {method}")
 
