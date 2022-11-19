@@ -3,7 +3,14 @@
 Dimensionality reduction notebook tools.
 
 Functions I used for quickly generating 2D dimensionality reduction plots and exporting data to
-CSV. Very little reason for anyone to be interested in this, but it's too big for a gist.
+CSV. Very little reason for anyone to be interested in this, but it's too big for a gist. The idea
+is that various pre-processing, nearest neighbors and other basic diagnostics about the data are
+generated ahead of time and then where possible re-used to speed up calculations. Also, some basic
+evaluation and attempts at simple visualization is used. Plus some home-brewed functions to (where
+possible) provide some consistent initialization.
+
+Eternally a work in progress: but there are some example notebooks that download and process
+various datasets and that might be of interest to others.
 
 ## Installing
 
@@ -23,31 +30,35 @@ then from the base directory:
 pip install -e .[dev]
 ```
 
-The `dev` extra identifier just installs some linting tools for use when developing `drnb`. If you
+The `dev` extra identifier just installs some linting tools for use when developing `drnb` . If you
 are using VSCode then the `.vscode/settings.json` sets those tools up with the configuration in
-`setup.cfg`. That all assumes you are using the virtual environment in `venv`. Otherwise the usual
+`setup.cfg` . That all assumes you are using the virtual environment in `venv` . Otherwise the usual
 `pip install -e .` will do fine.
 
 ## Data setup
 
-Before running anything, set a home directory for drnb, `DRNB_HOME`. Datasets will be imported to,
+Before running anything, set a home directory for drnb, `DRNB_HOME` . Datasets will be imported to,
 and embedding results exported to, folders underneath this directory, e.g.:
 
 ```bash
 export DRNB_HOME=~/dev/drnbhome
 ```
 
-### Importing data
+## Importing data
 
 See the notebooks in `notebooks/data-pipeline` for how to get data processed and into a place where
 `drnb` can use it. Apart from cleaning and saving the numerical features to be processed, metadata
 used for labeling and coloring plots is specified, and nearest neighbor and triplet data is
 pre-calculated.
 
-## Notebook use
+## Embedding
+
+See the notebooks in `notebooks/embed-pipeline` .
+
+### Notebook use
 
 Code is all in the `drnb` module. Probably the following is a good chunk to stick at the top of
-most notebooks (you can find it in `notebooks/template.ipynb`)
+most notebooks (you can find it in `notebooks/template.ipynb` )
 
 ```python
 %load_ext lab_black
