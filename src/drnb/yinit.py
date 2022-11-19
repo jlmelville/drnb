@@ -31,17 +31,33 @@ def spca(data):
 
 
 def gspectral(
-    x, knn, metric="euclidean", op="intersection", weight=0.2, random_state=42
+    x,
+    knn,
+    metric="euclidean",
+    op="intersection",
+    weight=0.2,
+    random_state=42,
+    spectral_algorithm="umap",
+    global_neighbors="random",
 ):
 
-    randnn = drnb.neighbors.random.random_neighbors(
-        x, distance=metric, random_state=random_state
-    )
-    rand_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
+    if global_neighbors == "random":
+        global_nn = drnb.neighbors.random.random_neighbors(
+            x, distance=metric, random_state=random_state
+        )
+    else:
+        global_nn = drnb.neighbors.random.mid_near_neighbors(
+            data=x,
+            n_neighbors=drnb.neighbors.random.logn_neighbors(x),
+            metric=metric,
+            random_state=random_state,
+        )
+
+    global_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
         X=x,
-        knn_indices=randnn.idx,
-        knn_dists=randnn.dist,
-        n_neighbors=randnn.idx.shape[1],
+        knn_indices=global_nn.idx,
+        knn_dists=global_nn.dist,
+        n_neighbors=global_nn.idx.shape[1],
         random_state=None,
         metric=None,
     )
@@ -57,30 +73,30 @@ def gspectral(
 
     log.info(
         "Creating random weighted graph with random n_neighbors = %d",
-        randnn.idx.shape[1],
+        global_nn.idx.shape[1],
     )
 
     if op == "intersection":
         log.info("Combining sets by intersection with weight %.2f", weight)
         result = umap.umap_.general_simplicial_set_intersection(
-            knn_fss, rand_fss, weight=weight
+            knn_fss, global_fss, weight=weight
         )
         result = umap.umap_.reset_local_connectivity(result, reset_local_metric=True)
     elif op == "union":
         log.info("Combining sets by union")
-        result = umap.umap_.general_simplicial_set_union(knn_fss, rand_fss)
+        result = umap.umap_.general_simplicial_set_union(knn_fss, global_fss)
         result = umap.umap_.reset_local_connectivity(result, reset_local_metric=True)
     elif op == "difference":
         log.info("Combining sets by difference with weight %.2f", weight)
         result = umap.umap_.general_simplicial_set_intersection(
-            knn_fss, rand_fss, weight=weight, right_complement=True
+            knn_fss, global_fss, weight=weight, right_complement=True
         )
         # https://github.com/lmcinnes/umap/discussions/841
         # "resetting local connectivity there ... pretty much eliminated anything
         # __sub__ did, so I just didn't do it in that case."
         result = umap.umap_.reset_local_connectivity(result, reset_local_metric=False)
     elif op == "linear":
-        result = weight * knn_fss + (1.0 - weight) * rand_fss
+        result = weight * global_fss + (1.0 - weight) * knn_fss
         result = umap.umap_.reset_local_connectivity(result, reset_local_metric=True)
     else:
         raise ValueError(f"Unknown set operation: '{op}'")
@@ -90,12 +106,19 @@ def gspectral(
         log.warning("global-weighted graph has %d components", nc)
 
     random_state = check_random_state(random_state)
-    init = umap.umap_.spectral_layout(
-        data=None,
-        graph=result,
-        dim=2,
-        random_state=random_state,
-    )
+    if spectral_algorithm == "umap":
+        init = umap.umap_.spectral_layout(
+            data=None,
+            graph=result,
+            dim=2,
+            random_state=random_state,
+        )
+    else:
+        init = tsvd_warm_spectral(
+            graph=result,
+            dim=2,
+            random_state=random_state,
+        )
 
     return noisy_scale_coords(init, seed=random_state.randint(np.iinfo(np.uint32).max))
 

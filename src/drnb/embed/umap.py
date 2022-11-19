@@ -79,6 +79,8 @@ class Umap(drnb.embed.Embedder):
                     weight=init_params.get("weight", 0.2),
                     metric=params.get("metric", "euclidean"),
                     random_state=params.get("random_state", 42),
+                    global_neighbors=init_params.get("global_neighbors", "random"),
+                    spectral_algorithm=init_params.get("spectral_algorithm", "umap"),
                 )
             elif drnb_init == "tsvd_spectral":
                 log.info("Initializing via truncated SVD-warmed spectral")
