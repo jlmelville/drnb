@@ -2,6 +2,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Callable
 
+import glasbey
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -412,6 +413,33 @@ def is_hex(col):
     )
 
 
+# use glasbey to extend a categorical palette if possible (or necessary)
+def palettize(color_col, palette=None):
+    n_categories = None
+    if pd.api.types.is_categorical_dtype(color_col):
+        n_categories = color_col.nunique()
+
+    if palette is None:
+        # no palette and it's categorical so create
+        if n_categories is not None:
+            return glasbey.create_palette(n_categories)
+        return None
+
+    # a named or pre-defined palette, so check we have enough colors
+    if isinstance(palette, str):
+        palette = sns.color_palette(palette)
+    # pylint: disable=protected-access
+    if isinstance(palette, sns.palettes._ColorPalette) or islisty(palette):
+        ncolors = len(palette)
+    else:
+        raise ValueError(f"Unknown palette {palette}")
+
+    if n_categories is not None and ncolors < n_categories:
+        palette = glasbey.extend_palette(palette, n_categories)
+
+    return palette
+
+
 def sns_embed_plot(
     coords,
     color_col=None,
@@ -445,6 +473,8 @@ def sns_embed_plot(
         legend = False
     else:
         scatter_kwargs = {"hue": color_col}
+
+    palette = palettize(color_col, palette)
     if palette is not None:
         scatter_kwargs["palette"] = palette
 
