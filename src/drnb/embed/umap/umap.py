@@ -96,6 +96,11 @@ class Umap(drnb.embed.Embedder):
         if isinstance(x, np.ndarray) and x.shape[0] == x.shape[1]:
             params["metric"] = "precomputed"
 
+        # tqdm doesn't behave well in a notebook so if verbose is set, unless tqdm_kwds
+        # has been set explicitly, disable it
+        if params.get("verbose", False) and "tqdm_kwds" not in params:
+            params["tqdm_kwds"] = {"disable": True}
+
         return params
 
     def embed_impl(self, x, params, ctx=None):
