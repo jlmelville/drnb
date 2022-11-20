@@ -38,6 +38,8 @@ def create_embedder(method, embed_kwds=None):
         from drnb.embed.umap.negtumap import NegTumap as ctor
     elif method == "negtsne":
         from drnb.embed.umap.negtsne import NegTsne as ctor
+    elif method == "umapspectral":
+        from drnb.embed.umap.spectral import UmapSpectral as ctor
     else:
         raise ValueError(f"Unknown method {method}")
 

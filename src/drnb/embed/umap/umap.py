@@ -2,13 +2,19 @@ from dataclasses import dataclass
 
 import numpy as np
 import pynndescent
+import scipy.sparse.csgraph
 import umap
+from sklearn.utils import check_random_state
 
 import drnb.embed
 import drnb.neighbors as nbrs
 from drnb.log import log
 from drnb.util import get_method_and_args
-from drnb.yinit import gspectral, spca, tsvd_warm_spectral
+from drnb.yinit import gspectral, noisy_scale_coords, spca, tsvd_warm_spectral
+
+
+def n_connected_components(graph):
+    return scipy.sparse.csgraph.connected_components(graph)[0]
 
 
 # A subclass of NNDescent which exists purely to escape the scrutiny of a validation
@@ -29,6 +35,55 @@ def umap_knn(precomputed_knn):
         precomputed_knn.dist,
         dummy_search_index,
     )
+
+
+def umap_spectral_init(
+    x,
+    knn=None,
+    metric="euclidean",
+    n_neighbors=15,
+    random_state=42,
+    tsvdw=False,
+    tsvdw_tol=1e-5,
+    jitter=True,
+):
+    if knn is None:
+        nbr_data = nbrs.calculate_neighbors(
+            x,
+            n_neighbors=n_neighbors,
+            metric=metric,
+            method="pynndescent",
+            return_distance=True,
+            method_kwds=dict(random_state=random_state),
+        )
+        knn = [nbr_data.idx, nbr_data.dist]
+
+    knn_fss = umap_graph(x, knn)
+
+    nc = n_connected_components(knn_fss)
+    if nc > 1:
+        log.warning("UMAP graph has %d components", nc)
+
+    random_state = check_random_state(random_state)
+
+    if tsvdw:
+        log.info("Using tsvdw solver")
+        return tsvd_warm_spectral(
+            graph=knn_fss,
+            dim=2,
+            random_state=random_state,
+            tol=tsvdw_tol,
+            jitter=jitter,
+        )
+    init = umap.umap_.spectral_layout(
+        data=None,
+        graph=knn_fss,
+        dim=2,
+        random_state=random_state,
+    )
+    if jitter:
+        return noisy_scale_coords(init)
+    return init
 
 
 def umap_graph(x, knn):

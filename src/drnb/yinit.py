@@ -40,7 +40,6 @@ def gspectral(
     spectral_algorithm="umap",
     global_neighbors="random",
 ):
-
     if global_neighbors == "random":
         global_nn = drnb.neighbors.random.random_neighbors(
             x, distance=metric, random_state=random_state
@@ -127,11 +126,7 @@ def scale1(x):
     return x / np.linalg.norm(x)
 
 
-def tsvd_warm_spectral(
-    graph,
-    dim=2,
-    random_state=42,
-):
+def tsvd_warm_spectral(graph, dim=2, random_state=42, tol=1e-5, jitter=True):
     n_components, _ = scipy.sparse.csgraph.connected_components(graph)
     if n_components > 1:
         raise ValueError("Multiple components detected")
@@ -155,12 +150,14 @@ def tsvd_warm_spectral(
         Eye - L,
         guess,
         largest=False,
-        tol=1e-4,
+        tol=tol,
         maxiter=graph.shape[0] * 5,
     )
 
     order = np.argsort(eigenvalues)[0:k]
     init = eigenvectors[:, order[1:]]
-    return noisy_scale_coords(
-        init, seed=check_random_state(random_state).randint(np.iinfo(np.uint32).max)
-    )
+    if jitter:
+        return noisy_scale_coords(
+            init, seed=check_random_state(random_state).randint(np.iinfo(np.uint32).max)
+        )
+    return init
