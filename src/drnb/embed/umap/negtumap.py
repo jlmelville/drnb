@@ -10,7 +10,7 @@ from drnb.log import log
 
 
 # pylint: disable=unused-argument
-def negumap_gradient_func(
+def negtumap_gradient_func(
     head_embedding,
     tail_embedding,
     head,
@@ -44,8 +44,6 @@ def negumap_gradient_func(
                 w = 1 / (1 + dist_squared)
                 grad_coeff = -2.0 * w
                 grad_coeff /= w + 1.0
-                # grad_coeff = -2.0 * a * b * pow(dist_squared, b - 1.0)
-                # grad_coeff /= a * pow(dist_squared, b) + 1.0
             else:
                 grad_coeff = 0.0
 
@@ -64,7 +62,8 @@ def negumap_gradient_func(
 
             for _ in range(n_neg_samples):
                 k = tau_rand_int(rng_state) % n_vertices
-
+                if j == k:
+                    continue
                 other = tail_embedding[k]
 
                 dist_squared = rdist(current, other)
@@ -73,12 +72,6 @@ def negumap_gradient_func(
                     w = 1 / (1 + dist_squared)
                     grad_coeff = 2.0 * w * w
                     grad_coeff /= w + 1.0
-                    # grad_coeff = 2.0 * gamma * b
-                    # grad_coeff /= (0.001 + dist_squared) * (
-                    #     a * pow(dist_squared, b) + 1
-                    # )
-                elif j == k:
-                    continue
                 else:
                     grad_coeff = 0.0
 
@@ -94,27 +87,27 @@ def negumap_gradient_func(
             )
 
 
-class NegUMAP(CustomGradientUMAP):
+class NegTUMAP(CustomGradientUMAP):
     def __init__(self, **kwargs):
-        super().__init__(custom_gradient_func=negumap_gradient_func, **kwargs)
+        super().__init__(custom_gradient_func=negtumap_gradient_func, **kwargs)
 
 
 @dataclass
-class NegUmap(drnb.embed.umap.Umap):
+class NegTumap(drnb.embed.umap.Umap):
     use_precomputed_knn: bool = True
     drnb_init: str = None
 
     def embed_impl(self, x, params, ctx=None):
         params = self.update_params(x, params, ctx)
-        return embed_negumap(x, params)
+        return embed_negtumap(x, params)
 
 
-def embed_negumap(
+def embed_negtumap(
     x,
     params,
 ):
-    log.info("Running Neg-UMAP")
-    embedder = NegUMAP(
+    log.info("Running Neg-t-UMAP")
+    embedder = NegTUMAP(
         **params,
     )
     embedded = embedder.fit_transform(x)
