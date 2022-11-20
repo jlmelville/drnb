@@ -418,12 +418,13 @@ def palettize(color_col, palette=None):
     n_categories = None
     if pd.api.types.is_categorical_dtype(color_col):
         n_categories = color_col.nunique()
+    else:
+        # if this isn't a categorical color column do nothing
+        return palette
 
     if palette is None:
-        # no palette and it's categorical so create
-        if n_categories is not None:
-            return glasbey.create_palette(n_categories)
-        return None
+        # return a suitably sized categorical palette
+        return glasbey.create_palette(n_categories)
 
     # a named or pre-defined palette, so check we have enough colors
     if isinstance(palette, str):
