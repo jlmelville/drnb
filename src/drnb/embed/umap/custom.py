@@ -12,9 +12,10 @@ from umap.umap_ import INT32_MAX, INT32_MIN, make_epochs_per_sample
 
 
 class CustomGradientUMAP(umap.UMAP):
-    def __init__(self, custom_gradient_func, **kwargs):
+    def __init__(self, custom_gradient_func, anneal_lr=True, **kwargs):
         super().__init__(**kwargs)
         self.custom_gradient_func = custom_gradient_func
+        self.anneal_lr = anneal_lr
 
     def _fit_embed_data(self, X, n_epochs, init, random_state):
         return simplicial_set_embedding(
@@ -35,6 +36,7 @@ class CustomGradientUMAP(umap.UMAP):
             self.verbose,
             self.tqdm_kwds,
             self.custom_gradient_func,
+            self.anneal_lr,
         )
 
 
@@ -56,6 +58,7 @@ def simplicial_set_embedding(
     verbose=False,
     tqdm_kwds=None,
     custom_gradient_func=_optimize_layout_euclidean_single_epoch,
+    anneal_lr=True,
 ):
     graph = graph.tocoo()
     graph.sum_duplicates()
@@ -112,6 +115,7 @@ def simplicial_set_embedding(
         tqdm_kwds=tqdm_kwds,
         move_other=True,
         custom_gradient_func=custom_gradient_func,
+        anneal_lr=anneal_lr,
     )
 
     if isinstance(embedding, list):
@@ -197,6 +201,7 @@ def optimize_layout_euclidean(
     tqdm_kwds=None,
     move_other=False,
     custom_gradient_func=_optimize_layout_euclidean_single_epoch,
+    anneal_lr=True,
 ):
     dim = head_embedding.shape[1]
     alpha = initial_alpha
@@ -240,7 +245,8 @@ def optimize_layout_euclidean(
             n,
         )
 
-        alpha = initial_alpha * (1.0 - (float(n) / float(n_epochs)))
+        if anneal_lr:
+            alpha = initial_alpha * (1.0 - (float(n) / float(n_epochs)))
 
         if verbose and n % int(n_epochs / 10) == 0:
             print("\tcompleted ", n, " / ", n_epochs, "epochs")
