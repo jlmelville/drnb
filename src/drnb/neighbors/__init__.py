@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
+import scipy.sparse.csgraph
 import sklearn.metrics
 
 import drnb.neighbors.sklearn as sknbrs
@@ -14,6 +15,10 @@ from drnb.util import FromDict, Jsonizable, default_dict, default_list, islisty
 
 from . import annoy, faiss, hnsw, pynndescent
 from .nbrinfo import NbrInfo, NearestNeighbors
+
+
+def n_connected_components(graph):
+    return scipy.sparse.csgraph.connected_components(graph)[0]
 
 
 def calculate_neighbors(

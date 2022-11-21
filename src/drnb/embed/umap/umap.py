@@ -2,19 +2,14 @@ from dataclasses import dataclass
 
 import numpy as np
 import pynndescent
-import scipy.sparse.csgraph
 import umap
-from sklearn.utils import check_random_state
 
 import drnb.embed
 import drnb.neighbors as nbrs
 from drnb.log import log
+from drnb.neighbors import n_connected_components
 from drnb.util import get_method_and_args
-from drnb.yinit import gspectral, noisy_scale_coords, spca, tsvd_warm_spectral
-
-
-def n_connected_components(graph):
-    return scipy.sparse.csgraph.connected_components(graph)[0]
+from drnb.yinit import gspectral, spca, spectral_graph_embed, tsvd_warm_spectral
 
 
 # A subclass of NNDescent which exists purely to escape the scrutiny of a validation
@@ -57,36 +52,18 @@ def umap_spectral_init(
             method_kwds=dict(random_state=random_state),
         )
         knn = [nbr_data.idx, nbr_data.dist]
-
-    knn_fss = umap_graph(x, knn)
+    knn_fss = umap_graph(knn)
 
     nc = n_connected_components(knn_fss)
     if nc > 1:
         log.warning("UMAP graph has %d components", nc)
 
-    random_state = check_random_state(random_state)
-
-    if tsvdw:
-        log.info("Using tsvdw solver")
-        return tsvd_warm_spectral(
-            graph=knn_fss,
-            dim=2,
-            random_state=random_state,
-            tol=tsvdw_tol,
-            jitter=jitter,
-        )
-    init = umap.umap_.spectral_layout(
-        data=None,
-        graph=knn_fss,
-        dim=2,
-        random_state=random_state,
-    )
-    if jitter:
-        return noisy_scale_coords(init)
-    return init
+    return spectral_graph_embed(knn_fss, random_state, tsvdw, tsvdw_tol, jitter)
 
 
-def umap_graph(x, knn):
+def umap_graph(knn, x=None):
+    if x is None:
+        x = np.empty((knn[0].shape[0], 0), dtype=np.int8)
     knn_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
         X=x,
         knn_indices=knn[0],
@@ -139,7 +116,7 @@ class Umap(drnb.embed.Embedder):
                 )
             elif drnb_init == "tsvd_spectral":
                 log.info("Initializing via truncated SVD-warmed spectral")
-                graph = umap_graph(x, params["precomputed_knn"])
+                graph = umap_graph(params["precomputed_knn"], x)
                 params["init"] = tsvd_warm_spectral(
                     graph,
                     dim=2,

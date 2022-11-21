@@ -87,8 +87,12 @@ def _nn_to_sparse(idx, dist):
 
 
 def nn_to_sparse(nbrs):
-    idx = nbrs.idx
-    dist = nbrs.dist
+    if islisty(nbrs):
+        idx = nbrs[0]
+        dist = nbrs[1]
+    else:
+        idx = nbrs.idx
+        dist = nbrs.dist
     n_items = idx.shape[0]
     rows, cols, vals = _nn_to_sparse(idx, dist)
 

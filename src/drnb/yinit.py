@@ -5,8 +5,11 @@ import sklearn.decomposition
 import umap
 from sklearn.utils import check_random_state
 
+import drnb.neighbors as nbrs
 import drnb.neighbors.random
+from drnb.graph import umap_graph_binary
 from drnb.log import log
+from drnb.neighbors import n_connected_components
 
 
 def scale_coords(coords, max_coord=10.0):
@@ -104,22 +107,64 @@ def gspectral(
     if nc > 1:
         log.warning("global-weighted graph has %d components", nc)
 
-    random_state = check_random_state(random_state)
-    if spectral_algorithm == "umap":
-        init = umap.umap_.spectral_layout(
-            data=None,
-            graph=result,
-            dim=2,
-            random_state=random_state,
-        )
-    else:
-        init = tsvd_warm_spectral(
-            graph=result,
-            dim=2,
-            random_state=random_state,
-        )
+    return spectral_graph_embed(
+        result, random_state, tsvdw=spectral_algorithm == "umap", jitter=True
+    )
 
-    return noisy_scale_coords(init, seed=random_state.randint(np.iinfo(np.uint32).max))
+
+def binary_graph_spectral_init(
+    x,
+    knn=None,
+    metric="euclidean",
+    n_neighbors=15,
+    random_state=42,
+    tsvdw=False,
+    tsvdw_tol=1e-5,
+    jitter=True,
+):
+    if knn is None:
+        nbr_data = nbrs.calculate_neighbors(
+            x,
+            n_neighbors=n_neighbors,
+            metric=metric,
+            method="pynndescent",
+            return_distance=True,
+            method_kwds=dict(random_state=random_state),
+        )
+        knn = [nbr_data.idx, nbr_data.dist]
+    knn_fss = umap_graph_binary(knn)
+
+    nc = n_connected_components(knn_fss)
+    if nc > 1:
+        log.warning("UMAP graph has %d components", nc)
+
+    return spectral_graph_embed(knn_fss, random_state, tsvdw, tsvdw_tol, jitter)
+
+
+def spectral_graph_embed(
+    graph, random_state=42, tsvdw=False, tsvdw_tol=1e-5, jitter=True
+):
+    random_state = check_random_state(random_state)
+    if tsvdw:
+        log.info("Using tsvdw solver")
+        return tsvd_warm_spectral(
+            graph=graph,
+            dim=2,
+            random_state=random_state,
+            tol=tsvdw_tol,
+            jitter=jitter,
+        )
+    init = umap.umap_.spectral_layout(
+        data=None,
+        graph=graph,
+        dim=2,
+        random_state=random_state,
+    )
+    if jitter:
+        return noisy_scale_coords(
+            init, seed=random_state.randint(np.iinfo(np.uint32).max)
+        )
+    return init
 
 
 def scale1(x):
