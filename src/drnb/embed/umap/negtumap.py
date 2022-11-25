@@ -40,11 +40,6 @@ def negtumap_gradient_func(
 
             dist_squared = rdist(current, other)
 
-            # control repulsion and learning rate for the first 200 iterations
-            if n <= 200:
-                gamma = 1.0
-                alpha = min(alpha, 1.0)
-
             if dist_squared > 0.0:
                 w = 1 / (1 + dist_squared)
                 grad_coeff = -2.0 * gamma * w

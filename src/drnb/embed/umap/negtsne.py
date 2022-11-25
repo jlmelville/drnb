@@ -47,13 +47,7 @@ def negtsne_gradient_func(
                 (n - epoch_of_next_negative_sample[i]) / epochs_per_negative_sample[i]
             )
 
-            # neg-t-sne paper says that early exaggeration-like initialization is
-            # required for z-bar at t-SNE-like levels by using a UMAP-like setting
-            # initially
-            if n > 200:
-                gamma = z_bar * n_neg_samples * xi
-            else:
-                gamma = 1.0
+            gamma = z_bar * n_neg_samples * xi
 
             if dist_squared > 0.0:
                 w = 1 / (1 + dist_squared)
