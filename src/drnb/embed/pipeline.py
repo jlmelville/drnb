@@ -376,8 +376,12 @@ def standard_metrics():
 
 # Automatically adds usual eval and plotting
 def standard_pipeline(method, *, params=None, verbose=False):
+    if not isinstance(method, list):
+        method = embedder(method, params=params)
+    elif params is not None:
+        raise ValueError("params must be None when chained embedder provided")
     return create_pipeline(
-        method=embedder(method, params=params),
+        method=method,
         eval_metrics=standard_metrics(),
         verbose=verbose,
     )
