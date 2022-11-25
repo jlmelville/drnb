@@ -372,3 +372,19 @@ def extra_plots(metric="euclidean"):
 
 def standard_metrics():
     return ["rte", "rpc", ("nnp", dict(n_neighbors=[15, 50, 150]))]
+
+
+# Automatically adds usual eval and plotting
+def standard_pipeline(method, *, params=None, verbose=False):
+    return create_pipeline(
+        method=embedder(method, params=params),
+        eval_metrics=standard_metrics(),
+        verbose=verbose,
+    )
+
+
+# Runs a one-off standard pipeline
+def standard_eval(method, dataset, *, params=None, verbose=False):
+    return standard_pipeline(method, params=params, verbose=verbose).run(dataset)[
+        "evaluations"
+    ]
