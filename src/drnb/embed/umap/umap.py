@@ -9,7 +9,12 @@ import drnb.neighbors as nbrs
 from drnb.log import log
 from drnb.neighbors import n_connected_components
 from drnb.util import get_method_and_args
-from drnb.yinit import gspectral, spca, spectral_graph_embed, tsvd_warm_spectral
+from drnb.yinit import (
+    spca,
+    spectral_graph_embed,
+    tsvd_warm_spectral,
+    umap_graph_spectral_init,
+)
 
 
 # A subclass of NNDescent which exists purely to escape the scrutiny of a validation
@@ -86,10 +91,11 @@ class Umap(drnb.embed.Embedder):
             knn_params = dict(self.use_precomputed_knn)
             self.use_precomputed_knn = True
 
+        metric = params.get("metric", "euclidean")
+        n_neighbors = params.get("n_neighbors", 15)
         if self.use_precomputed_knn:
             log.info("Using precomputed knn")
-            metric = params.get("metric", "euclidean")
-            n_neighbors = params.get("n_neighbors", 15)
+
             precomputed_knn = nbrs.get_neighbors_with_ctx(
                 x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
             )
@@ -104,15 +110,18 @@ class Umap(drnb.embed.Embedder):
             if drnb_init == "spca":
                 params["init"] = spca(x)
             elif drnb_init == "global_spectral":
-                params["init"] = gspectral(
+                params["init"] = umap_graph_spectral_init(
                     x,
-                    knn=params["precomputed_knn"],
+                    knn=params.get("precomputed_knn"),
+                    metric=metric,
+                    n_neighbors=n_neighbors,
                     op=init_params.get("op", "intersection"),
-                    weight=init_params.get("weight", 0.2),
-                    metric=params.get("metric", "euclidean"),
+                    global_weight=init_params.get("global_weight", 0.2),
                     random_state=params.get("random_state", 42),
                     global_neighbors=init_params.get("global_neighbors", "random"),
-                    spectral_algorithm=init_params.get("spectral_algorithm", "umap"),
+                    n_global_neighbors=init_params.get("n_global_neighbors"),
+                    tsvdw=init_params.get("tsvdw", False),
+                    tsvdw_tol=init_params.get("tsvdw_tol", 1e-5),
                 )
             elif drnb_init == "tsvd_spectral":
                 log.info("Initializing via truncated SVD-warmed spectral")

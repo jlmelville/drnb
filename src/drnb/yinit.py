@@ -10,6 +10,8 @@ import drnb.neighbors.random
 from drnb.graph import umap_graph_binary
 from drnb.log import log
 from drnb.neighbors import n_connected_components
+from drnb.neighbors.nbrinfo import NearestNeighbors
+from drnb.neighbors.random import logn_neighbors
 
 
 def scale_coords(coords, max_coord=10.0):
@@ -33,36 +35,35 @@ def spca(data):
     return openTSNE.initialization.pca(data)
 
 
-def gspectral(
-    x,
-    knn,
+def umap_graph_spectral_init(
+    x=None,
+    knn=None,
     metric="euclidean",
+    n_neighbors=15,
+    global_neighbors=None,
+    n_global_neighbors=None,
     op="intersection",
-    weight=0.2,
+    global_weight=0.1,
     random_state=42,
-    spectral_algorithm="umap",
-    global_neighbors="random",
+    tsvdw=False,
+    tsvdw_tol=1e-5,
+    jitter=True,
 ):
-    if global_neighbors == "random":
-        global_nn = drnb.neighbors.random.random_neighbors(
-            x, distance=metric, random_state=random_state
-        )
-    else:
-        global_nn = drnb.neighbors.random.mid_near_neighbors(
-            data=x,
-            n_neighbors=drnb.neighbors.random.logn_neighbors(x),
+    if x is None and knn is None:
+        raise ValueError("One of x or knn must be provided")
+    if x is None and global_neighbors is not None:
+        raise ValueError("x may not be None if global neighbors are used")
+    if knn is None:
+        knn = nbrs.calculate_neighbors(
+            x,
+            n_neighbors=n_neighbors,
             metric=metric,
-            random_state=random_state,
+            method="pynndescent",
+            return_distance=True,
+            method_kwds=dict(random_state=random_state),
         )
-
-    global_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
-        X=x,
-        knn_indices=global_nn.idx,
-        knn_dists=global_nn.dist,
-        n_neighbors=global_nn.idx.shape[1],
-        random_state=None,
-        metric=None,
-    )
+    if isinstance(knn, NearestNeighbors):
+        knn = [knn.idx, knn.dist]
 
     knn_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
         X=x,
@@ -73,55 +74,90 @@ def gspectral(
         metric=None,
     )
 
-    log.info(
-        "Creating random weighted graph with random n_neighbors = %d",
-        global_nn.idx.shape[1],
-    )
+    if global_neighbors is not None:
+        if n_global_neighbors is None:
+            n_global_neighbors = logn_neighbors(x.shape[0])
 
-    if op == "intersection":
-        log.info("Combining sets by intersection with weight %.2f", weight)
-        result = umap.umap_.general_simplicial_set_intersection(
-            knn_fss, global_fss, weight=weight
+        if global_neighbors == "random":
+            global_nn = drnb.neighbors.random.random_neighbors(
+                x,
+                n_neighbors=n_global_neighbors,
+                distance=metric,
+                random_state=random_state,
+            )
+        else:
+            global_nn = drnb.neighbors.random.mid_near_neighbors(
+                data=x,
+                n_neighbors=n_global_neighbors,
+                metric=metric,
+                random_state=random_state,
+            )
+
+        global_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
+            X=x,
+            knn_indices=global_nn.idx,
+            knn_dists=global_nn.dist,
+            n_neighbors=global_nn.idx.shape[1],
+            random_state=None,
+            metric=None,
         )
-        result = umap.umap_.reset_local_connectivity(result, reset_local_metric=True)
-    elif op == "union":
-        log.info("Combining sets by union")
-        result = umap.umap_.general_simplicial_set_union(knn_fss, global_fss)
-        result = umap.umap_.reset_local_connectivity(result, reset_local_metric=True)
-    elif op == "difference":
-        log.info("Combining sets by difference with weight %.2f", weight)
-        result = umap.umap_.general_simplicial_set_intersection(
-            knn_fss, global_fss, weight=weight, right_complement=True
+
+        log.info(
+            "Creating UMAP %s graph with %d %s neighbors with weight %.3g",
+            op,
+            n_global_neighbors,
+            global_neighbors,
+            global_weight,
         )
-        # https://github.com/lmcinnes/umap/discussions/841
-        # "resetting local connectivity there ... pretty much eliminated anything
-        # __sub__ did, so I just didn't do it in that case."
-        result = umap.umap_.reset_local_connectivity(result, reset_local_metric=False)
-    elif op == "linear":
-        result = weight * global_fss + (1.0 - weight) * knn_fss
-        result = umap.umap_.reset_local_connectivity(result, reset_local_metric=True)
+
+        if op == "intersection":
+            graph = umap.umap_.general_simplicial_set_intersection(
+                knn_fss, global_fss, weight=global_weight
+            )
+            graph = umap.umap_.reset_local_connectivity(graph, reset_local_metric=True)
+        elif op == "union":
+            graph = umap.umap_.general_simplicial_set_union(knn_fss, global_fss)
+            graph = umap.umap_.reset_local_connectivity(graph, reset_local_metric=True)
+        elif op == "difference":
+            graph = umap.umap_.general_simplicial_set_intersection(
+                knn_fss, global_fss, weight=global_weight, right_complement=True
+            )
+            # https://github.com/lmcinnes/umap/discussions/841
+            # "resetting local connectivity there ... pretty much eliminated anything
+            # __sub__ did, so I just didn't do it in that case."
+            graph = umap.umap_.reset_local_connectivity(graph, reset_local_metric=False)
+        elif op == "linear":
+            graph = global_weight * global_fss + (1.0 - global_weight) * knn_fss
+            graph = umap.umap_.reset_local_connectivity(graph, reset_local_metric=True)
+        else:
+            raise ValueError(f"Unknown set operation: '{op}'")
     else:
-        raise ValueError(f"Unknown set operation: '{op}'")
+        graph = knn_fss
 
-    nc = scipy.sparse.csgraph.connected_components(result)[0]
+    nc = n_connected_components(graph)
     if nc > 1:
         log.warning("global-weighted graph has %d components", nc)
 
-    return spectral_graph_embed(
-        result, random_state, tsvdw=spectral_algorithm == "umap", jitter=True
-    )
+    return spectral_graph_embed(graph, random_state, tsvdw, tsvdw_tol, jitter)
 
 
 def binary_graph_spectral_init(
-    x,
+    x=None,
     knn=None,
     metric="euclidean",
     n_neighbors=15,
+    global_neighbors=None,
+    n_global_neighbors=None,
+    global_weight=0.1,
     random_state=42,
     tsvdw=False,
     tsvdw_tol=1e-5,
     jitter=True,
 ):
+    if x is None and knn is None:
+        raise ValueError("One of x or knn must be provided")
+    if x is None and global_neighbors is not None:
+        raise ValueError("x may not be None if global neighbors are used")
     if knn is None:
         nbr_data = nbrs.calculate_neighbors(
             x,
@@ -132,13 +168,40 @@ def binary_graph_spectral_init(
             method_kwds=dict(random_state=random_state),
         )
         knn = [nbr_data.idx, nbr_data.dist]
-    knn_fss = umap_graph_binary(knn)
+    knn_graph = umap_graph_binary(knn)
 
-    nc = n_connected_components(knn_fss)
+    if global_neighbors is not None:
+        if n_global_neighbors is None:
+            n_global_neighbors = logn_neighbors(x.shape[0])
+
+        log.info(
+            "Using %d %s neighbors with edge weight %f",
+            n_global_neighbors,
+            global_neighbors,
+            global_weight,
+        )
+        if global_neighbors == "random":
+            global_nn = drnb.neighbors.random.random_neighbors(
+                x,
+                n_neighbors=n_global_neighbors,
+                distance=metric,
+                random_state=random_state,
+            )
+        else:
+            global_nn = drnb.neighbors.random.mid_near_neighbors(
+                data=x,
+                n_neighbors=n_global_neighbors,
+                metric=metric,
+                random_state=random_state,
+            )
+        global_graph = umap_graph_binary(global_nn, edge_weight=global_weight)
+        knn_graph += global_graph
+
+    nc = n_connected_components(knn_graph)
     if nc > 1:
         log.warning("UMAP graph has %d components", nc)
 
-    return spectral_graph_embed(knn_fss, random_state, tsvdw, tsvdw_tol, jitter)
+    return spectral_graph_embed(knn_graph, random_state, tsvdw, tsvdw_tol, jitter)
 
 
 def spectral_graph_embed(

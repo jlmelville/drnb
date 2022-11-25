@@ -2,9 +2,8 @@ from dataclasses import dataclass
 
 import drnb.embed
 import drnb.neighbors as nbrs
-from drnb.embed.umap import umap_spectral_init
 from drnb.log import log
-from drnb.yinit import binary_graph_spectral_init
+from drnb.yinit import binary_graph_spectral_init, umap_graph_spectral_init
 
 
 @dataclass
@@ -29,7 +28,7 @@ def embed_umap_spectral(
     params,
 ):
     log.info("Running UMAP Spectral Embedding")
-    embedded = umap_spectral_init(x, **params)
+    embedded = umap_graph_spectral_init(x, **params)
     log.info("Embedding completed")
 
     return embedded

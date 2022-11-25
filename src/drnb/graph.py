@@ -1,10 +1,10 @@
 from drnb.neighbors.hubness import nn_to_sparse
 
 
-def umap_graph_binary(knn):
+def umap_graph_binary(knn, edge_weight=1.0):
     graph = nn_to_sparse(knn)
     graph = umap_symmetrize(graph)
-    graph.data.fill(1.0)
+    graph.data.fill(edge_weight)
     return graph
 
 
