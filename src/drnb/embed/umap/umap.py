@@ -84,6 +84,7 @@ def umap_graph(knn, x=None):
 class Umap(drnb.embed.Embedder):
     use_precomputed_knn: bool = True
     drnb_init: str = None
+    precomputed_init: np.ndarray = None
 
     def update_params(self, x, params, ctx=None):
         knn_params = {}
@@ -105,7 +106,10 @@ class Umap(drnb.embed.Embedder):
             # unless this flag is set
             params["force_approximation_algorithm"] = True
 
-        if self.drnb_init is not None:
+        if self.precomputed_init is not None:
+            log.info("Using precomputed initial coordinates")
+            params["init"] = self.precomputed_init
+        elif self.drnb_init is not None:
             drnb_init, init_params = get_method_and_args(self.drnb_init, {})
             if drnb_init == "spca":
                 params["init"] = spca(x)

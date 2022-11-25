@@ -3,6 +3,8 @@ from dataclasses import dataclass, field
 
 
 def get_embedder_name(method):
+    if isinstance(method, list):
+        return "+".join(get_embedder_name(m) for m in method)
     if isinstance(method, tuple):
         if len(method) != 2:
             raise ValueError("Unexpected format for method")

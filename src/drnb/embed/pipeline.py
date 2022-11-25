@@ -52,7 +52,17 @@ class EmbedderPipeline:
         x, y = self.importer.import_data(ctx.dataset_name)
 
         log.info("Embedding")
-        embedding_result = self.embedder.embed(x, ctx=ctx)
+        if isinstance(self.embedder, list):
+            embedding_result = None
+            for _embedder in self.embedder:
+                if embedding_result is not None:
+                    if isinstance(embedding_result, dict):
+                        # pylint: disable=unsubscriptable-object
+                        embedding_result = embedding_result["coords"]
+                _embedder.precomputed_init = embedding_result
+                embedding_result = _embedder.embed(x, ctx=ctx)
+        else:
+            embedding_result = self.embedder.embed(x, ctx=ctx)
         if not isinstance(embedding_result, dict):
             embedding_result = dict(coords=embedding_result)
 
@@ -358,3 +368,7 @@ def extra_plots(metric="euclidean"):
         ("rthist", dict(metric=metric)),
         ("rpscatter", dict(metric=metric)),
     ]
+
+
+def standard_metrics():
+    return ["rte", "rpc", ("nnp", dict(n_neighbors=[15, 50, 150]))]

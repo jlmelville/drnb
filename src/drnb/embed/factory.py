@@ -1,5 +1,8 @@
 # pylint: disable=import-outside-toplevel
 def create_embedder(method, embed_kwds=None):
+    if isinstance(method, list):
+        return [create_embedder(m) for m in method]
+
     if isinstance(method, tuple):
         if len(method) != 2:
             raise ValueError("Unexpected format for method")
