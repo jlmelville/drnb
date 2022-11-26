@@ -1,4 +1,4 @@
-# pylint: disable=import-outside-toplevel
+# pylint: disable=import-outside-toplevel,too-many-statements
 def create_embedder(method, embed_kwds=None):
     if isinstance(method, list):
         return [create_embedder(m) for m in method]
@@ -51,6 +51,10 @@ def create_embedder(method, embed_kwds=None):
         from drnb.embed.umap.ivhd import Ivhd as ctor
     elif method == "pacumap":
         from drnb.embed.umap.pacumap import Pacumap as ctor
+    elif method == "htumap":
+        from drnb.embed.umap.htumap import Htumap as ctor
+    elif method == "htnegumap":
+        from drnb.embed.umap.htumap import Htnegumap as ctor
     else:
         raise ValueError(f"Unknown method {method}")
 

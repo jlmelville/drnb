@@ -1,6 +1,8 @@
 import abc
 from dataclasses import dataclass, field
 
+from drnb.log import log
+
 
 def get_embedder_name(method):
     if isinstance(method, list):
@@ -33,3 +35,14 @@ def get_coords(embedded):
     else:
         coords = embedded
     return coords
+
+
+def run_embed(x, params, ctor, name):
+    log.info("Running %s", name)
+    embedder = ctor(
+        **params,
+    )
+    embedded = embedder.fit_transform(x)
+    log.info("Embedding completed")
+
+    return embedded

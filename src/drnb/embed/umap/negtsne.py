@@ -5,8 +5,8 @@ from umap.layouts import clip, rdist
 from umap.utils import tau_rand_int
 
 import drnb.embed.umap
+from drnb.embed import run_embed
 from drnb.embed.umap.custom import CustomGradientUMAP
-from drnb.log import log
 
 
 # note that gamma has been renamed to z-bar in this function
@@ -107,18 +107,4 @@ class NegTsne(drnb.embed.umap.Umap):
 
     def embed_impl(self, x, params, ctx=None):
         params = self.update_params(x, params, ctx)
-        return embed_negtsne(x, params)
-
-
-def embed_negtsne(
-    x,
-    params,
-):
-    log.info("Running Neg-t-SNE")
-    embedder = NegTSNE(
-        **params,
-    )
-    embedded = embedder.fit_transform(x)
-    log.info("Embedding completed")
-
-    return embedded
+        return run_embed(x, params, NegTSNE, "Neg-t-SNE")

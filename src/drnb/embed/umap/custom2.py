@@ -15,7 +15,7 @@ from umap.spectral import spectral_layout
 from umap.umap_ import INT32_MAX, INT32_MIN, make_epochs_per_sample
 
 import drnb.embed.umap
-from drnb.log import log
+from drnb.embed import run_embed
 
 
 def initialize_coords(
@@ -403,18 +403,4 @@ class Umap2(drnb.embed.umap.Umap):
 
     def embed_impl(self, x, params, ctx=None):
         params = self.update_params(x, params, ctx)
-        return embed_umap2(x, params)
-
-
-def embed_umap2(
-    x,
-    params,
-):
-    log.info("Running UMAP2")
-    embedder = UMAP2(
-        **params,
-    )
-    embedded = embedder.fit_transform(x)
-    log.info("Embedding completed")
-
-    return embedded
+        return run_embed(x, params, UMAP2, "UMAP2")

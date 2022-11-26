@@ -2,8 +2,8 @@ from dataclasses import dataclass
 from typing import NamedTuple
 
 import drnb.embed.umap
+from drnb.embed import run_embed
 from drnb.embed.umap.custom2 import CustomGradientUMAP2, epoch_func
-from drnb.log import log
 
 
 def negtumap_grad_coeff_attr(d2, grad_args):
@@ -50,18 +50,4 @@ class NegTumap(drnb.embed.umap.Umap):
 
     def embed_impl(self, x, params, ctx=None):
         params = self.update_params(x, params, ctx)
-        return embed_negtumap(x, params)
-
-
-def embed_negtumap(
-    x,
-    params,
-):
-    log.info("Running Neg-t-UMAP")
-    embedder = NegTUMAP(
-        **params,
-    )
-    embedded = embedder.fit_transform(x)
-    log.info("Embedding completed")
-
-    return embedded
+        return run_embed(x, params, NegTUMAP, "Neg-t-UMAP")
