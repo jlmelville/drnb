@@ -1,3 +1,7 @@
+import abc
+from dataclasses import dataclass
+from typing import NamedTuple
+
 import numba
 import numpy as np
 import scipy.sparse
@@ -6,9 +10,12 @@ import umap.distances
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.neighbors import KDTree
 from tqdm.auto import tqdm
-from umap.layouts import _optimize_layout_euclidean_single_epoch
+from umap.layouts import clip, rdist, tau_rand_int
 from umap.spectral import spectral_layout
 from umap.umap_ import INT32_MAX, INT32_MIN, make_epochs_per_sample
+
+import drnb.embed.umap
+from drnb.log import log
 
 
 def initialize_coords(
@@ -68,53 +75,24 @@ def noisy_scale_coords(coords, random_state, max_coord=10.0, noise=0.0001):
     )
 
 
-class CustomGradientUMAP(umap.UMAP):
-    def __init__(self, custom_epoch_func, anneal_lr=True, **kwargs):
-        super().__init__(**kwargs)
-        self.custom_epoch_func = custom_epoch_func
-        self.anneal_lr = anneal_lr
-
-    def _fit_embed_data(self, X, n_epochs, init, random_state):
-        return simplicial_set_embedding(
-            X,
-            self.graph_,
-            self.n_components,
-            self._initial_alpha,
-            self._a,
-            self._b,
-            self.repulsion_strength,
-            self.negative_sample_rate,
-            n_epochs,
-            init,
-            random_state,
-            self._input_distance_func,
-            self._metric_kwds,
-            self.random_state is None,
-            self.verbose,
-            self.tqdm_kwds,
-            self.custom_epoch_func,
-            self.anneal_lr,
-        )
-
-
 def simplicial_set_embedding(
     data,
     graph,
     n_components,
     initial_alpha,
-    a,
-    b,
-    gamma,
     negative_sample_rate,
     n_epochs,
     init,
     random_state,
     metric,
     metric_kwds,
+    custom_epoch_func,
+    custom_grad_coeff_attr,
+    custom_grad_coeff_rep,
+    grad_args,
     parallel=False,
     verbose=False,
     tqdm_kwds=None,
-    custom_epoch_func=_optimize_layout_euclidean_single_epoch,
     anneal_lr=True,
 ):
     graph = graph.tocoo()
@@ -153,7 +131,7 @@ def simplicial_set_embedding(
 
     aux_data = {}
 
-    embedding = optimize_layout(
+    embedding = optimize_layout_euclidean(
         embedding,
         embedding,
         head,
@@ -161,10 +139,7 @@ def simplicial_set_embedding(
         n_epochs,
         n_vertices,
         epochs_per_sample,
-        a,
-        b,
         rng_state,
-        gamma,
         initial_alpha,
         negative_sample_rate,
         parallel=parallel,
@@ -172,6 +147,9 @@ def simplicial_set_embedding(
         tqdm_kwds=tqdm_kwds,
         move_other=True,
         custom_epoch_func=custom_epoch_func,
+        custom_grad_coeff_attr=custom_grad_coeff_attr,
+        custom_grad_coeff_rep=custom_grad_coeff_rep,
+        grad_args=grad_args,
         anneal_lr=anneal_lr,
     )
 
@@ -182,7 +160,7 @@ def simplicial_set_embedding(
     return embedding, aux_data
 
 
-def optimize_layout(
+def optimize_layout_euclidean(
     head_embedding,
     tail_embedding,
     head,
@@ -190,18 +168,18 @@ def optimize_layout(
     n_epochs,
     n_vertices,
     epochs_per_sample,
-    a,
-    b,
     rng_state,
-    gamma=1.0,
-    initial_alpha=1.0,
-    negative_sample_rate=5.0,
-    parallel=False,
-    verbose=False,
-    tqdm_kwds=None,
-    move_other=False,
-    custom_epoch_func=_optimize_layout_euclidean_single_epoch,
-    anneal_lr=True,
+    initial_alpha,
+    negative_sample_rate,
+    parallel,
+    verbose,
+    tqdm_kwds,
+    move_other,
+    anneal_lr,
+    custom_epoch_func,
+    custom_grad_coeff_attr,
+    custom_grad_coeff_rep,
+    grad_args,
 ):
     dim = head_embedding.shape[1]
     alpha = initial_alpha
@@ -211,6 +189,8 @@ def optimize_layout(
     epoch_of_next_sample = epochs_per_sample.copy()
 
     epoch_fn = numba.njit(custom_epoch_func, fastmath=True, parallel=parallel)
+    grad_attr_fn = numba.njit(custom_grad_coeff_attr, fastmath=True)
+    grap_rep_fn = numba.njit(custom_grad_coeff_rep, fastmath=True)
 
     if tqdm_kwds is None:
         tqdm_kwds = {}
@@ -232,17 +212,17 @@ def optimize_layout(
             tail,
             n_vertices,
             epochs_per_sample,
-            a,
-            b,
             rng_state,
-            gamma,
             dim,
             move_other,
-            alpha,
             epochs_per_negative_sample,
             epoch_of_next_negative_sample,
             epoch_of_next_sample,
             n,
+            alpha,
+            grad_attr_fn,
+            grap_rep_fn,
+            grad_args,
         )
 
         if anneal_lr:
@@ -259,3 +239,184 @@ def optimize_layout(
         embedding_list.append(head_embedding.copy())
 
     return head_embedding if epochs_list is None else embedding_list
+
+
+def epoch_func(
+    head_embedding,
+    tail_embedding,
+    head,
+    tail,
+    n_vertices,
+    epochs_per_sample,
+    rng_state,
+    dim,
+    move_other,
+    epochs_per_negative_sample,
+    epoch_of_next_negative_sample,
+    epoch_of_next_sample,
+    n,
+    alpha,
+    grad_coeff_attr,
+    grad_coeff_rep,
+    grad_args,
+):
+    # pylint: disable=not-an-iterable
+    for i in numba.prange(epochs_per_sample.shape[0]):
+        if epoch_of_next_sample[i] > n:
+            continue
+
+        j = head[i]
+        k = tail[i]
+
+        current = head_embedding[j]
+        other = tail_embedding[k]
+
+        dist_squared = rdist(current, other)
+
+        if dist_squared > 0.0:
+            grad_coeff = grad_coeff_attr(dist_squared, grad_args)
+        else:
+            grad_coeff = 0.0
+
+        for d in range(dim):
+            grad_d = clip(grad_coeff * (current[d] - other[d]))
+            current[d] += grad_d * alpha
+            if move_other:
+                other[d] += -grad_d * alpha
+
+        epoch_of_next_sample[i] += epochs_per_sample[i]
+
+        n_neg_samples = int(
+            (n - epoch_of_next_negative_sample[i]) / epochs_per_negative_sample[i]
+        )
+
+        for _ in range(n_neg_samples):
+            k = tau_rand_int(rng_state) % n_vertices
+            if j == k:
+                continue
+            other = tail_embedding[k]
+
+            dist_squared = rdist(current, other)
+
+            if dist_squared > 0.0:
+                grad_coeff = grad_coeff_rep(dist_squared, grad_args)
+            else:
+                grad_coeff = 0.0
+
+            for d in range(dim):
+                if grad_coeff > 0.0:
+                    grad_d = clip(grad_coeff * (current[d] - other[d]))
+                else:
+                    grad_d = 4.0
+                current[d] += grad_d * alpha
+
+        epoch_of_next_negative_sample[i] += (
+            n_neg_samples * epochs_per_negative_sample[i]
+        )
+
+
+class CustomGradientUMAP2(umap.UMAP, abc.ABC):
+    def __init__(
+        self,
+        custom_epoch_func,
+        custom_attr_func,
+        custom_rep_func,
+        anneal_lr=True,
+        **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.custom_epoch_func = custom_epoch_func
+        self.custom_attr_func = custom_attr_func
+        self.custom_rep_func = custom_rep_func
+        self.anneal_lr = anneal_lr
+
+    @abc.abstractmethod
+    def get_gradient_args(self):
+        pass
+
+    def _fit_embed_data(self, X, n_epochs, init, random_state):
+        grad_args = self.get_gradient_args()
+
+        return simplicial_set_embedding(
+            X,
+            self.graph_,
+            self.n_components,
+            self._initial_alpha,
+            self.negative_sample_rate,
+            n_epochs,
+            init,
+            random_state,
+            self._input_distance_func,
+            self._metric_kwds,
+            self.custom_epoch_func,
+            self.custom_attr_func,
+            self.custom_rep_func,
+            grad_args,
+            self.random_state is None,
+            self.verbose,
+            self.tqdm_kwds,
+            self.anneal_lr,
+        )
+
+
+# Test implementation of UMAP
+def umap_grad_coeff_attr(dist_squared, grad_args):
+    a = grad_args.a
+    b = grad_args.b
+    grad_coeff = -2.0 * a * b * pow(dist_squared, b - 1.0)
+    grad_coeff /= a * pow(dist_squared, b) + 1.0
+    return grad_coeff
+
+
+def umap_grad_coeff_rep(dist_squared, grad_args):
+    a = grad_args.a
+    b = grad_args.b
+    gamma = grad_args.gamma
+    grad_coeff = 2.0 * gamma * b
+    grad_coeff /= (0.001 + dist_squared) * (a * pow(dist_squared, b) + 1)
+    return grad_coeff
+
+
+class UMAP2(CustomGradientUMAP2):
+    def get_gradient_args(self):
+        class UmapGradientArgs(NamedTuple):
+            a: float
+            b: float
+            gamma: float
+
+        return UmapGradientArgs(a=self._a, b=self._b, gamma=self.repulsion_strength)
+
+    def __init__(self, **kwargs):
+        if "anneal_lr" not in kwargs:
+            kwargs["anneal_lr"] = True
+
+        super().__init__(
+            custom_epoch_func=epoch_func,
+            custom_attr_func=umap_grad_coeff_attr,
+            custom_rep_func=umap_grad_coeff_rep,
+            **kwargs,
+        )
+
+
+@dataclass
+class Umap2(drnb.embed.umap.Umap):
+    use_precomputed_knn: bool = True
+    drnb_init: str = None
+
+    def embed_impl(self, x, params, ctx=None):
+        params = self.update_params(x, params, ctx)
+        return embed_umap2(x, params)
+
+
+def embed_umap2(
+    x,
+    params,
+):
+    log.info("Running UMAP2")
+    embedder = UMAP2(
+        **params,
+    )
+    embedded = embedder.fit_transform(x)
+    log.info("Embedding completed")
+
+    return embedded
