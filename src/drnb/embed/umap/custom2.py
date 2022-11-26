@@ -322,7 +322,7 @@ class CustomGradientUMAP2(umap.UMAP, abc.ABC):
         custom_attr_func,
         custom_rep_func,
         anneal_lr=True,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(**kwargs)
         self.custom_epoch_func = custom_epoch_func
@@ -336,7 +336,6 @@ class CustomGradientUMAP2(umap.UMAP, abc.ABC):
 
     def _fit_embed_data(self, X, n_epochs, init, random_state):
         grad_args = self.get_gradient_args()
-
         return simplicial_set_embedding(
             X,
             self.graph_,
@@ -389,7 +388,6 @@ class UMAP2(CustomGradientUMAP2):
     def __init__(self, **kwargs):
         if "anneal_lr" not in kwargs:
             kwargs["anneal_lr"] = True
-
         super().__init__(
             custom_epoch_func=epoch_func,
             custom_attr_func=umap_grad_coeff_attr,

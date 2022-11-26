@@ -47,6 +47,10 @@ def create_embedder(method, embed_kwds=None):
         from drnb.embed.umap.spectral import BinaryGraphSpectral as ctor
     elif method == "umap2":
         from drnb.embed.umap.custom2 import Umap2 as ctor
+    elif method == "ivhd":
+        from drnb.embed.umap.ivhd import Ivhd as ctor
+    elif method == "pacumap":
+        from drnb.embed.umap.pacumap import Pacumap as ctor
     else:
         raise ValueError(f"Unknown method {method}")
 
