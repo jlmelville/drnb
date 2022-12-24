@@ -67,6 +67,8 @@ def umap_spectral_init(
 
 
 def umap_graph(knn, x=None):
+    if isinstance(knn, drnb.neighbors.NearestNeighbors):
+        knn = [knn.idx, knn.dist]
     if x is None:
         x = np.empty((knn[0].shape[0], 0), dtype=np.int8)
     knn_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
