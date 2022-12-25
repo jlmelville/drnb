@@ -195,7 +195,12 @@ class SeabornPlotter:
         # did a log-log plot of N vs the average 15-NN distance in the embedded space
         # multiplying the 15-NN distance by 100 gave a good-enough value for the
         # point size when figsize=(9, 6)
-        cex = 100.0 * (10.0 ** (0.4591008 - 0.3722813 * math.log10(coords.shape[0])))
+        if self.cex is None:
+            cex = 100.0 * (
+                10.0 ** (0.4591008 - 0.3722813 * math.log10(coords.shape[0]))
+            )
+        else:
+            cex = self.cex
 
         if self.alpha_scale is None:
             estimated_cex = 10.0 ** (
@@ -350,7 +355,6 @@ def create_plotters(plot=True, plot_kwargs=None):
     if "extras" in plot_kwargs:
         extras = plot_kwargs["extras"]
         del plot_kwargs["extras"]
-
     plotters.append(plotter_cls.new(**plot_kwargs))
     for cby in color_by:
         pkwargs1 = dict(plot_kwargs)
