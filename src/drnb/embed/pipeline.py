@@ -375,7 +375,9 @@ def standard_metrics():
 
 
 # Automatically adds usual eval and plotting
-def standard_pipeline(method, *, params=None, verbose=False, extra_eval_metrics=None):
+def standard_pipeline(
+    method, *, params=None, verbose=False, extra_eval_metrics=None, extra_plot=None
+):
     # in most cases you pass the method name and params to pass to the embedder
     # or a list of chained pre-computed embedder config
     if not isinstance(method, list):
@@ -385,19 +387,35 @@ def standard_pipeline(method, *, params=None, verbose=False, extra_eval_metrics=
     elif params is not None:
         raise ValueError("params must be None when chained embedder provided")
 
+    if extra_plot is None:
+        plot = True
+    else:
+        plot = extra_plot
+
     if extra_eval_metrics is None:
         extra_eval_metrics = []
     return create_pipeline(
         method=method,
         eval_metrics=standard_metrics() + extra_eval_metrics,
+        plot=plot,
         verbose=verbose,
     )
 
 
 # Runs a one-off standard pipeline
 def standard_eval(
-    method, dataset, *, params=None, extra_eval_metrics=None, verbose=False
+    method,
+    dataset,
+    *,
+    params=None,
+    extra_eval_metrics=None,
+    extra_plot=None,
+    verbose=False,
 ):
     return standard_pipeline(
-        method, params=params, extra_eval_metrics=extra_eval_metrics, verbose=verbose
+        method,
+        params=params,
+        extra_eval_metrics=extra_eval_metrics,
+        extra_plot=extra_plot,
+        verbose=verbose,
     ).run(dataset)["evaluations"]
