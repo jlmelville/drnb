@@ -31,17 +31,18 @@ def smmds(
         optargs["alpha"] = learning_rate
     optim = create_opt(X, opt, optargs)
 
-    rng_state = setup_rngn(X.shape[0], random_state)
+    nobs = X.shape[0]
+    rng_state = setup_rngn(nobs, random_state)
 
     if isinstance(init, np.ndarray):
-        if init.shape != (X.shape[0], 2):
+        if init.shape != (nobs, 2):
             raise ValueError("Initialization array has incorrect shape")
         log.info("Using pre-supplied initialization coordinates")
         Y = init
     elif init == "pca":
         Y = pca(X)
     elif init == "rand":
-        Y = umap_random_init(random_state)
+        Y = umap_random_init(nobs, random_state)
     else:
         raise ValueError(f"Unknown init option '{init}'")
     Y = Y.astype(np.float32, order="C")
