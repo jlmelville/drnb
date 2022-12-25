@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+import numpy as np
 import openTSNE
 import openTSNE.nearest_neighbors as tsnenn
 
@@ -72,6 +73,7 @@ class Tsne(drnb.embed.Embedder):
     initialization: str = None
     n_neighbors: int = None
     affinity: str = "perplexity"
+    precomputed_init: np.ndarray = None
 
     def embed_impl(self, x, params, ctx=None):
         knn_params = {}
@@ -91,12 +93,16 @@ class Tsne(drnb.embed.Embedder):
                 ctx=ctx,
             )
 
-        if self.initialization is not None:
+        if self.precomputed_init is not None:
+            log.info("Using precomputed initial coordinates")
+            init = self.precomputed_init
+        elif self.initialization is not None:
             log.info("Using '%s' initialization", self.initialization)
+            init = self.initialization
+        else:
+            init = None
 
-        return embed_tsne(
-            x, params, affinities=affinities, initialization=self.initialization
-        )
+        return embed_tsne(x, params, affinities=affinities, initialization=init)
 
 
 def embed_tsne(x, params, affinities=None, initialization=None):
