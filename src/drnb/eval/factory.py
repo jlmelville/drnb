@@ -6,6 +6,7 @@ from .globalscore import GlobalScore
 from .nbrpres import NbrPreservationEval
 from .rpc import RandomPairCorrelEval
 from .rte import RandomTripletEval
+from .stress import StressEval
 
 
 def create_evaluators(eval_metrics=None):
@@ -28,6 +29,8 @@ def create_evaluators(eval_metrics=None):
             ctor = RandomPairCorrelEval
         elif embed_eval_name == "nnp":
             ctor = NbrPreservationEval
+        elif embed_eval_name == "exact-stress":
+            ctor = StressEval
         else:
             raise ValueError(f"Unknown embed eval option '{embed_eval_name}'")
         evaluators.append(ctor(**eval_kwds))
