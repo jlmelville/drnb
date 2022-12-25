@@ -30,9 +30,26 @@ def add_noise(coords, noise=0.0001, seed=None):
     return coords + rng.normal(scale=noise, size=coords.shape).astype(np.float32)
 
 
-def spca(data):
+def spca(data, stdev=None):
     log.info("Initializing via openTSNE (scaled) PCA")
-    return openTSNE.initialization.pca(data)
+    coords = openTSNE.initialization.pca(data)
+    if stdev is not None:
+        coords *= stdev / 1e-4
+    return coords
+
+
+def pca(data):
+    log.info("Initializing via (unscaled) PCA")
+    return sklearn.decomposition.PCA(n_components=2).fit_transform(data)
+
+
+def umap_random_init(data, random_state=42):
+    log.info("Initializing via UMAP-style uniform random")
+    return (
+        check_random_state(random_state)
+        .uniform(low=-10.0, high=10.0, size=(data.shape[0], 2))
+        .astype(np.float32)
+    )
 
 
 def umap_graph_spectral_init(
@@ -243,6 +260,7 @@ def tsvd_warm_spectral(graph, dim=2, random_state=42, tol=1e-5, jitter=True):
     D = scipy.sparse.spdiags(
         1.0 / np.sqrt(diag_data), 0, graph.shape[0], graph.shape[0]
     )
+    # actually a shifted Lsym: I - Lsym
     L = D * graph * D
 
     k = dim + 1
