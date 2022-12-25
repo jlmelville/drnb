@@ -55,6 +55,8 @@ def create_embedder(method, embed_kwds=None):
         from drnb.embed.umap.htumap import Htumap as ctor
     elif method == "htnegumap":
         from drnb.embed.umap.htumap import Htnegumap as ctor
+    elif method == "rescale":
+        from drnb.embed.rescale import Rescale as ctor
     else:
         raise ValueError(f"Unknown method {method}")
 
