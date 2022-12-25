@@ -2,7 +2,14 @@ import numpy as np
 
 from drnb.preprocess import numpyfy
 
-FAISS_METRICS = ["cosine", "euclidean"]
+try:
+    import faiss  # type: ignore
+
+    FAISS_METRICS = ["cosine", "euclidean"]
+    FAISS_OK = True
+except ImportError:
+    FAISS_METRICS = []
+    FAISS_OK = False
 
 FAISS_DEFAULTS = {}
 
@@ -13,8 +20,8 @@ def faiss_neighbors(
     metric="euclidean",
     return_distance=True,
 ):
-    # pylint: disable=import-outside-toplevel
-    import faiss
+    if not FAISS_OK:
+        raise NotImplementedError("faiss not available")
 
     if metric == "cosine":
         faiss_space = faiss.IndexFlatIP

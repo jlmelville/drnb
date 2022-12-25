@@ -489,6 +489,8 @@ def create_neighbors_request(neighbors_kwds):
     for key in ["metric", "n_neighbors"]:
         if key in neighbors_kwds and not islisty(neighbors_kwds[key]):
             neighbors_kwds[key] = [neighbors_kwds[key]]
+    if "verbose" not in neighbors_kwds:
+        neighbors_kwds["verbose"] = True
     neighbors_request = NeighborsRequest.new(**neighbors_kwds)
     log.info("Requesting one extra neighbor to account for self-neighbor")
     neighbors_request.n_neighbors = [
