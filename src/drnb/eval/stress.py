@@ -9,6 +9,13 @@ from drnb.eval import EvalResult
 from .base import EmbeddingEval
 
 
+def stress(X, coords, metric="euclidean"):
+    xdfun = distance_function(metric)
+    ydfun = distance_function("euclidean")
+
+    return _stress(X, coords, xdfun, ydfun)
+
+
 @numba.jit(nopython=True, fastmath=True, parallel=True)
 def _stress(X, Y, xdfun, ydfun):
     nobs, _ = X.shape
@@ -27,10 +34,7 @@ class StressEval(EmbeddingEval):
     metric: str = "euclidean"
 
     def evaluate(self, X, coords, ctx=None):
-        xdfun = distance_function(self.metric)
-        ydfun = distance_function("euclidean")
-
-        result = _stress(X, coords, xdfun, ydfun)
+        result = stress(X, coords, self.metric)
 
         return EvalResult(
             eval_type="Stress",

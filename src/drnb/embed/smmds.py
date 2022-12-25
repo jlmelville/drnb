@@ -2,20 +2,14 @@ from dataclasses import dataclass
 
 import numba
 import numpy as np
-from sklearn.utils import check_random_state
-from umap.umap_ import INT32_MAX, INT32_MIN
 from umap.utils import tau_rand_int
 
 import drnb.embed
 from drnb.distances import distance_function
 from drnb.log import log
 from drnb.optim import create_opt
+from drnb.rng import setup_rngn
 from drnb.yinit import pca, umap_random_init
-
-
-def setup_rngn(n, random_state=42):
-    random_state = check_random_state(random_state)
-    return random_state.randint(INT32_MIN, INT32_MAX, (n, 3)).astype(np.int64)
 
 
 def smmds(

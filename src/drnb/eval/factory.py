@@ -2,6 +2,7 @@ from typing import Iterable
 
 from drnb.util import get_method_and_args
 
+from .astress import ApproxStressEval
 from .globalscore import GlobalScore
 from .nbrpres import NbrPreservationEval
 from .rpc import RandomPairCorrelEval
@@ -29,6 +30,8 @@ def create_evaluators(eval_metrics=None):
             ctor = RandomPairCorrelEval
         elif embed_eval_name == "nnp":
             ctor = NbrPreservationEval
+        elif embed_eval_name == "astress":
+            ctor = ApproxStressEval
         elif embed_eval_name == "exact-stress":
             ctor = StressEval
         else:
