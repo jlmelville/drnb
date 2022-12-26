@@ -21,6 +21,31 @@ def n_connected_components(graph):
     return scipy.sparse.csgraph.connected_components(graph)[0]
 
 
+def create_nn_func(method):
+    if method == "sklearn":
+        nn_func = sknbrs.sklearn_neighbors
+        default_method_kwds = sknbrs.SKLEARN_DEFAULTS
+    elif method == "faiss":
+        nn_func = faiss.faiss_neighbors
+        default_method_kwds = faiss.FAISS_DEFAULTS
+    elif method == "pynndescent":
+        nn_func = pynndescent.pynndescent_neighbors
+        default_method_kwds = pynndescent.PYNNDESCENT_DEFAULTS
+    elif method == "pynndescentbf":
+        nn_func = pynndescent.pynndescent_exact_neighbors
+        default_method_kwds = {}
+    elif method == "hnsw":
+        nn_func = hnsw.hnsw_neighbors
+        default_method_kwds = hnsw.HNSW_DEFAULTS
+    elif method == "annoy":
+        nn_func = annoy.annoy_neighbors
+        default_method_kwds = annoy.ANNOY_DEFAULTS
+    else:
+        raise ValueError(f"Unknown nearest neighbor method '{method}'")
+
+    return nn_func, default_method_kwds
+
+
 def calculate_neighbors(
     data,
     n_neighbors=15,
@@ -49,26 +74,7 @@ def calculate_neighbors(
     if verbose and method != "faiss" and (n_items > 10000 or data.shape[1] > 10000):
         log.warning("Exact nearest neighbors search with %s might take a while", method)
 
-    if method == "sklearn":
-        nn_func = sknbrs.sklearn_neighbors
-        default_method_kwds = sknbrs.SKLEARN_DEFAULTS
-    elif method == "faiss":
-        nn_func = faiss.faiss_neighbors
-        default_method_kwds = faiss.FAISS_DEFAULTS
-    elif method == "pynndescent":
-        nn_func = pynndescent.pynndescent_neighbors
-        default_method_kwds = pynndescent.PYNNDESCENT_DEFAULTS
-    elif method == "pynndescentbf":
-        nn_func = pynndescent.pynndescent_exact_neighbors
-        default_method_kwds = {}
-    elif method == "hnsw":
-        nn_func = hnsw.hnsw_neighbors
-        default_method_kwds = hnsw.HNSW_DEFAULTS
-    elif method == "annoy":
-        nn_func = annoy.annoy_neighbors
-        default_method_kwds = annoy.ANNOY_DEFAULTS
-    else:
-        raise ValueError(f"Unknown nearest neighbor method '{method}'")
+    nn_func, default_method_kwds = create_nn_func(method)
 
     # dict merge operator Python 3.9+ only
     if method_kwds is None:
@@ -82,13 +88,32 @@ def calculate_neighbors(
             + f"with {metric} metric and params: {method_kwds}"
         )
 
-    nn = nn_func(
-        data,
-        n_neighbors=n_neighbors,
-        metric=metric,
-        return_distance=return_distance,
-        **method_kwds,
-    )
+    try:
+        nn = nn_func(
+            data,
+            n_neighbors=n_neighbors,
+            metric=metric,
+            return_distance=return_distance,
+            **method_kwds,
+        )
+    except RuntimeError as e:
+        if method == "faiss":
+            log.warning(
+                "faiss neighbors failed (out of memory?), falling back to pynndescent"
+            )
+            method = "pynndescent"
+            nn_func = pynndescent.pynndescent_neighbors
+            default_method_kwds = pynndescent.PYNNDESCENT_DEFAULTS
+            nn = nn_func(
+                data,
+                n_neighbors=n_neighbors,
+                metric=metric,
+                return_distance=return_distance,
+                **method_kwds,
+            )
+        else:
+            raise e
+
     nn_info = NbrInfo(
         name=name,
         n_nbrs=n_neighbors,
