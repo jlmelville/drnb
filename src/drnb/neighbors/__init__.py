@@ -309,6 +309,33 @@ def read_neighbors(
     return None
 
 
+def get_exact_neighbors(
+    name,
+    n_neighbors=15,
+    metric="euclidean",
+    return_distance=True,
+    verbose=False,
+    drnb_home=None,
+    sub_dir="nn",
+    cache=True,
+    data=None,
+    method_kwds=None,
+):
+    return get_neighbors(
+        name=name,
+        n_neighbors=n_neighbors,
+        metric=metric,
+        method="exact",
+        return_distance=return_distance,
+        verbose=verbose,
+        drnb_home=drnb_home,
+        sub_dir=sub_dir,
+        cache=cache,
+        data=data,
+        method_kwds=method_kwds,
+    )
+
+
 def get_neighbors(
     name,
     n_neighbors=15,
