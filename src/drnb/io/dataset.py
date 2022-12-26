@@ -3,7 +3,14 @@ from pathlib import Path
 
 import pandas as pd
 
-from drnb.io import FileExporter, get_drnb_home, islisty, read_data, read_json
+from drnb.io import (
+    FileExporter,
+    get_drnb_home,
+    islisty,
+    read_data,
+    read_json,
+    read_pickle,
+)
 from drnb.util import (
     READABLE_DATETIME_FMT,
     dts_to_str,
@@ -62,6 +69,22 @@ def read_dataset(
         target_suffix=target_suffix,
     )
     return data, target
+
+
+def read_palette(
+    dataset,
+    drnb_home=None,
+    sub_dir="data",
+    suffix="target-palette",
+    verbose=False,
+):
+    return read_pickle(
+        dataset,
+        suffix=suffix,
+        drnb_home=drnb_home,
+        sub_dir=sub_dir,
+        verbose=verbose,
+    )
 
 
 @dataclass

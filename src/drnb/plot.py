@@ -13,7 +13,7 @@ from drnb.embed import get_coords
 from drnb.eval.nbrpres import NbrPreservationEval
 from drnb.eval.rpc import RandomPairCorrelEval
 from drnb.eval.rte import RandomTripletEval
-from drnb.io import read_pickle
+from drnb.io.dataset import read_palette
 from drnb.log import log
 from drnb.util import get_method_and_args, islisty
 
@@ -230,9 +230,8 @@ class SeabornPlotter:
         if ctx is None:
             return None
         try:
-            return read_pickle(
+            return read_palette(
                 ctx.dataset_name,
-                suffix="target-palette",
                 drnb_home=ctx.drnb_home,
                 sub_dir=ctx.data_sub_dir,
                 verbose=False,
