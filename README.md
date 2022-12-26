@@ -27,13 +27,30 @@ pip install -U pip setuptools wheel
 then from the base directory:
 
 ```bash
+pip install -e .
+```
+
+or
+
+```bash
 pip install -e .[dev]
 ```
 
 The `dev` extra identifier just installs some linting tools for use when developing `drnb` . If you
 are using VSCode then the `.vscode/settings.json` sets those tools up with the configuration in
-`setup.cfg` . That all assumes you are using the virtual environment in `venv` . Otherwise the usual
+`setup.cfg` . That all assumes you are using the virtual environment in `venv`. Otherwise the usual
 `pip install -e .` will do fine.
+
+### faiss
+
+If you have a GPU, I strongly recommend installing [faiss-gpu](https://pypi.org/project/faiss-gpu/)
+for calculating exact nearest neighbors with the euclidean or cosine metric. That said, the
+PyPI version is an [unofficially built wheel](https://github.com/facebookresearch/faiss/issues/1101)
+and is currently stuck on version 1.7.2 due to
+[the wheel size being too large](https://github.com/kyamagu/faiss-wheels/issues/57). Right now there
+is a `pip install -e .[faiss_gpu]` identifier, but it doesn't do anything more than
+`pip install faiss-gpu`. Alternatively, I was able to
+[build my own version of GPU-powered faiss](https://gist.github.com/jlmelville/9b4f0d91ede13bff18d26759140709f9).
 
 ## Data setup
 
