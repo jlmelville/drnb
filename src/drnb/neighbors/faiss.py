@@ -2,16 +2,29 @@ import numpy as np
 
 from drnb.preprocess import numpyfy
 
-try:
-    import faiss  # type: ignore
-
-    FAISS_METRICS = ["cosine", "euclidean"]
-    FAISS_OK = True
-except ImportError:
-    FAISS_METRICS = []
-    FAISS_OK = False
-
+FAISS_STATUS = dict(loaded=False, ok=False)
+FAISS_METRICS = ["cosine", "euclidean"]
 FAISS_DEFAULTS = {}
+
+
+def load_faiss():
+    try:
+        # pylint:disable=global-variable-undefined
+        global faiss
+        faiss = __import__("faiss", globals(), locals())
+        FAISS_STATUS["ok"] = True
+        FAISS_STATUS["loaded"] = True
+    except ImportError:
+        FAISS_STATUS["ok"] = False
+        FAISS_STATUS["loaded"] = True
+
+
+def faiss_metrics():
+    if not FAISS_STATUS["loaded"]:
+        load_faiss()
+    if FAISS_STATUS["ok"]:
+        return FAISS_METRICS
+    return []
 
 
 def faiss_neighbors(
@@ -20,7 +33,10 @@ def faiss_neighbors(
     metric="euclidean",
     return_distance=True,
 ):
-    if not FAISS_OK:
+    if not FAISS_STATUS["loaded"]:
+        load_faiss()
+    if not FAISS_STATUS["ok"]:
+        # faiss = None
         raise NotImplementedError("faiss not available")
 
     if metric == "cosine":

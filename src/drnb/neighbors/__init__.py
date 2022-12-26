@@ -157,7 +157,7 @@ def find_fast_method(metric):
 def preferred_fast_methods():
     metric_algs = defaultdict(list)
     for metric, method in (
-        zip_algs(faiss.FAISS_METRICS, "faiss")
+        zip_algs(faiss.faiss_metrics(), "faiss")
         + zip_algs(pynndescent.PYNNDESCENT_METRICS.keys(), "pynndescent")
         + zip_algs(hnsw.HNSW_METRICS.keys(), "hnsw")
         + zip_algs(annoy.ANNOY_METRICS.keys(), "annoy")
@@ -170,7 +170,7 @@ def preferred_fast_methods():
 def preferred_exact_methods():
     metric_algs = defaultdict(list)
     for metric, method in (
-        zip_algs(faiss.FAISS_METRICS, "faiss")
+        zip_algs(faiss.faiss_metrics(), "faiss")
         + zip_algs(sknbrs.SKLEARN_METRICS.keys(), "sklearn")
         + zip_algs(pynndescent.PYNNDESCENT_METRICS.keys(), "pynndescentbf")
     ):
