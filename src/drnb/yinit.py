@@ -43,11 +43,11 @@ def pca(data):
     return sklearn.decomposition.PCA(n_components=2).fit_transform(data)
 
 
-def umap_random_init(n, random_state=42):
+def umap_random_init(n, random_state=42, max_coord=10.0):
     log.info("Initializing via UMAP-style uniform random")
     return (
         check_random_state(random_state)
-        .uniform(low=-10.0, high=10.0, size=(n, 2))
+        .uniform(low=-max_coord, high=max_coord, size=(n, 2))
         .astype(np.float32)
     )
 
