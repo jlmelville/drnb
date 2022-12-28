@@ -86,7 +86,7 @@ def _nn_to_sparse(idx, dist):
     return rows, cols, vals
 
 
-def nn_to_sparse(nbrs):
+def nn_to_sparse(nbrs, symmetrize=None):
     if islisty(nbrs):
         idx = nbrs[0]
         dist = nbrs[1]
@@ -96,7 +96,19 @@ def nn_to_sparse(nbrs):
     n_items = idx.shape[0]
     rows, cols, vals = _nn_to_sparse(idx, dist)
 
-    return scipy.sparse.coo_matrix((vals, (rows, cols)), shape=(n_items, n_items))
+    # creates an asymmetric adjacency matrix from the undirected nn graph
+    dmat = scipy.sparse.coo_matrix((vals, (rows, cols)), shape=(n_items, n_items))
+
+    if symmetrize is not None:
+        # convert the asymmetric adjacency matrix to symmetric
+        if symmetrize == "and":
+            # use mutual neighbors
+            dmat = dmat.maximum(dmat.transpose()).tocoo()
+        elif symmetrize == "or":
+            dmat = dmat.minimum(dmat.transpose()).tocoo()
+        else:
+            raise ValueError(f"Unknown symmetrization '{symmetrize}'")
+    return dmat
 
 
 # https://stackoverflow.com/a/38547818/4096483
