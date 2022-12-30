@@ -444,7 +444,9 @@ def write_neighbors(
 
 
 # Used in a pipeline
-def get_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None):
+def get_neighbors_with_ctx(
+    data, metric, n_neighbors, knn_params=None, ctx=None, return_distance=True
+):
     if knn_params is None:
         knn_params = {}
     knn_defaults = dict(
@@ -462,7 +464,7 @@ def get_neighbors_with_ctx(data, metric, n_neighbors, knn_params=None, ctx=None)
         data=data,
         n_neighbors=n_neighbors,
         metric=metric,
-        return_distance=True,
+        return_distance=return_distance,
         **full_knn_params,
     )
 

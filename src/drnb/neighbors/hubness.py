@@ -86,15 +86,42 @@ def _nn_to_sparse(idx, dist):
     return rows, cols, vals
 
 
+@jit(nopython=True)
+def _nn_to_sparse_binary(idx):
+    n_items = idx.shape[0]
+    n_neighbors = idx.shape[1]
+    size = idx.size
+    rows = np.zeros(size, dtype=np.int32)
+    cols = np.zeros(size, dtype=np.int32)
+    vals = np.zeros(size, dtype=np.float32)
+
+    for i in range(n_items):
+        inbrs = i * n_neighbors
+        for j in range(n_neighbors):
+            idx1d = inbrs + j
+            rows[idx1d] = i
+            cols[idx1d] = idx[i, j]
+            vals[idx1d] = 1
+
+    return rows, cols, vals
+
+
 def nn_to_sparse(nbrs, symmetrize=None):
-    if islisty(nbrs):
+    if isinstance(nbrs, np.ndarray):
+        idx = nbrs
+        dist = None
+    elif islisty(nbrs):
         idx = nbrs[0]
         dist = nbrs[1]
     else:
         idx = nbrs.idx
         dist = nbrs.dist
     n_items = idx.shape[0]
-    rows, cols, vals = _nn_to_sparse(idx, dist)
+
+    if dist is None:
+        rows, cols, vals = _nn_to_sparse_binary(idx)
+    else:
+        rows, cols, vals = _nn_to_sparse(idx, dist)
 
     # creates an asymmetric adjacency matrix from the undirected nn graph
     dmat = scipy.sparse.coo_matrix((vals, (rows, cols)), shape=(n_items, n_items))
