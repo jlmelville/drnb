@@ -48,7 +48,7 @@ def create_embedder(method, embed_kwds=None):
     elif method == "umap2":
         from drnb.embed.umap.custom2 import Umap2 as ctor
     elif method == "ivhd":
-        from drnb.embed.umap.ivhd import Ivhd as ctor
+        from drnb.embed.ivhd import Ivhd as ctor
     elif method == "pacumap":
         from drnb.embed.umap.pacumap import Pacumap as ctor
     elif method == "htumap":
