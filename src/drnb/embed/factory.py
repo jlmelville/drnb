@@ -57,6 +57,8 @@ def create_embedder(method, embed_kwds=None):
         from drnb.embed.umap.htumap import Htnegumap as ctor
     elif method == "smmds":
         from drnb.embed.smmds import Smmds as ctor
+    elif method == "mmds":
+        from drnb.embed.mmds import Mmds as ctor
     elif method == "rescale":
         from drnb.embed.rescale import Rescale as ctor
     else:
