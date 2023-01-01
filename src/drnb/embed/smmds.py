@@ -9,7 +9,7 @@ from drnb.distances import distance_function
 from drnb.log import log
 from drnb.optim import create_opt
 from drnb.rng import setup_rngn
-from drnb.yinit import pca, umap_random_init
+from drnb.yinit import pca, scale_coords, umap_random_init
 
 
 def smmds(
@@ -23,6 +23,7 @@ def smmds(
     opt="adam",
     optargs=None,
     eps=1e-10,
+    init_scale=None,
 ):
     # specifying learning_rate takes precedence over any value of alpha set in opt args
     if learning_rate is not None:
@@ -34,28 +35,17 @@ def smmds(
     nobs = X.shape[0]
     rng_state = setup_rngn(nobs, random_state)
 
-    if isinstance(init, np.ndarray):
-        if init.shape != (nobs, 2):
-            raise ValueError("Initialization array has incorrect shape")
-        log.info("Using pre-supplied initialization coordinates")
-        Y = init
-    elif init == "pca":
-        Y = pca(X)
-    elif init == "rand":
-        Y = umap_random_init(nobs, random_state)
-    else:
-        raise ValueError(f"Unknown init option '{init}'")
-    Y = Y.astype(np.float32, order="C")
-
     xdfun = distance_function(metric)
     ydfun = distance_function("euclidean")
+
+    Y = mmds_init(init, nobs, X, init_scale, random_state)
 
     Y = _smmds(X, Y, n_epochs, eps, xdfun, ydfun, optim, n_samples, rng_state)
 
     return Y
 
 
-@numba.jit(nopython=True, fastmath=True, parallel=True)
+@numba.jit(nopython=True, fastmath=True, parallel=False)
 def _smmds(X, Y, n_epochs, eps, xdfun, ydfun, opt, n_samples, rng_state):
     nobs, ndim = Y.shape
 
@@ -78,6 +68,26 @@ def _smmds(X, Y, n_epochs, eps, xdfun, ydfun, opt, n_samples, rng_state):
     return Y
 
 
+def mmds_init(init, nobs, X=None, init_scale=None, random_state=42):
+    if isinstance(init, np.ndarray):
+        if init.shape != (nobs, 2):
+            raise ValueError("Initialization array has incorrect shape")
+        log.info("Using pre-supplied initialization coordinates")
+        Y = init
+    elif init == "pca":
+        Y = pca(X)
+    elif init == "pcaw":
+        Y = pca(X, whiten=True)
+    elif init == "rand":
+        Y = umap_random_init(nobs, random_state)
+    else:
+        raise ValueError(f"Unknown init option '{init}'")
+    Y = Y.astype(np.float32, order="C")
+    if init_scale is not None:
+        Y = scale_coords(Y, max_coord=init_scale)
+    return Y
+
+
 @dataclass
 class Smmds(drnb.embed.Embedder):
     precomputed_init: np.ndarray = None
@@ -96,6 +106,100 @@ def embed_smmds(
     log.info("Running SMMDS")
     params["X"] = x
     embedded = smmds(**params)
+    log.info("Embedding completed")
+
+    return embedded
+
+
+def snmds(
+    X,
+    metric="euclidean",
+    n_epochs=200,
+    init="pca",
+    n_samples=3,
+    random_state=42,
+    learning_rate=None,
+    opt="adam",
+    optargs=None,
+    eps=1e-10,
+    init_scale=None,
+):
+    # specifying learning_rate takes precedence over any value of alpha set in opt args
+    if learning_rate is not None:
+        if optargs is None:
+            optargs = {}
+        optargs["alpha"] = learning_rate
+    optim = create_opt(X, opt, optargs)
+
+    nobs = X.shape[0]
+    rng_state = setup_rngn(nobs, random_state)
+
+    xdfun = distance_function(metric)
+    ydfun = distance_function("euclidean")
+
+    Y = mmds_init(init, nobs, X, init_scale, random_state)
+
+    Y = _snmds(X, Y, n_epochs, eps, xdfun, ydfun, optim, n_samples, rng_state)
+
+    return Y
+
+
+@numba.jit(nopython=True, fastmath=True, parallel=False)
+def _snmds(X, Y, n_epochs, eps, xdfun, ydfun, opt, n_samples, rng_state):
+    nobs, ndim = Y.shape
+
+    for n in range(n_epochs):
+        grads = np.zeros((nobs, ndim), dtype=np.float32)
+        # pylint:disable=not-an-iterable
+        for i in numba.prange(nobs):
+            ds = np.zeros(n_samples, dtype=np.float32)
+            rs = np.zeros(n_samples, dtype=np.float32)
+            js = np.zeros(n_samples, dtype=np.int32)
+            rsum = eps
+            dsum = eps
+            for k in range(n_samples):
+                j = tau_rand_int(rng_state[i]) % nobs
+                js[k] = j
+                rij = xdfun(X[i], X[j])
+                dij = ydfun(Y[i], Y[j])
+                rs[k] = rij
+                ds[k] = dij
+                rsum += rij
+                dsum += dij
+
+            q = ds / dsum
+            pq = (rs / rsum) - q
+            pqq = np.sum(pq * q)
+
+            for k in range(n_samples):
+                grad_coeff = (pqq - pq[k]) / (ds[k] * dsum + eps)
+                j = js[k]
+                gy = grad_coeff * (Y[i] - Y[j])
+                grads[i] += gy
+                grads[j] -= gy
+
+        Y = opt.opt(Y, grads, n, n_epochs)
+    return Y
+
+
+@dataclass
+class Snmds(drnb.embed.Embedder):
+    precomputed_init: np.ndarray = None
+
+    def embed_impl(self, x, params, ctx=None):
+        if self.precomputed_init is not None:
+            log.info("Using precomputed initial coordinates")
+            params["init"] = self.precomputed_init
+        return embed_snmds(x, params)
+
+
+def embed_snmds(
+    x,
+    params,
+):
+    log.info("Running SMMDS")
+    params["X"] = x
+    embedded = snmds(**params)
     log.info("Embedding completed")
 
     return embedded
