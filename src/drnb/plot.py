@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import sklearn.decomposition
 
 import drnb.neighbors.hubness as hub
 from drnb.embed import get_coords
@@ -170,6 +171,9 @@ class SeabornPlotter:
     color_by: Any = None
     vmin: float = None
     vmax: float = None
+    pc_axes: bool = False
+    flipx: bool = False
+    flipy: bool = False
 
     @classmethod
     def new(cls, **kwargs):
@@ -219,6 +223,9 @@ class SeabornPlotter:
             title=title,
             figsize=self.figsize,
             legend=self.legend,
+            pc_axes=self.pc_axes,
+            flipx=self.flipx,
+            flipy=self.flipy,
         )
         if sm is not None:
             if ax.get_legend() is not None:
@@ -444,6 +451,7 @@ def palettize(color_col, palette=None):
     return palette
 
 
+# pylint:disable=too-many-statements
 def sns_embed_plot(
     coords,
     color_col=None,
@@ -453,6 +461,9 @@ def sns_embed_plot(
     title="",
     figsize=None,
     legend=True,
+    pc_axes=False,
+    flipx=False,
+    flipy=False,
 ):
     if title is None:
         title = ""
@@ -504,6 +515,13 @@ def sns_embed_plot(
         elif force_legend:
             # in this case forced legend was unnecessary
             legend = True
+
+    if pc_axes:
+        coords = sklearn.decomposition.PCA(n_components=2).fit_transform(coords)
+    if flipx:
+        coords[:, 0] *= -1
+    if flipy:
+        coords[:, 1] *= -1
 
     plot = sns.scatterplot(
         x=coords[:, 0],
