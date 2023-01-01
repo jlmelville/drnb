@@ -38,9 +38,9 @@ def spca(data, stdev=None):
     return coords
 
 
-def pca(data):
+def pca(data, whiten=False):
     log.info("Initializing via (unscaled) PCA")
-    return sklearn.decomposition.PCA(n_components=2).fit_transform(data)
+    return sklearn.decomposition.PCA(n_components=2, whiten=whiten).fit_transform(data)
 
 
 def umap_random_init(n, random_state=42, max_coord=10.0):
