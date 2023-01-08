@@ -8,7 +8,7 @@ import drnb.embed
 from drnb.distances import distance_function
 from drnb.log import log
 from drnb.optim import create_opt
-from drnb.rng import setup_rngn
+from drnb.rng import setup_rng, setup_rngn
 from drnb.yinit import pca, scale_coords, umap_random_init
 
 
@@ -33,8 +33,7 @@ def smmds(
     optim = create_opt(X, opt, optargs)
 
     nobs = X.shape[0]
-    rng_state = setup_rngn(nobs, random_state)
-
+    rng_state = setup_rng(random_state)
     xdfun = distance_function(metric)
     ydfun = distance_function("euclidean")
 
@@ -48,24 +47,36 @@ def smmds(
 @numba.jit(nopython=True, fastmath=True, parallel=False)
 def _smmds(X, Y, n_epochs, eps, xdfun, ydfun, opt, n_samples, rng_state):
     nobs, ndim = Y.shape
+    epoch_samples = np.zeros(n_samples, dtype=np.int32)
 
     for n in range(n_epochs):
-        grads = np.zeros((nobs, ndim), dtype=np.float32)
-        # pylint:disable=not-an-iterable
-        for i in numba.prange(nobs):
-            for _ in range(n_samples):
-                j = tau_rand_int(rng_state[i]) % nobs
-                if i == j:
-                    continue
+        # to save on time in the PRNG use the same set of samples within each epoch
+        for j in range(n_samples):
+            epoch_samples[j] = tau_rand_int(rng_state) % nobs
 
-                rij = xdfun(X[i], X[j])
-                dij = ydfun(Y[i], Y[j])
-                grad_coeff = (dij - rij) / (dij + eps)
-                ydiff = Y[i] - Y[j]
-                grads[i] += grad_coeff * ydiff
-                grads[j] -= grad_coeff * ydiff
+        grads = _smmds_epoch(X, Y, eps, xdfun, ydfun, epoch_samples, nobs, ndim)
+
         Y = opt.opt(Y, grads, n, n_epochs)
     return Y
+
+
+@numba.jit(nopython=True, fastmath=True, parallel=True)
+def _smmds_epoch(X, Y, eps, xdfun, ydfun, epoch_samples, nobs, ndim):
+    grads = np.zeros((nobs, ndim), dtype=np.float32)
+    # pylint:disable=not-an-iterable
+    for i in numba.prange(nobs):
+        Xi = X[i]
+        Yi = Y[i]
+        for j in epoch_samples:
+            if i == j:
+                continue
+
+            Yj = Y[j]
+            rij = xdfun(Xi, X[j])
+            dij = ydfun(Yi, Yj)
+            # by not updating grads[j] this is safe to parallelize
+            grads[i] = grads[i] + ((dij - rij) / (dij + eps)) * (Yi - Yj)
+    return grads
 
 
 def mmds_init(init, nobs, X=None, init_scale=None, random_state=42):

@@ -188,10 +188,8 @@ class Adam:
         vbcorr = np.sqrt(self.one - self.beta2**e1)
         alpha *= vbcorr / (self.one - self.beta1**e1)
 
-        # self.m = self.beta1 * self.m + self.beta11 * grads
-        self.m += self.beta11 * (grads - self.m)
-        # self.v = self.beta2 * self.v + self.beta21 * grads * grads
-        self.v += self.beta21 * (grads * grads - self.v)
+        self.m = self.beta1 * self.m + self.beta11 * grads
+        self.v = self.beta2 * self.v + self.beta21 * grads * grads
 
         return Y - alpha * (self.m / (np.sqrt(self.v) + self.eps / vbcorr))
 
