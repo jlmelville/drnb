@@ -158,39 +158,66 @@ def snmds(
 @numba.jit(nopython=True, fastmath=True, parallel=False)
 def _snmds(X, Y, n_epochs, eps, xdfun, ydfun, opt, n_samples, rng_state):
     nobs, ndim = Y.shape
-
+    js = np.empty(n_samples, dtype=np.int32)
+    pq = np.empty(n_samples, dtype=np.float32)
+    rs = np.empty(n_samples, dtype=np.float32)
+    ds = np.empty(n_samples, dtype=np.float32)
     for n in range(n_epochs):
-        grads = np.zeros((nobs, ndim), dtype=np.float32)
-        # pylint:disable=not-an-iterable
-        for i in numba.prange(nobs):
-            ds = np.zeros(n_samples, dtype=np.float32)
-            rs = np.zeros(n_samples, dtype=np.float32)
-            js = np.zeros(n_samples, dtype=np.int32)
-            rsum = eps
-            dsum = eps
-            for k in range(n_samples):
-                j = tau_rand_int(rng_state[i]) % nobs
-                js[k] = j
-                rij = xdfun(X[i], X[j])
-                dij = ydfun(Y[i], Y[j])
-                rs[k] = rij
-                ds[k] = dij
-                rsum += rij
-                dsum += dij
-
-            q = ds / dsum
-            pq = (rs / rsum) - q
-            pqq = np.sum(pq * q)
-
-            for k in range(n_samples):
-                grad_coeff = (pqq - pq[k]) / (ds[k] * dsum + eps)
-                j = js[k]
-                gy = grad_coeff * (Y[i] - Y[j])
-                grads[i] += gy
-                grads[j] -= gy
+        grads = _snmds_epoch(
+            X, Y, eps, xdfun, ydfun, n_samples, nobs, ndim, rng_state, js, pq, rs, ds
+        )
 
         Y = opt.opt(Y, grads, n, n_epochs)
     return Y
+
+
+@numba.jit(nopython=True, fastmath=True, parallel=False)
+def _snmds_epoch(
+    X, Y, eps, xdfun, ydfun, n_samples, nobs, ndim, rng_state, js, pq, rs, ds
+):
+    grads = np.zeros((nobs, ndim), dtype=np.float32)
+
+    # pylint:disable=not-an-iterable
+    for i in numba.prange(nobs):
+        Xi = X[i]
+        rsum = 0.0
+
+        Yi = Y[i]
+        dsum = 0.0
+
+        for k in range(n_samples):
+            j = tau_rand_int(rng_state[i]) % nobs
+            js[k] = j
+
+            if i == j:
+                rij = eps
+                dij = eps
+            else:
+                rij = xdfun(Xi, X[j])
+                dij = ydfun(Yi, Y[j])
+
+            rs[k] = rij
+            rsum += rij
+
+            ds[k] = dij
+            dsum += dij
+
+        pqq = 0.0
+        for k in range(n_samples):
+            q = ds[k] / dsum
+            pq[k] = (rs[k] / rsum) - q
+            pqq += pq[k] * q
+            # re-use the ds vector
+            ds[k] = ds[k] * dsum + eps
+
+        for k in range(n_samples):
+            j = js[k]
+            if i == j:
+                continue
+            gy = ((pqq - pq[k]) / ds[k]) * (Yi - Y[j])
+            grads[i] = grads[i] + gy
+            grads[j] = grads[j] - gy
+    return grads
 
 
 @dataclass
