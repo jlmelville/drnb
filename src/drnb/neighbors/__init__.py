@@ -52,17 +52,25 @@ def calculate_neighbors(
     metric="euclidean",
     method="approximate",
     return_distance=True,
+    include_self=True,
     verbose=False,
     method_kwds=None,
     name=None,
 ):
     n_neighbors = int(n_neighbors)
+    if not include_self:
+        eff_n_neighbors = n_neighbors + 1
+    else:
+        eff_n_neighbors = n_neighbors
+
     n_items = data.shape[0]
-    if n_items < n_neighbors:
+    if n_items < eff_n_neighbors:
         log.warning(
-            "%d neighbors requested but only %d items in the data", n_neighbors, n_items
+            "%d neighbors requested but only %d items in the data",
+            eff_n_neighbors,
+            n_items,
         )
-        n_neighbors = n_items
+        eff_n_neighbors = n_items
 
     if method in ("exact", "approximate"):
         if method == "exact":
@@ -84,14 +92,14 @@ def calculate_neighbors(
 
     if verbose:
         log.info(
-            f"Finding {n_neighbors} neighbors using {method} "
+            f"Finding {eff_n_neighbors} neighbors using {method} "
             + f"with {metric} metric and params: {method_kwds}"
         )
 
     try:
         nn = nn_func(
             data,
-            n_neighbors=n_neighbors,
+            n_neighbors=eff_n_neighbors,
             metric=metric,
             return_distance=return_distance,
             **method_kwds,
@@ -106,13 +114,20 @@ def calculate_neighbors(
             default_method_kwds = pynndescent.PYNNDESCENT_DEFAULTS
             nn = nn_func(
                 data,
-                n_neighbors=n_neighbors,
+                n_neighbors=eff_n_neighbors,
                 metric=metric,
                 return_distance=return_distance,
                 **method_kwds,
             )
         else:
             raise e
+
+    if not include_self:
+        # remove the first "self" item
+        if return_distance:
+            nn = (nn[0][:, 1:], nn[1][:, 1:])
+        else:
+            nn = nn[:, 1:]
 
     nn_info = NbrInfo(
         name=name,
