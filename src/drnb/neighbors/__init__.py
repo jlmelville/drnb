@@ -476,6 +476,7 @@ def get_neighbors_with_ctx(
     full_knn_params = knn_defaults | knn_params
 
     return get_neighbors(
+        name=ctx.dataset_name,
         data=data,
         n_neighbors=n_neighbors,
         metric=metric,
