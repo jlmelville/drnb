@@ -464,11 +464,7 @@ def get_neighbors_with_ctx(
 ):
     if knn_params is None:
         knn_params = {}
-    knn_defaults = dict(
-        method="exact",
-        cache=True,
-        verbose=True,
-    )
+    knn_defaults = dict(method="exact", cache=True, verbose=True, name=None)
     if ctx is not None:
         knn_defaults.update(
             dict(drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.dataset_name)
