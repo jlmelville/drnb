@@ -81,7 +81,8 @@ class Tsne(drnb.embed.Embedder):
             knn_params = dict(self.use_precomputed_knn)
             self.use_precomputed_knn = True
 
-        if self.use_precomputed_knn:
+        affinities = None
+        if self.use_precomputed_knn and ctx is not None:
             log.info("Using precomputed knn")
             affinities = get_tsne_affinities(
                 affinity_type=self.affinity,

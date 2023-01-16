@@ -96,7 +96,7 @@ class Umap(drnb.embed.Embedder):
 
         metric = params.get("metric", "euclidean")
         n_neighbors = params.get("n_neighbors", 15)
-        if self.use_precomputed_knn:
+        if self.use_precomputed_knn and ctx is not None:
             log.info("Using precomputed knn")
 
             precomputed_knn = nbrs.get_neighbors_with_ctx(
