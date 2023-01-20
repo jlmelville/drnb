@@ -419,3 +419,8 @@ def standard_eval(
         extra_plot=extra_plot,
         verbose=verbose,
     ).run(dataset)["evaluations"]
+
+
+def embed(data, method, params=None):
+    """Simple wrapper to run embedding on raw data"""
+    return create_pipeline(method=embedder(method, params=params)).embedder.embed(data)
