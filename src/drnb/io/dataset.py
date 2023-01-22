@@ -7,6 +7,7 @@ from drnb.io import (
     FileExporter,
     get_drnb_home,
     islisty,
+    log,
     read_data,
     read_json,
     read_pickle,
@@ -137,54 +138,86 @@ def read_data_pipeline(name, drnb_home=None, sub_dir="data"):
     return read_json(name=name, suffix="pipeline", drnb_home=drnb_home, sub_dir=sub_dir)
 
 
+def filter_bad_data(df):
+    bad = df["n_items"].isna()
+    bad_df = df[bad]
+    if not bad_df.empty:
+        bad_names = list(bad_df.index)
+        log.warning("Bad datasets found: %s", bad_names)
+        df = df[~bad]
+    return df
+
+
 def get_dataset_info(names, drnb_home=None, sub_dir="data"):
     if not islisty(names):
         return _get_dataset_info(names, drnb_home=drnb_home, sub_dir=sub_dir)
-    return pd.concat(
+
+    df = pd.concat(
         [_get_dataset_info(n, drnb_home=drnb_home, sub_dir=sub_dir) for n in names]
     )
 
+    return filter_bad_data(df)
+
 
 def _get_dataset_info(name, drnb_home=None, sub_dir="data"):
-    pipeline = read_data_pipeline(name=name, drnb_home=drnb_home, sub_dir=sub_dir)
-    dshape = pipeline["data_shape"]
-    tshape = pipeline["target_shape"]
-    pipeline_info = pipeline["pipeline"]
-    created_on = pipeline["created_on"]
-    updated_on = pipeline["updated_on"]
-    scale = pipeline_info["scale"]["scale_type"]
-    n_na_rows = pipeline.get("n_na_rows", 0)
-    n_duplicates = pipeline.get("n_duplicates")
-    tags = pipeline.get("tags", [])
-    tags = " ".join(tags)
-    url = pipeline.get("url", "")
-    dim_red = pipeline.get("reduce_result")
-    if dim_red is None:
-        dim_red = pipeline_info.get("reduce")
-    if tshape is not None:
-        if len(tshape) == 1:
-            n_target_cols = 1
+    try:
+        pipeline = read_data_pipeline(name=name, drnb_home=drnb_home, sub_dir=sub_dir)
+        dshape = pipeline["data_shape"]
+        tshape = pipeline["target_shape"]
+        pipeline_info = pipeline["pipeline"]
+        created_on = pipeline["created_on"]
+        updated_on = pipeline["updated_on"]
+        scale = pipeline_info["scale"]["scale_type"]
+        n_na_rows = pipeline.get("n_na_rows", 0)
+        n_duplicates = pipeline.get("n_duplicates")
+        tags = pipeline.get("tags", [])
+        tags = " ".join(tags)
+        url = pipeline.get("url", "")
+        dim_red = pipeline.get("reduce_result")
+        if dim_red is None:
+            dim_red = pipeline_info.get("reduce")
+        if tshape is not None:
+            if len(tshape) == 1:
+                n_target_cols = 1
+            else:
+                n_target_cols = tshape[1]
         else:
-            n_target_cols = tshape[1]
-    else:
-        n_target_cols = None
-    return pd.DataFrame(
-        dict(
-            name=name,
-            n_items=dshape[0],
-            n_dim=dshape[1],
-            n_target_cols=n_target_cols,
-            n_na_rows=n_na_rows,
-            scale=scale,
-            dim_red=dim_red,
-            n_duplicates=n_duplicates,
-            tags=tags,
-            created_on=dts_to_str(created_on, READABLE_DATETIME_FMT),
-            updated_on=dts_to_str(updated_on, READABLE_DATETIME_FMT),
-            url=url,
-        ),
-        index=[0],
-    ).set_index("name")
+            n_target_cols = None
+        return pd.DataFrame(
+            dict(
+                name=name,
+                n_items=dshape[0],
+                n_dim=dshape[1],
+                n_target_cols=n_target_cols,
+                n_na_rows=n_na_rows,
+                scale=scale,
+                dim_red=dim_red,
+                n_duplicates=n_duplicates,
+                tags=tags,
+                created_on=dts_to_str(created_on, READABLE_DATETIME_FMT),
+                updated_on=dts_to_str(updated_on, READABLE_DATETIME_FMT),
+                url=url,
+            ),
+            index=[0],
+        ).set_index("name")
+    except FileNotFoundError:
+        return pd.DataFrame(
+            dict(
+                name=name,
+                n_items=None,
+                n_dim=None,
+                n_target_cols=None,
+                n_na_rows=None,
+                scale=None,
+                dim_red=None,
+                n_duplicates=None,
+                tags=None,
+                created_on=None,
+                updated_on=None,
+                url=None,
+            ),
+            index=[0],
+        ).set_index("name")
 
 
 def list_available_datasets(drnb_home=None, sub_dir="data", with_target=False):
@@ -220,4 +253,4 @@ def get_available_dataset_info(drnb_home=None, sub_dir="data", names=None):
         drnb_home=drnb_home, sub_dir=sub_dir, with_target=False
     )
     dfs = [get_dataset_info(name) for name in names]
-    return pd.concat(dfs)
+    return filter_bad_data(pd.concat(dfs))
