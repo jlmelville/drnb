@@ -59,8 +59,10 @@ def create_embedder(method, embed_kwds=None):
         from drnb.embed.smmds import Smmds as ctor
     elif method == "snmds":
         from drnb.embed.smmds import Snmds as ctor
-    elif method == "mmds":
+    elif method == "skmmds":
         from drnb.embed.mmds import Mmds as ctor
+    elif method == "mmds":
+        from drnb.embed.smmds import Mmds as ctor
     elif method == "rescale":
         from drnb.embed.rescale import Rescale as ctor
     else:

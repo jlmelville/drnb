@@ -241,3 +241,86 @@ def embed_snmds(
     log.info("Embedding completed")
 
     return embedded
+
+
+def mmds(
+    X,
+    metric="euclidean",
+    n_epochs=200,
+    init="pca",
+    random_state=42,
+    learning_rate=None,
+    opt="adam",
+    optargs=None,
+    eps=1e-10,
+    init_scale=None,
+):
+    # specifying learning_rate takes precedence over any value of alpha set in opt args
+    if learning_rate is not None:
+        if optargs is None:
+            optargs = {}
+        optargs["alpha"] = learning_rate
+    optim = create_opt(X, opt, optargs)
+
+    nobs = X.shape[0]
+    xdfun = distance_function(metric)
+    ydfun = distance_function("euclidean")
+
+    Y = mmds_init(init, nobs, X, init_scale, random_state)
+
+    Y = _mmds(X, Y, n_epochs, eps, xdfun, ydfun, optim)
+
+    return Y
+
+
+@numba.jit(nopython=True, fastmath=True, parallel=False)
+def _mmds(X, Y, n_epochs, eps, xdfun, ydfun, opt):
+    nobs, ndim = Y.shape
+
+    for n in range(n_epochs):
+        grads = _mmds_epoch(X, Y, eps, xdfun, ydfun, nobs, ndim)
+
+        Y = opt.opt(Y, grads, n, n_epochs)
+    return Y
+
+
+@numba.jit(nopython=True, fastmath=True, parallel=True)
+def _mmds_epoch(X, Y, eps, xdfun, ydfun, nobs, ndim):
+    grads = np.zeros((nobs, ndim), dtype=np.float32)
+    # pylint:disable=not-an-iterable
+    for i in numba.prange(nobs):
+        Xi = X[i]
+        Yi = Y[i]
+        for j in range(nobs):
+            if i == j:
+                continue
+
+            Yj = Y[j]
+            rij = xdfun(Xi, X[j])
+            dij = ydfun(Yi, Yj)
+            # by not updating grads[j] this is safe to parallelize
+            grads[i] = grads[i] + ((dij - rij) / (dij + eps)) * (Yi - Yj)
+    return grads
+
+
+@dataclass
+class Mmds(drnb.embed.Embedder):
+    precomputed_init: np.ndarray = None
+
+    def embed_impl(self, x, params, ctx=None):
+        if self.precomputed_init is not None:
+            log.info("Using precomputed initial coordinates")
+            params["init"] = self.precomputed_init
+        return embed_mmds(x, params)
+
+
+def embed_mmds(
+    x,
+    params,
+):
+    log.info("Running MMDS")
+    params["X"] = x
+    embedded = mmds(**params)
+    log.info("Embedding completed")
+
+    return embedded

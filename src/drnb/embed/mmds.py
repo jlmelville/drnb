@@ -16,7 +16,7 @@ def embed_mmds(
     x,
     params,
 ):
-    log.info("Running MMDS")
+    log.info("Running sklearn MDS")
     embedder = sklearn.manifold.MDS(
         n_components=2, metric=True, normalized_stress=False, **params
     )
