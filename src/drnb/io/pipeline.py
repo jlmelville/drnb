@@ -185,30 +185,34 @@ class DatasetPipeline(Jsonizable):
     def process_target(
         self, target, name, dropna_index, target_cols=None, target_palette=None
     ):
+        if isinstance(target, np.ndarray):
+            target = pd.DataFrame(target)
         if isinstance(target, pd.Series):
             target = target.to_frame()
         target_shape = None
         target_output_paths = []
-        if target is not None:
-            log.info("Processing target with initial shape %s", target.shape)
-            target = target.loc[dropna_index]
-            target = filter_columns(target, target_cols)
-            target_shape = target.shape
-            if self.target_exporters is None or not self.target_exporters:
-                log.warning("Target supplied but no target exporters defined")
-            else:
-                target_output_paths = self.export_target(target, name)
-            if target_palette:
-                target_palette_path = write_pickle(
-                    target_palette,
-                    name,
-                    suffix="target-palette",
-                    drnb_home=None,
-                    sub_dir=self.data_sub_dir,
-                    create_sub_dir=True,
-                    verbose=True,
-                )
-                target_output_paths.append(stringify_paths([target_palette_path]))
+        if target is None:
+            return target_shape, target_output_paths
+
+        log.info("Processing target with initial shape %s", target.shape)
+        target = target.loc[dropna_index]
+        target = filter_columns(target, target_cols)
+        target_shape = target.shape
+        if self.target_exporters is None or not self.target_exporters:
+            log.warning("Target supplied but no target exporters defined")
+        else:
+            target_output_paths = self.export_target(target, name)
+        if target_palette:
+            target_palette_path = write_pickle(
+                target_palette,
+                name,
+                suffix="target-palette",
+                drnb_home=None,
+                sub_dir=self.data_sub_dir,
+                create_sub_dir=True,
+                verbose=True,
+            )
+            target_output_paths.append(stringify_paths([target_palette_path]))
         return target_shape, target_output_paths
 
     def export_data(self, data, name):
