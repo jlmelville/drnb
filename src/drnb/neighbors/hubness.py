@@ -139,13 +139,16 @@ def nn_to_sparse(nbrs, symmetrize=None):
 
 
 # https://stackoverflow.com/a/38547818/4096483
-def describe(df):
+def describe(df, count_zeros=True):
     if isinstance(df, np.ndarray):
         df = pd.Series(df)
     d = df.describe()
-    return pd.concat(
-        [d, df.agg(["skew"]), pd.Series(df[df == 0].count(), index=["#0"])]
-    )
+
+    aggs = [d, df.agg(["skew"])]
+    if count_zeros:
+        aggs.append(pd.Series(df[df == 0].count(), index=["#0"]))
+
+    return pd.concat(aggs)
 
 
 def get_nbrs(name, n_neighbors, metric="euclidean"):
