@@ -11,8 +11,8 @@ from drnb.log import log
 from drnb.neighbors.hubness import nn_to_sparse
 from drnb.optim import create_opt
 from drnb.rng import setup_rngn
-from drnb.sampling import ncvis_negative_plan
-from drnb.yinit import binary_graph_spectral_init, pca, scale_coords, umap_random_init
+from drnb.sampling import create_sample_plan
+from drnb.yinit import standard_neighbor_init
 
 
 def ivhd(
@@ -26,7 +26,7 @@ def ivhd(
     learning_rate=None,
     opt="adam",
     optargs=None,
-    sample_strategy=None,
+    sample_strategy="unif",
     symmetrize=None,
     eps=1e-5,
     random_state=42,
@@ -43,25 +43,14 @@ def ivhd(
     nobs = knn_idx.shape[0]
     rng_state = setup_rngn(nobs, random_state)
 
-    if isinstance(init, np.ndarray):
-        if init.shape != (nobs, 2):
-            raise ValueError("Initialization array has incorrect shape")
-        log.info("Using pre-supplied initialization coordinates")
-        Y = init
-    elif init == "pca":
-        if X is None:
-            raise ValueError("Must provide X if init='pca'")
-        Y = pca(X)
-    elif init == "rand":
-        Y = umap_random_init(nobs, random_state)
-    elif init == "spectral":
-        Y = binary_graph_spectral_init(knn=knn_idx)
-    else:
-        raise ValueError(f"Unknown init option '{init}'")
-    if init_scale is not None:
-        Y = scale_coords(Y, max_coord=init_scale)
-
-    Y = Y.astype(np.float32, order="C")
+    Y = standard_neighbor_init(
+        init,
+        nobs=nobs,
+        random_state=random_state,
+        knn_idx=knn_idx,
+        X=X,
+        init_scale=init_scale,
+    )
 
     ydfun = distance_function("euclidean")
 
@@ -70,15 +59,10 @@ def ivhd(
     knn_i = dmat.row
     knn_j = dmat.col
 
-    if sample_strategy is not None:
-        if sample_strategy == "inc":
-            samples = ncvis_negative_plan(n_random, n_epochs)
-        elif sample_strategy == "dec":
-            samples = np.flip(ncvis_negative_plan(n_random, n_epochs))
-        else:
-            raise ValueError(f"Unknown sample strategy {sample_strategy}")
-    else:
-        samples = np.array([n_random] * n_epochs, dtype=np.int)
+    samples = create_sample_plan(
+        n_samples=n_random, n_epochs=n_epochs, strategy=sample_strategy
+    )
+
     Y = _ivhd(
         Y,
         n_epochs,
@@ -174,8 +158,8 @@ def _ivhd(
         )
 
         Y = opt.opt(Y, grads, n, n_epochs)
-        for d in range(ndim):
-            Y[:, d] -= np.mean(Y[:, d])
+    for d in range(ndim):
+        Y[:, d] -= np.mean(Y[:, d])
     return Y
 
 

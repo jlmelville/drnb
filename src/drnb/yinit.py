@@ -287,3 +287,29 @@ def tsvd_warm_spectral(graph, dim=2, random_state=42, tol=1e-5, jitter=True):
             init, seed=check_random_state(random_state).randint(np.iinfo(np.uint32).max)
         )
     return init
+
+
+def standard_neighbor_init(
+    init, nobs, random_state=42, knn_idx=None, X=None, init_scale=None
+):
+    # basic init options that can work for any with anything with access to the knn
+    if isinstance(init, np.ndarray):
+        if init.shape != (nobs, 2):
+            raise ValueError("Initialization array has incorrect shape")
+        log.info("Using pre-supplied initialization coordinates")
+        Y = init
+    elif init == "pca":
+        if X is None:
+            raise ValueError("Must provide X if init='pca'")
+        Y = pca(X)
+    elif init == "rand":
+        Y = umap_random_init(nobs, random_state)
+    elif init == "spectral":
+        if knn_idx is None:
+            raise ValueError("Must provide knn_idx if init='spectral'")
+        Y = binary_graph_spectral_init(knn=knn_idx)
+    else:
+        raise ValueError(f"Unknown init option '{init}'")
+    if init_scale is not None:
+        Y = scale_coords(Y, max_coord=init_scale)
+    return Y.astype(np.float32, order="C")

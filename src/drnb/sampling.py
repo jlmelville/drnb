@@ -14,16 +14,13 @@ def ncvis_negative_plan(n_negative=5, n_epochs=200):
     return negative_plan
 
 
-def create_sample_plan(strategy, n_samples, n_epochs):
-    if strategy is not None:
-        if strategy == "inc":
-            samples = ncvis_negative_plan(n_samples, n_epochs)
-        elif strategy == "dec":
-            samples = np.flip(ncvis_negative_plan(n_samples, n_epochs))
-        elif strategy == "unif":
-            samples = np.array([n_samples] * n_epochs, dtype=np.int)
-        else:
-            raise ValueError(f"Unknown sample strategy {strategy}")
-    else:
+def create_sample_plan(n_samples, n_epochs, strategy="unif"):
+    if strategy == "inc":
+        samples = ncvis_negative_plan(n_samples, n_epochs)
+    elif strategy == "dec":
+        samples = np.flip(ncvis_negative_plan(n_samples, n_epochs))
+    elif strategy == "unif":
         samples = np.array([n_samples] * n_epochs, dtype=np.int)
+    else:
+        raise ValueError(f"Unknown sample strategy {strategy}")
     return samples
