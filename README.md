@@ -86,3 +86,16 @@ import drnb as nb
 
 `lab_black` is an extension that runs the [black](https://black.readthedocs.io/en/stable/)
 code formatter on notebook code on submit.
+
+### Using plotly
+
+For the plotly charts, install the `jupyterlab-plotly` extension, which also requires node to
+be installed:
+
+```bash
+jupyter labextension install jupyterlab-plotly
+```
+
+If not installed, plotly charts will display as long as you set
+`clickable=False, renderer="iframe"`. You miss out on being able to create custom click and hover
+handlers.

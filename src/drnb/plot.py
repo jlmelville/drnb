@@ -8,10 +8,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import plotly.express as px
-import plotly.io as pio
+import plotly.graph_objects as go
 import seaborn as sns
 import sklearn.decomposition
+from IPython.display import display
 
+import drnb.neighbors as nbrs
 import drnb.neighbors.hubness as hub
 from drnb.embed import get_coords
 from drnb.eval.nbrpres import NbrPreservationEval
@@ -637,7 +639,6 @@ def plotly_embed_plot(
 
     if figsize is None:
         figsize = (6.5, 5)
-    pio.renderers.default = "colab"
 
     # as we don't pass a dataframe, the color column is internally called "color"
     # override that on the legend with the actual name
@@ -657,11 +658,26 @@ def plotly_embed_plot(
 
     # I was unable to find a way to get plotly to take an arbitrary vector of hover_data
     # so we must bind everything into a dataframe
-    df = pd.DataFrame(dict(x=coords[:, 0], y=coords[:, 1], color=color_col))
+    df = pd.DataFrame(
+        dict(
+            x=coords[:, 0],
+            y=coords[:, 1],
+            color=color_col,
+            idx=pd.Series(list(range(coords.shape[0])), name="idx"),
+        )
+    )
 
+    hover_data = ["idx"]
     if hover is not None:
-        scatter_kwargs["hover_data"] = hover.columns
-        df = pd.concat([df, hover.reset_index(drop=True)], axis=1)
+        hover_data += list(hover.columns)
+        df = pd.concat(
+            [
+                df,
+                hover.reset_index(drop=True),
+            ],
+            axis=1,
+        )
+    scatter_kwargs["hover_data"] = hover_data
 
     # pylint:disable=no-member
     plot = (
@@ -703,6 +719,10 @@ class PlotlyPlotter:
     flipx: bool = False
     flipy: bool = False
     hover: default_list() = None
+    renderer: str = "jupyterlab"
+    clickable: bool = False
+    clickable_n_neighbors: int = 15
+    clickable_metric: str = "euclidean"
 
     @classmethod
     def new(cls, **kwargs):
@@ -774,7 +794,28 @@ class PlotlyPlotter:
             flipy=self.flipy,
             hover=hover,
         )
-        fig.show()
+
+        if self.clickable:
+            click_fig = self.make_clickable(fig, ctx)
+            display(click_fig)
+        else:
+            # if jupyterlab-plotly extension is not installed, try one of:
+            #  colab, iframe, iframe-connected, sphinx-gallery
+            fig.show(renderer=self.renderer)
+
+    def make_clickable(self, fig, ctx):
+        if ctx is None:
+            return fig
+        knn = nbrs.get_neighbors_with_ctx(
+            data=None,
+            metric=self.clickable_metric,
+            n_neighbors=self.clickable_n_neighbors + 1,
+            return_distance=False,
+            ctx=ctx,
+        )
+        knn = knn.idx[:, 1:]
+
+        return clickable_neighbors(fig, knn)
 
     def get_palette(self, ctx):
         if ctx is None:
@@ -795,3 +836,81 @@ class PlotlyPlotter:
             if hasattr(self.color_by, "requires"):
                 reqs.append(self.color_by.requires())
         return reqs
+
+
+# Setting a click-handler is made a lot harder by the points being split by category
+# Perhaps there is a way to map back to the original position of the points that I
+# don't know about. For now, this assumes that custom data was passed to the plot
+# creation and the original index into the data is the first element of custom data
+# for each point. Then a dict is built mapping from that original index to a tuple of
+# the trace index and then index within that trace of the point. This allows to find
+# the location of a point based on its original index into the plot data location
+def clickable_neighbors(plot, nn):
+    f = go.FigureWidget(plot)
+
+    selected_symbol = "diamond"
+    unselected_symbol = f.data[0].marker.symbol
+    selected_size = f.data[0].marker.size * 1.5
+
+    normal_size = f.data[0].marker.size
+    nbr_size = f.data[0].marker.size * 2
+
+    # keep track of if a point has been clicked so we know whether to set or unset the
+    # formatting
+    clicked = [None] * len(f.data)
+
+    # the size and symbols in the marker are scalars, but we are going to selectively
+    # change some. This requires storing the full array of each property
+    sizes = [None] * len(f.data)
+    symbols = [None] * len(f.data)
+
+    # dict to store a mapping from original index to (trace_idx, new_idx)
+    plot_idx = {}
+
+    for i, datum in enumerate(f.data):
+        datum.marker.size = [datum.marker.size] * len(datum.x)
+        clicked[i] = [False] * len(datum.x)
+        sizes[i] = list(datum.marker.size)
+        symbols[i] = [unselected_symbol] * len(datum.x)
+        # assumes that the first element of each point's custom data is its index in
+        # the original data
+        for j, idx in enumerate(datum.customdata):
+            plot_idx[idx[0]] = (i, j)
+
+    # pylint:disable=unused-argument
+    def highlight_nbrs(selector, points, trace):
+        if not points.point_inds:
+            return
+
+        trace_index = points.trace_index
+        idx = points.point_inds[0]
+        # again, the 0 index is assuming that the first element of the custom data is
+        # the old index
+        old_idx = f.data[trace_index].customdata[idx][0]
+        idx_nbrs = nn[old_idx]
+
+        if clicked[trace_index][idx]:
+            new_size = normal_size
+            new_symbol = unselected_symbol
+            click_size = normal_size
+        else:
+            new_size = nbr_size
+            new_symbol = selected_symbol
+            click_size = selected_size
+        clicked[trace_index][idx] = not clicked[trace_index][idx]
+        symbols[trace_index][idx] = new_symbol
+        sizes[trace_index][idx] = click_size
+
+        for j in idx_nbrs:
+            nbr_trace_idx, nbr_new_idx = plot_idx[j]
+            sizes[nbr_trace_idx][nbr_new_idx] = new_size
+
+        with f.batch_update():
+            for i, datum in enumerate(f.data):
+                datum.marker.size = sizes[i]
+            f.data[trace_index].marker.symbol = symbols[trace_index]
+
+    for datum in f.data:
+        datum.on_click(highlight_nbrs)
+
+    return f
