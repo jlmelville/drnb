@@ -19,7 +19,7 @@ from drnb.eval.rpc import RandomPairCorrelEval
 from drnb.eval.rte import RandomTripletEval
 from drnb.io.dataset import read_palette
 from drnb.log import log
-from drnb.util import evenly_spaced, get_method_and_args, islisty
+from drnb.util import default_list, evenly_spaced, get_method_and_args, islisty
 
 
 class NoPlotter:
@@ -578,7 +578,6 @@ def sns_embed_plot(
             ncol=nlegcol,
             title=leg_title,
         )
-        # plt.tight_layout()
     return plot
 
 
@@ -594,6 +593,7 @@ def plotly_embed_plot(
     pc_axes=False,
     flipx=False,
     flipy=False,
+    hover=None,
 ):
     scatter_kwargs = {}
 
@@ -655,12 +655,21 @@ def plotly_embed_plot(
     if title is None:
         title = ""
 
+    # I was unable to find a way to get plotly to take an arbitrary vector of hover_data
+    # so we must bind everything into a dataframe
+    df = pd.DataFrame(dict(x=coords[:, 0], y=coords[:, 1], color=color_col))
+
+    if hover is not None:
+        scatter_kwargs["hover_data"] = hover.columns
+        df = pd.concat([df, hover.reset_index(drop=True)], axis=1)
+
     # pylint:disable=no-member
     plot = (
         px.scatter(
-            x=coords[:, 0],
-            y=coords[:, 1],
-            color=color_col,
+            df,
+            x="x",
+            y="y",
+            color="color",
             title=str(title),
             width=figsize[0] * 100,
             height=figsize[1] * 100,
@@ -693,6 +702,7 @@ class PlotlyPlotter:
     pc_axes: bool = False
     flipx: bool = False
     flipy: bool = False
+    hover: default_list() = None
 
     @classmethod
     def new(cls, **kwargs):
@@ -745,6 +755,11 @@ class PlotlyPlotter:
         else:
             alpha_scale = self.alpha_scale
 
+        hover = None
+        if self.hover is not None:
+            if isinstance(y, pd.DataFrame):
+                hover = y.loc[:, self.hover]
+
         fig = plotly_embed_plot(
             coords,
             color_col=y,
@@ -757,6 +772,7 @@ class PlotlyPlotter:
             pc_axes=self.pc_axes,
             flipx=self.flipx,
             flipy=self.flipy,
+            hover=hover,
         )
         fig.show()
 
