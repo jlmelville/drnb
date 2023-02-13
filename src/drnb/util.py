@@ -5,6 +5,7 @@ from dataclasses import asdict, field
 
 # pylint: disable=unused-import
 import json_fix
+import numpy as np
 import pandas as pd
 
 
@@ -94,3 +95,11 @@ def default_dict(val=None):
     if val is None:
         return field(default_factory=dict)
     return field(default_factory=lambda: val)
+
+
+def evenly_spaced(s, n):
+    """Return a list of n items evenly spaced from the sequence s"""
+    if n > len(s):
+        raise ValueError(f"Can't return {n} items, length is {len(s)}")
+    idxs = np.round(np.linspace(0, len(s) - 1, n)).astype(int).tolist()
+    return [s[i] for i in idxs]

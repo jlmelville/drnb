@@ -3,9 +3,12 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 import glasbey
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import plotly.express as px
+import plotly.io as pio
 import seaborn as sns
 import sklearn.decomposition
 
@@ -16,7 +19,7 @@ from drnb.eval.rpc import RandomPairCorrelEval
 from drnb.eval.rte import RandomTripletEval
 from drnb.io.dataset import read_palette
 from drnb.log import log
-from drnb.util import get_method_and_args, islisty
+from drnb.util import evenly_spaced, get_method_and_args, islisty
 
 
 class NoPlotter:
@@ -83,7 +86,7 @@ class ColorByKo:
 
     def __str__(self):
         return (
-            f"ko{self.n_neighbors}"
+            f"ko-{self.n_neighbors}"
             f"{' log' if self.log1p else ''}{' norm' if self.normalize else ''}"
         )
 
@@ -106,7 +109,7 @@ class ColorBySo:
 
     def __str__(self):
         return (
-            f"so{self.n_neighbors}"
+            f"so-{self.n_neighbors}"
             f"{' log' if self.log1p else ''}{' norm' if self.normalize else ''}"
         )
 
@@ -339,16 +342,29 @@ class RandomPairDistanceScatterplot:
 
 
 def create_plotters(plot=True, plot_kwargs=None):
+    plotter_cls = SeabornPlotter
+
     if plot_kwargs is None:
         plot_kwargs = {}
     if isinstance(plot, dict):
         plot_kwargs = plot
         plot = True
+    if "plot" in plot_kwargs:
+        plot = plot_kwargs["plot"]
+        del plot_kwargs["plot"]
+
+    if isinstance(plot, str):
+        if plot == "seaborn":
+            plotter_cls = SeabornPlotter
+        elif plot == "plotly":
+            plotter_cls = PlotlyPlotter
+        else:
+            raise ValueError(f"Unknown plot type {plot}")
+        plot = True
     if not plot:
         return []
 
     plotters = []
-    plotter_cls = SeabornPlotter
 
     color_by = []
     if "color_by" in plot_kwargs:
@@ -409,6 +425,10 @@ def hex_to_rgb(hexcode, scale=False):
     return result
 
 
+def rgb_to_hex(rgb):
+    return matplotlib.colors.to_hex(rgb)
+
+
 def is_hex(col):
     if islisty(col):
         col = pd.Series(col)
@@ -425,9 +445,15 @@ def is_hex(col):
 
 # use glasbey to extend a categorical palette if possible (or necessary)
 def palettize(color_col, palette=None):
+    # return early if the palette maps from category level to color
+    if isinstance(palette, dict):
+        return palette
     n_categories = None
     if pd.api.types.is_categorical_dtype(color_col):
-        n_categories = color_col.nunique()
+        if hasattr(color_col, "categories"):
+            n_categories = color_col.categories.nunique()
+        else:
+            n_categories = color_col.nunique()
     else:
         # if this isn't a categorical color column do nothing
         return palette
@@ -440,14 +466,20 @@ def palettize(color_col, palette=None):
     if isinstance(palette, str):
         palette = sns.color_palette(palette)
     # pylint: disable=protected-access
-    if isinstance(palette, sns.palettes._ColorPalette) or islisty(palette):
-        ncolors = len(palette)
-    else:
+    if not (isinstance(palette, sns.palettes._ColorPalette) or islisty(palette)):
         raise ValueError(f"Unknown palette {palette}")
 
-    if n_categories is not None and ncolors < n_categories:
-        palette = glasbey.extend_palette(palette, n_categories)
+    n_colors = len(palette)
+    if n_categories is not None:
+        if n_colors < n_categories:
+            palette = glasbey.extend_palette(palette, n_categories)
+        elif n_colors > n_categories:
+            palette = evenly_spaced(palette, n_categories)
+        # if n_colors == n_categories then use the palette as-is
 
+        # glasbey returns hex codes, but seaborn does not
+        if not isinstance(palette[0], str):
+            palette = [rgb_to_hex(color) for color in palette]
     return palette
 
 
@@ -548,3 +580,202 @@ def sns_embed_plot(
         )
         # plt.tight_layout()
     return plot
+
+
+def plotly_embed_plot(
+    coords,
+    color_col=None,
+    cex=10,
+    alpha_scale=1,
+    palette=None,
+    title="",
+    figsize=None,
+    legend=True,
+    pc_axes=False,
+    flipx=False,
+    flipy=False,
+):
+    scatter_kwargs = {}
+
+    color_col_name = None
+    if color_col is None:
+        color_col = list(range(coords.shape[0]))
+        legend = False
+    if isinstance(color_col, pd.DataFrame):
+        if isinstance(palette, dict) and color_col.columns[-1] in palette:
+            palette = palette[color_col.columns[-1]]
+        # with a dataframe color col, the palette must be a dict mapping from
+        # the color column name to another dict which maps the category "levels" to
+        # colors, e.g. dict(smoker=dict(yes="red", no="blue"),
+        #                   time=dict(Lunch="green", Dinner="red"))
+        # always pick the last column in the dataframe as the color column
+        color_col = color_col.iloc[:, -1]
+
+    if hasattr(color_col, "name"):
+        color_col_name = str(color_col.name)
+
+    if isinstance(color_col, pd.Series):
+        if pd.api.types.is_integer_dtype(color_col):
+            color_col = color_col.astype("category")
+        else:
+            # series -> numpy array
+            color_col = color_col.values
+
+    palette = palettize(color_col, palette)
+    if palette is not None:
+        if isinstance(palette, dict):
+            scatter_kwargs["color_discrete_map"] = palette
+        else:
+            scatter_kwargs["color_discrete_sequence"] = palette
+
+    if pc_axes:
+        coords = sklearn.decomposition.PCA(n_components=2).fit_transform(coords)
+    if flipx:
+        coords[:, 0] *= -1
+    if flipy:
+        coords[:, 1] *= -1
+
+    if figsize is None:
+        figsize = (6.5, 5)
+    pio.renderers.default = "colab"
+
+    # as we don't pass a dataframe, the color column is internally called "color"
+    # override that on the legend with the actual name
+    if color_col_name is not None and legend:
+        scatter_kwargs["labels"] = dict(color=color_col_name)
+
+    # use any category ordering rather than data ordering for the legend/colors
+    if pd.api.types.is_categorical_dtype(color_col):
+        if isinstance(color_col, pd.Categorical):
+            cats = color_col.categories
+        else:
+            cats = color_col.cat.categories
+        scatter_kwargs["category_orders"] = dict(color=cats.tolist())
+
+    if title is None:
+        title = ""
+
+    # pylint:disable=no-member
+    plot = (
+        px.scatter(
+            x=coords[:, 0],
+            y=coords[:, 1],
+            color=color_col,
+            title=str(title),
+            width=figsize[0] * 100,
+            height=figsize[1] * 100,
+            **scatter_kwargs,
+        )
+        .update_traces(marker=dict(size=cex, opacity=alpha_scale))
+        .update_layout(
+            showlegend=legend,
+            coloraxis_showscale=legend,
+            plot_bgcolor="rgba(0, 0, 0, 0)",
+        )
+        .update_xaxes(showline=True, linecolor="black", mirror=True)
+        .update_yaxes(showline=True, linecolor="black", mirror=True)
+    )
+
+    return plot
+
+
+@dataclass
+class PlotlyPlotter:
+    cex: int = None
+    alpha_scale: float = None
+    title: str = None
+    figsize: tuple = None
+    legend: bool = True
+    palette: Any = None
+    color_by: Any = None
+    vmin: float = None
+    vmax: float = None
+    pc_axes: bool = False
+    flipx: bool = False
+    flipy: bool = False
+
+    @classmethod
+    def new(cls, **kwargs):
+        return cls(**kwargs)
+
+    def plot(self, embedded, data, y, ctx=None):
+        coords = get_coords(embedded)
+
+        title = self.title
+        palette = self.palette
+        if palette is None:
+            palette = self.get_palette(ctx)
+        if isinstance(self.color_by, Callable):
+            y = self.color_by(data, y, coords, ctx)
+
+            # name the color bar after the metric name
+            # as it can be a bit long, stop after the first "-" or " " encountered
+            # (or 5 characters if no such character exists)
+            yname = str(self.color_by)
+            yname_break = len(yname)
+            for ch in [" ", "-"]:
+                br = yname.find(ch)
+                if br != -1 and br < yname_break:
+                    yname_break = br
+            if yname_break == -1:
+                yname_break = 5
+            yname = yname[:yname_break]
+
+            y = pd.Series(y, name=yname)
+            if hasattr(self.color_by, "scale") and self.color_by.scale is not None:
+                palette = self.color_by.scale.palette
+                if title is None:
+                    title = self.color_by
+
+        # did a log-log plot of N vs the average 15-NN distance in the embedded space
+        # multiplying the 15-NN distance by 100 gave a good-enough value for the
+        # point size when figsize=(9, 6)
+        if self.cex is None:
+            cex = 100.0 * (
+                10.0 ** (0.4591008 - 0.3722813 * math.log10(coords.shape[0]))
+            )
+        else:
+            cex = self.cex
+
+        if self.alpha_scale is None:
+            estimated_cex = 10.0 ** (
+                0.4591008 - 0.3722813 * math.log10(coords.shape[0])
+            )
+            alpha_scale = np.clip(estimated_cex * 2.0, 0.05, 0.8)
+        else:
+            alpha_scale = self.alpha_scale
+
+        fig = plotly_embed_plot(
+            coords,
+            color_col=y,
+            cex=math.sqrt(cex),
+            alpha_scale=alpha_scale,
+            palette=palette,
+            title=title,
+            figsize=self.figsize,
+            legend=self.legend,
+            pc_axes=self.pc_axes,
+            flipx=self.flipx,
+            flipy=self.flipy,
+        )
+        fig.show()
+
+    def get_palette(self, ctx):
+        if ctx is None:
+            return None
+        try:
+            return read_palette(
+                ctx.dataset_name,
+                drnb_home=ctx.drnb_home,
+                sub_dir=ctx.data_sub_dir,
+                verbose=False,
+            )
+        except FileNotFoundError:
+            return None
+
+    def requires(self):
+        reqs = []
+        if self.color_by is not None:
+            if hasattr(self.color_by, "requires"):
+                reqs.append(self.color_by.requires())
+        return reqs
