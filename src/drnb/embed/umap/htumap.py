@@ -24,8 +24,7 @@ def htumap_grad_coeff_rep(d2, grad_args):
 
     w = pow(1 + ba * d2, -a)
     grad_coeff = 2.0 * b * pow(w, a1a)
-    grad_coeff /= 1.001 - w
-    return grad_coeff
+    return grad_coeff / (1.001 - w)
 
 
 class HTUMAP(CustomGradientUMAP2):
