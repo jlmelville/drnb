@@ -397,6 +397,29 @@ class UMAP2(CustomGradientUMAP2):
 
 
 @dataclass
+class CustomUmap2(drnb.embed.umap.Umap):
+    ctor: drnb.embed.umap.Umap = None
+    embedder_name: str = "CustomUmap2"
+    use_precomputed_knn: bool = True
+    drnb_init: str = None
+
+    def embed_impl(self, x, params, ctx=None):
+        params = self.update_params(x, params, ctx)
+        return run_embed(x, params, self.ctor, self.embedder_name)
+
+
+def custom_umap(ctor, embedder_name):
+    """Adapts custom umap classes without having to add them to `embed.factory`.
+    Pass `method=custom_umap(HTUMAP, "HT-UMAP")` instead of `method="htumap"` in
+    e.g. `drnb.embed.pipeline.standard_eval`"""
+
+    def factory(**kwargs):
+        return CustomUmap2(ctor=ctor, embedder_name=embedder_name, **kwargs)
+
+    return factory
+
+
+@dataclass
 class Umap2(drnb.embed.umap.Umap):
     use_precomputed_knn: bool = True
     drnb_init: str = None
