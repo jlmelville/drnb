@@ -29,7 +29,7 @@ def leopold(
     learning_rate=1.0,
     opt="adam",
     optargs=None,
-    symmetrize="and",
+    symmetrize="or",
     init_scale=10.0,
     dens_scale=0.0,
     dof=1.0,
