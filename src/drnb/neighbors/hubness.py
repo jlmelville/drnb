@@ -106,6 +106,9 @@ def _nn_to_sparse_binary(idx):
     return rows, cols, vals
 
 
+# symmetrize operation to carry out on matrix and its transpose:
+# "and" to carry out AND operation (mutual nearest neighbors only)
+# "or" to carry out OR operation (undirected nearest neighbors)
 def nn_to_sparse(nbrs, symmetrize=None):
     if isinstance(nbrs, np.ndarray):
         idx = nbrs
@@ -128,10 +131,12 @@ def nn_to_sparse(nbrs, symmetrize=None):
 
     if symmetrize is not None:
         # convert the asymmetric adjacency matrix to symmetric
-        if symmetrize == "and":
-            # use mutual neighbors
+        if symmetrize == "or":
+            # not sure there is a common word for this relationship: undirected?
+            # (i needs to be a neighbor of j OR vice versa)
             dmat = dmat.maximum(dmat.transpose()).tocoo()
-        elif symmetrize == "or":
+        elif symmetrize == "and":
+            # use mutual neighbors (i needs to be a neighbor of j AND vice versa)
             dmat = dmat.minimum(dmat.transpose()).tocoo()
         else:
             raise ValueError(f"Unknown symmetrization '{symmetrize}'")
