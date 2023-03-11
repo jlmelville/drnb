@@ -15,6 +15,9 @@ def ncvis_negative_plan(n_negative=5, n_epochs=200):
 
 
 def create_sample_plan(n_samples, n_epochs, strategy="unif"):
+    if strategy is None:
+        strategy = "unif"
+
     if strategy == "inc":
         samples = ncvis_negative_plan(n_samples, n_epochs)
     elif strategy == "dec":
