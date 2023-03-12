@@ -15,6 +15,7 @@ def mle_local(knn_dist, eps=1.0e-10, n_neighbors=None, remove_self=False):
         raise ValueError(
             f"n_neighbors must be <= {knn_dist.shape[1]} but was {n_neighbors}"
         )
+
     k1 = n_neighbors - 1
     log_rij = -np.sum(log_knn[:, :-1], axis=1)
     return k1 / (k1 * log_knn[:, -1] + log_rij)
@@ -22,6 +23,8 @@ def mle_local(knn_dist, eps=1.0e-10, n_neighbors=None, remove_self=False):
 
 # MacKay and Ghahramani 2005
 # http://www.inference.org.uk/mackay/dimension/
-def mle_global(knn_dist, eps=1.0e-10):
-    id_local = mle_local(knn_dist, eps=eps)
+def mle_global(knn_dist, eps=1.0e-10, n_neighbors=None, remove_self=False):
+    id_local = mle_local(
+        knn_dist, eps=eps, n_neighbors=n_neighbors, remove_self=remove_self
+    )
     return 1.0 / np.mean(1.0 / id_local)
