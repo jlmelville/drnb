@@ -63,12 +63,15 @@ def leopold(
 
     ydfun = distance_function("squared_euclidean")
 
-    prec = (1.0 - dens_scale) + dens_scale * (
-        1.0
-        / sklearn.preprocessing.minmax_scale(
-            np.mean(knn_dist, axis=1), feature_range=(math.sqrt(1e-2), math.sqrt(100.0))
-        )
+    mean_d = np.mean(knn_dist, axis=1)
+    min_scale_d = math.sqrt(1.0e-2)
+    max_scale_d = math.sqrt(100.0)
+    mean_d[mean_d < min_scale_d] = min_scale_d
+    beta_unscaled = 1.0 / mean_d
+    beta_scaled = sklearn.preprocessing.minmax_scale(
+        beta_unscaled, feature_range=(min_scale_d, max_scale_d)
     )
+    beta = (1.0 - dens_scale) + dens_scale * beta_scaled
 
     dmat = nn_to_sparse(knn_idx, symmetrize=symmetrize)
     dmat.eliminate_zeros()
@@ -78,7 +81,7 @@ def leopold(
 
     samples = create_sample_plan(n_samples, n_epochs, strategy=sample_strategy)
 
-    Y = _leopold(Y, n_epochs, ydfun, optim, samples, rng_state, knn_i, knn_j, prec, dof)
+    Y = _leopold(Y, n_epochs, ydfun, optim, samples, rng_state, knn_i, knn_j, beta, dof)
 
     return Y
 
