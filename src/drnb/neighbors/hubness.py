@@ -6,6 +6,7 @@ import scipy.sparse
 from numba import jit, prange
 from scipy.sparse.csgraph import connected_components
 
+from drnb.dimension import mle_global
 from drnb.io import data_relative_path
 from drnb.io.dataset import get_dataset_info, list_available_datasets
 from drnb.log import log
@@ -173,6 +174,7 @@ def nbr_stats(name, n_neighbors, metric="euclidean"):
     ko_desc, ko = ko_data(nbrs)
     so_desc, so = so_data(nbrs)
     nc = n_components(nbrs)
+    mle_dint = mle_global(nbrs.dist, remove_self=True)
     data_info = get_dataset_info(name)
     return dict(
         name=name,
@@ -180,6 +182,7 @@ def nbr_stats(name, n_neighbors, metric="euclidean"):
         n_items=data_info["n_items"],
         idx_path=nbrs.info.idx_path,
         n_components=nc,
+        dint=mle_dint,
         n_neighbors=n_neighbors,
         ko_desc=ko_desc,
         so_desc=so_desc,
@@ -329,8 +332,8 @@ def _nbr_stats_summary(name, n_neighbors, metric="euclidean", cache=True):
         int_cols=["smin", "s#0"],
         float_cols=["nsmedian", "s#0%", "sskew"],
     )
-
     df = pd.concat([kdf, sdf], axis=1)
+    df.insert(1, "dint", f"{stats['dint']:.2f}")
     df.insert(1, "n_comps", stats["n_components"])
     df.insert(1, "n_dim", stats["n_dim"])
     return df
