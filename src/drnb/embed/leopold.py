@@ -63,6 +63,7 @@ def leopold(
 
     ydfun = distance_function("squared_euclidean")
 
+    # local densities
     mean_d = np.mean(knn_dist, axis=1)
     min_scale_d = math.sqrt(1.0e-2)
     max_scale_d = math.sqrt(100.0)
@@ -78,10 +79,23 @@ def leopold(
 
     knn_i = dmat.row
     knn_j = dmat.col
+    ptr = dmat.tocsr().indptr
 
     samples = create_sample_plan(n_samples, n_epochs, strategy=sample_strategy)
 
-    Y = _leopold(Y, n_epochs, ydfun, optim, samples, rng_state, knn_i, knn_j, beta, dof)
+    Y = _leopold(
+        Y,
+        n_epochs,
+        ydfun,
+        optim,
+        samples,
+        rng_state,
+        knn_i,
+        knn_j,
+        ptr,
+        beta,
+        dof,
+    )
 
     return Y
 
@@ -96,7 +110,7 @@ def clip(val):
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=False)
-def _leopold(Y, n_epochs, ydfun, opt, samples, rng_state, knn_i, knn_j, prec, dof):
+def _leopold(Y, n_epochs, ydfun, opt, samples, rng_state, knn_i, knn_j, ptr, prec, dof):
     nobs, ndim = Y.shape
 
     degrees = np.zeros((nobs,), dtype=np.int32)
@@ -106,7 +120,7 @@ def _leopold(Y, n_epochs, ydfun, opt, samples, rng_state, knn_i, knn_j, prec, do
     for n in range(n_epochs):
         grads = np.zeros((nobs, ndim), dtype=np.float32)
 
-        _leopold_nbrs(Y, ydfun, knn_i, knn_j, prec, dof, grads)
+        _leopold_nbrs(Y, ydfun, knn_i, knn_j, ptr, prec, dof, grads)
         _leopold_non_nbrs(Y, ydfun, samples[n], degrees, rng_state, prec, dof, grads)
 
         Y = opt.opt(Y, grads, n, n_epochs)
@@ -116,22 +130,23 @@ def _leopold(Y, n_epochs, ydfun, opt, samples, rng_state, knn_i, knn_j, prec, do
     return Y
 
 
-@numba.jit(nopython=True, fastmath=True, parallel=False)
-def _leopold_nbrs(Y, ydfun, knn_i, knn_j, prec, dof, grads):
-    nedges = len(knn_i)
+@numba.jit(nopython=True, fastmath=True, parallel=True)
+def _leopold_nbrs(Y, ydfun, knn_i, knn_j, ptr, prec, dof, grads):
     ndim = Y.shape[1]
-    for edge in range(nedges):
-        i = knn_i[edge]
-        Yi = Y[i]
+    # pylint:disable=not-an-iterable
+    for p in numba.prange(len(ptr) - 1):
+        for edge in range(ptr[p], ptr[p + 1]):
+            i = knn_i[edge]
+            Yi = Y[i]
 
-        j = knn_j[edge]
-        dij2 = ydfun(Yi, Y[j])
+            j = knn_j[edge]
+            dij2 = ydfun(Yi, Y[j])
 
-        beta = prec[i] * prec[j]
+            beta = prec[i] * prec[j]
 
-        grad_coeff = (2.0 * beta) / (1.0 + (beta / dof) * dij2)
-        for d in range(ndim):
-            grads[i, d] = grads[i, d] + clip(grad_coeff * (Yi[d] - Y[j, d]))
+            grad_coeff = (2.0 * beta) / (1.0 + (beta / dof) * dij2)
+            for d in range(ndim):
+                grads[i, d] = grads[i, d] + clip(grad_coeff * (Yi[d] - Y[j, d]))
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
@@ -151,7 +166,6 @@ def _leopold_non_nbrs(Y, ydfun, n_samples, degrees, rng_state, prec, dof, grads)
             grad_coeff = (-2.0 * beta * wij) / (wwij * (1.001 - wij))
             for d in range(ndim):
                 grads[i, d] = grads[i, d] + clip(grad_coeff * (Yi[d] - Y[j, d]))
-    # return grads
 
 
 @dataclass
