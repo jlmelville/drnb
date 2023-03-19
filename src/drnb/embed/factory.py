@@ -65,6 +65,8 @@ def create_embedder(method, embed_kwds=None):
             from drnb.embed.smmds import Snmds as ctor
         elif method == "leopold":
             from drnb.embed.leopold import Leopold as ctor
+        elif method == "spacemap":
+            from drnb.embed.spacemap import Spacemap as ctor
         elif method == "skmmds":
             from drnb.embed.mmds import Mmds as ctor
         elif method == "mmds":
