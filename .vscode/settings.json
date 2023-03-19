@@ -16,6 +16,10 @@
     "files.watcherExclude": {
         "**/venv/**": true
     },
+    "isort.args": [
+        "--settings-file",
+        "${workspaceFolder}/setup.cfg"
+    ],
     "python.formatting.blackPath": "${workspaceFolder}/venv/bin/black",
     "python.formatting.provider": "black",
     "python.linting.enabled": true,
@@ -32,10 +36,5 @@
     ],
     "python.linting.pylintCategorySeverity.refactor": "Information",
     "python.linting.pylintEnabled": true,
-    "python.linting.pylintPath": "${workspaceFolder}/venv/bin/pylint",
-    "python.sortImports.args": [
-        "--settings-file",
-        "${workspaceFolder}/setup.cfg"
-    ],
-    "python.sortImports.path": "${workspaceFolder}/venv/bin/isort",
+    "python.linting.pylintPath": "${workspaceFolder}/venv/bin/pylint"
 }
