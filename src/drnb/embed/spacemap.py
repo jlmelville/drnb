@@ -8,7 +8,7 @@ from umap.utils import tau_rand_int
 import drnb.embed
 import drnb.neighbors as nbrs
 from drnb.dimension import mle_global
-from drnb.distances import distance_function
+from drnb.embed.umap.utils import clip, rdist
 from drnb.log import log
 from drnb.neighbors.hubness import nn_to_sparse
 from drnb.optim import create_opt
@@ -60,8 +60,6 @@ def spacemap(
         Y = scale_coords(Y, max_coord=init_scale)
     Y = Y.astype(np.float32, order="C")
 
-    ydfun = distance_function("squared_euclidean")
-
     dmat = nn_to_sparse(knn_idx, symmetrize=symmetrize)
     dmat.eliminate_zeros()
 
@@ -81,7 +79,6 @@ def spacemap(
     Y = _spacemap(
         Y,
         n_epochs,
-        ydfun,
         optim,
         samples,
         rng_state,
@@ -98,7 +95,6 @@ def spacemap(
 def _spacemap(
     Y,
     n_epochs,
-    ydfun,
     opt,
     samples,
     rng_state,
@@ -118,7 +114,6 @@ def _spacemap(
 
         _spacemap_nbrs(
             Y,
-            ydfun,
             knn_i,
             knn_j,
             ptr,
@@ -127,7 +122,6 @@ def _spacemap(
         )
         _spacemap_non_nbrs(
             Y,
-            ydfun,
             samples[n],
             degrees,
             rng_state,
@@ -145,7 +139,6 @@ def _spacemap(
 @numba.jit(nopython=True, fastmath=True, parallel=True)
 def _spacemap_nbrs(
     Y,
-    ydfun,
     knn_i,
     knn_j,
     ptr,
@@ -161,7 +154,7 @@ def _spacemap_nbrs(
             Yi = Y[i]
 
             j = knn_j[edge]
-            dij2 = ydfun(Yi, Y[j])
+            dij2 = rdist(Yi, Y[j])
 
             wij = math.exp(-pow(dij2, twoddof))
 
@@ -173,7 +166,6 @@ def _spacemap_nbrs(
 @numba.jit(nopython=True, fastmath=True, parallel=True)
 def _spacemap_non_nbrs(
     Y,
-    ydfun,
     n_samples,
     degrees,
     rng_state,
@@ -189,7 +181,7 @@ def _spacemap_non_nbrs(
             j = tau_rand_int(rng_state[i]) % nobs
             if i == j:
                 continue
-            dij2 = ydfun(Yi, Y[j])
+            dij2 = rdist(Yi, Y[j])
             wij = math.exp(-pow(dij2, twoddof))
 
             grad_coeff = (4.0 * math.log(wij) * wij) / (
@@ -197,15 +189,6 @@ def _spacemap_non_nbrs(
             )
             for d in range(ndim):
                 grads[i, d] = grads[i, d] + clip(grad_coeff * (Yi[d] - Y[j, d]))
-
-
-@numba.njit()
-def clip(val):
-    if val > 4.0:
-        return 4.0
-    if val < -4.0:
-        return -4.0
-    return val
 
 
 @dataclass

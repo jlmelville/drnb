@@ -8,6 +8,7 @@ from umap.utils import tau_rand_int
 
 import drnb.embed
 import drnb.neighbors as nbrs
+from drnb.embed.umap.utils import clip, rdist
 from drnb.log import log
 from drnb.neighbors.hubness import nn_to_sparse
 from drnb.optim import create_opt
@@ -94,35 +95,6 @@ def leopold(
     )
 
     return Y
-
-
-@numba.njit(
-    "f4(f4[::1],f4[::1])",
-    fastmath=True,
-    cache=True,
-    locals={
-        "result": numba.types.float32,
-        "diff": numba.types.float32,
-        "dim": numba.types.intp,
-    },
-)
-def rdist(x, y):
-    result = 0.0
-    dim = x.shape[0]
-    for i in range(dim):
-        diff = x[i] - y[i]
-        result += diff * diff
-
-    return result
-
-
-@numba.njit()
-def clip(val):
-    if val > 4.0:
-        return 4.0
-    if val < -4.0:
-        return -4.0
-    return val
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=False)
