@@ -290,7 +290,6 @@ def read_neighbors(
         drnb_home=drnb_home,
         sub_dir=sub_dir,
     )
-
     if candidate_info is not None:
         if verbose:
             log.info(
@@ -336,6 +335,9 @@ def get_exact_neighbors(
     data=None,
     method_kwds=None,
 ):
+    if name is None or not name:
+        cache = False
+
     return get_neighbors(
         name=name,
         n_neighbors=n_neighbors,
@@ -406,7 +408,7 @@ def get_neighbors(
         name=name,
     )
     if cache:
-        if name is None:
+        if name is None or not name:
             log.warning("Asked for caching but no name provided to save under")
         else:
             if verbose:
@@ -464,12 +466,16 @@ def get_neighbors_with_ctx(
 ):
     if knn_params is None:
         knn_params = {}
-    knn_defaults = dict(method="exact", cache=True, verbose=True, name=None)
+    knn_defaults = dict(method="exact", cache=False, verbose=True, name=None)
     if ctx is not None:
         knn_defaults.update(
             dict(drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.dataset_name)
         )
     full_knn_params = knn_defaults | knn_params
+
+    # only turn on caching request if there is an actual name in the context
+    name = knn_defaults.get("name")
+    knn_defaults["cache"] = name is not None and name
 
     return get_neighbors(
         data=data,
