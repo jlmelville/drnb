@@ -48,9 +48,8 @@ for calculating exact nearest neighbors with the euclidean or cosine metric. Tha
 PyPI version is an [unofficially built wheel](https://github.com/facebookresearch/faiss/issues/1101)
 and is currently stuck on version 1.7.2 due to
 [the wheel size being too large](https://github.com/kyamagu/faiss-wheels/issues/57). Right now there
-is a `pip install -e .[faiss_gpu]` identifier, but it doesn't do anything more than
-`pip install faiss-gpu`. Alternatively, I was able to
-[build my own version of GPU-powered faiss](https://gist.github.com/jlmelville/9b4f0d91ede13bff18d26759140709f9).
+is a `pip install -e .[faiss_gpu]` identifier in this repo, but it doesn't do anything more than
+`pip install faiss-gpu`.
 
 ## Data setup
 
