@@ -7,7 +7,9 @@ from .globalscore import GlobalScore
 from .nbrpres import NbrPreservationEval
 from .rpc import RandomPairCorrelEval
 from .rte import RandomTripletEval
+from .soccur import SOccurrenceEval
 from .stress import StressEval
+from .unbrpres import UndirectedNbrPreservationEval
 
 
 def create_evaluators(eval_metrics=None):
@@ -30,6 +32,10 @@ def create_evaluators(eval_metrics=None):
             ctor = RandomPairCorrelEval
         elif embed_eval_name == "nnp":
             ctor = NbrPreservationEval
+        elif embed_eval_name == "unnp":
+            ctor = UndirectedNbrPreservationEval
+        elif embed_eval_name == "soccur":
+            ctor = SOccurrenceEval
         elif embed_eval_name == "astress":
             ctor = ApproxStressEval
         elif embed_eval_name == "exact-stress":
