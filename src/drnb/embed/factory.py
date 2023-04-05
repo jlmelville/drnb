@@ -73,6 +73,8 @@ def create_embedder(method, embed_kwds=None):
             from drnb.embed.smmds import Mmds as ctor
         elif method == "rescale":
             from drnb.embed.rescale import Rescale as ctor
+        elif method == "umato":
+            from drnb.embed.umato import Umato as ctor
         else:
             raise ValueError(f"Unknown method {method}")
 
