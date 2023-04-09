@@ -3,14 +3,13 @@ import numpy as np
 from numba.experimental import jitclass
 
 
-def create_opt(X, opt, optargs=None):
+def create_opt(nobs, opt, optargs=None):
     # allow creation of optimizer object directly
     if not isinstance(opt, str):
         return opt
 
     if optargs is None:
         optargs = {}
-    nobs = X.shape[0]
 
     optargs["nobs"] = nobs
     optargs["ndim"] = 2

@@ -38,9 +38,8 @@ def spacemap(
     # specifying learning_rate takes precedence over any value of alpha set in opt args
     if learning_rate is not None:
         optargs["alpha"] = learning_rate
-    optim = create_opt(X, opt, optargs)
-
     nobs = X.shape[0]
+    optim = create_opt(nobs, opt, optargs)
     rng_state = setup_rngn(nobs, random_state)
 
     if isinstance(init, np.ndarray):

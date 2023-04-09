@@ -30,9 +30,9 @@ def smmds(
         if optargs is None:
             optargs = {}
         optargs["alpha"] = learning_rate
-    optim = create_opt(X, opt, optargs)
-
     nobs = X.shape[0]
+    optim = create_opt(nobs, opt, optargs)
+
     rng_state = setup_rng(random_state)
     xdfun = distance_function(metric)
     ydfun = distance_function("euclidean")
@@ -140,9 +140,8 @@ def snmds(
         if optargs is None:
             optargs = {}
         optargs["alpha"] = learning_rate
-    optim = create_opt(X, opt, optargs)
-
     nobs = X.shape[0]
+    optim = create_opt(nobs, opt, optargs)
     rng_state = setup_rngn(nobs, random_state)
 
     xdfun = distance_function(metric)
@@ -260,9 +259,8 @@ def mmds(
         if optargs is None:
             optargs = {}
         optargs["alpha"] = learning_rate
-    optim = create_opt(X, opt, optargs)
-
     nobs = X.shape[0]
+    optim = create_opt(nobs, opt, optargs)
     xdfun = distance_function(metric)
     ydfun = distance_function("euclidean")
 
