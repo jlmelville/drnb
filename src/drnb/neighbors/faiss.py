@@ -60,5 +60,7 @@ def faiss_neighbors(
     if return_distance:
         if metric == "euclidean":
             distances = np.sqrt(distances)
+        if metric == "cosine":
+            distances = 1.0 - distances
         return indices, distances
     return indices
