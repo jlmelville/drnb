@@ -3,10 +3,116 @@ from dataclasses import dataclass
 import numpy as np
 import openTSNE
 import openTSNE.nearest_neighbors as tsnenn
+from openTSNE import initialization as initialization_scheme
 
 import drnb.embed
 import drnb.neighbors as knn
 from drnb.log import log
+
+
+def tsne_init(
+    data,
+    affinities,
+    initialization="pca",
+    n_components=2,
+    random_state=42,
+    verbose=False,
+):
+    if initialization is None:
+        initialization = "pca"
+
+    n_samples = data.shape[0]
+
+    if isinstance(initialization, np.ndarray):
+        embedding = np.array(initialization)
+
+        stddev = np.std(embedding, axis=0)
+        if any(stddev > 1e-2):
+            log.warning(
+                "Standard deviation of embedding is greater than 0.0001. Initial "
+                "embeddings with high variance may have display poor convergence."
+            )
+
+    elif initialization == "pca":
+        embedding = initialization_scheme.pca(
+            data,
+            n_components,
+            random_state=random_state,
+            verbose=verbose,
+        )
+    elif initialization == "random":
+        embedding = initialization_scheme.random(
+            n_samples,
+            n_components,
+            random_state=random_state,
+            verbose=verbose,
+        )
+    elif initialization == "spectral":
+        embedding = initialization_scheme.spectral(
+            affinities.P,
+            n_components,
+            random_state=random_state,
+            verbose=verbose,
+        )
+    else:
+        raise ValueError(f"Unknown tsne initialization: {initialization}")
+    return embedding
+
+
+# https://github.com/berenslab/pubmed-landscape/blob/eb963c42627da7439dffe1e962a404f76bc905ad/scripts/BERT-based-embeddings/05-rgm-pipeline-TFIDF-1M.ipynb#L31
+def tsne_annealed_exaggeration(
+    data,
+    affinities,
+    random_state=42,
+    n_exaggeration_iter=125,
+    early_exaggeration=12,
+    initial_momentum=0.5,
+    n_anneal_steps=125,
+    anneal_momentum=0.8,
+    n_iter=500,
+    final_momentum=0.8,
+    initialization="pca",
+):
+    # initialization
+    init = tsne_init(data, affinities, initialization, random_state=random_state)
+
+    # prevent spamming of "Automatically determined negative gradient method" message
+    n_samples = affinities.P.shape[0]
+    if n_samples < 10_000:
+        negative_gradient_method = "bh"
+    else:
+        negative_gradient_method = "fft"
+
+    E = openTSNE.TSNEEmbedding(
+        init,
+        affinities,
+        n_jobs=-1,
+        random_state=random_state,
+        negative_gradient_method=negative_gradient_method,
+    )
+
+    ## early exaggeration
+    E = E.optimize(
+        n_iter=n_exaggeration_iter,
+        exaggeration=early_exaggeration,
+        momentum=initial_momentum,
+        n_jobs=-1,
+    )
+
+    ## exaggeration annealing
+    exs = np.linspace(early_exaggeration, 1, n_anneal_steps)
+    for ex in exs:
+        E = E.optimize(
+            n_iter=1,
+            exaggeration=ex,
+            momentum=anneal_momentum,
+            n_jobs=-1,
+        )
+
+    ## final optimization without exaggeration
+    E = E.optimize(n_iter=n_iter, exaggeration=1, momentum=final_momentum, n_jobs=-1)
+
+    return np.array(E)
 
 
 def get_n_neighbors_for_perplexity(perplexity, x):
@@ -74,6 +180,7 @@ class Tsne(drnb.embed.Embedder):
     n_neighbors: int = None
     affinity: str = "perplexity"
     precomputed_init: np.ndarray = None
+    anneal_exaggeration: bool = False
 
     def embed_impl(self, x, params, ctx=None):
         knn_params = {}
@@ -103,13 +210,46 @@ class Tsne(drnb.embed.Embedder):
         else:
             init = None
 
-        return embed_tsne(x, params, affinities=affinities, initialization=init)
+        return embed_tsne(
+            x,
+            params,
+            affinities=affinities,
+            initialization=init,
+            anneal_exagg=self.anneal_exaggeration,
+        )
 
 
-def embed_tsne(x, params, affinities=None, initialization=None):
+def embed_tsne(x, params, affinities=None, initialization=None, anneal_exagg=False):
     log.info("Running t-SNE")
-    embedder = openTSNE.TSNE(n_components=2, **params)
-    embedded = embedder.fit(x, affinities=affinities, initialization=initialization)
+
+    if anneal_exagg:
+        if affinities is None:
+            raise ValueError(
+                "Annealed exaggeration is only supported with pre-calculated affinities"
+            )
+        random_state = params.get("random_state", 42)
+        early_exaggeration_iter = params.get("early_exaggeration_iter", 250)
+        n_exaggeration_iter = int(early_exaggeration_iter / 2)
+        early_exaggeration = params.get("early_exaggeration", 12)
+        initial_momentum = params.get("initial_momentum", 0.5)
+        final_momentum = params.get("final_momentum", 0.8)
+        n_iter = params.get("n_iter", 500)
+        embedded = tsne_annealed_exaggeration(
+            data=x,
+            affinities=affinities,
+            random_state=random_state,
+            n_exaggeration_iter=n_exaggeration_iter,
+            early_exaggeration=early_exaggeration,
+            initial_momentum=initial_momentum,
+            n_anneal_steps=n_exaggeration_iter,
+            anneal_momentum=final_momentum,
+            n_iter=n_iter,
+            final_momentum=final_momentum,
+            initialization=initialization,
+        )
+    else:
+        embedder = openTSNE.TSNE(n_components=2, **params)
+        embedded = embedder.fit(x, affinities=affinities, initialization=initialization)
     log.info("Embedding completed")
 
     return embedded
