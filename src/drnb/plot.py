@@ -932,3 +932,20 @@ def clickable_neighbors(plot, nn):
         datum.on_click(highlight_nbrs)
 
     return f
+
+
+def sns_result_plot(embed_result):
+    SeabornPlotter().plot(embed_result["coords"], ctx=embed_result["context"])
+
+
+def plotly_result_plot(embed_result):
+    PlotlyPlotter().plot(embed_result["coords"], ctx=embed_result["context"])
+
+
+def result_plot(embed_result, plot_type="sns"):
+    if plot_type == "sns":
+        sns_result_plot(embed_result)
+    elif plot_type == "plotly":
+        plotly_result_plot(embed_result)
+    else:
+        raise ValueError(f"Unknown plot_type {plot_type}")
