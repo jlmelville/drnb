@@ -86,6 +86,7 @@ class EmbedderPipeline:
             for plotter in self.plotters:
                 plotter.plot(embedding_result, data=x, y=y, ctx=ctx)
 
+        embedding_result["context"] = ctx
         return embedding_result
 
 
@@ -371,7 +372,13 @@ def extra_plots(metric="euclidean"):
 
 
 def standard_metrics():
-    return ["rte", "rpc", ("nnp", dict(n_neighbors=[15, 50, 150]))]
+    return [
+        "rte",
+        "rpc",
+        ("nnp", dict(n_neighbors=[15, 50, 150])),
+        # ("unnp", dict(n_neighbors=[15, 50, 150])),
+        # ("soccur", dict(n_neighbors=[15, 50, 150])),
+    ]
 
 
 # Automatically adds usual eval and plotting
