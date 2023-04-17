@@ -19,7 +19,7 @@ from drnb.embed import get_coords
 from drnb.eval.nbrpres import NbrPreservationEval
 from drnb.eval.rpc import RandomPairCorrelEval
 from drnb.eval.rte import RandomTripletEval
-from drnb.io.dataset import read_palette
+from drnb.io.dataset import read_dataset_from_ctx, read_palette
 from drnb.log import log
 from drnb.util import default_list, evenly_spaced, get_method_and_args, islisty
 
@@ -184,7 +184,14 @@ class SeabornPlotter:
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def plot(self, embedded, data, y, ctx=None):
+    def plot(self, embedded, data=None, y=None, ctx=None):
+        if data is None:
+            if ctx is None:
+                raise ValueError("Must provide data")
+            dataset = read_dataset_from_ctx(ctx)
+            data = dataset[0]
+            if y is None:
+                y = dataset[1]
         coords = get_coords(embedded)
 
         title = self.title
@@ -730,7 +737,15 @@ class PlotlyPlotter:
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def plot(self, embedded, data, y, ctx=None):
+    def plot(self, embedded, data=None, y=None, ctx=None):
+        if data is None:
+            if ctx is None:
+                raise ValueError("Must provide data")
+            dataset = read_dataset_from_ctx(ctx)
+            data = dataset[0]
+            if y is None:
+                y = dataset[1]
+
         coords = get_coords(embedded)
 
         title = self.title

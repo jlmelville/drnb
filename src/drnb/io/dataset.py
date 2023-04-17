@@ -72,6 +72,15 @@ def read_dataset(
     return data, target
 
 
+def read_dataset_from_ctx(ctx, verbose=False):
+    return read_dataset(
+        dataset=ctx.dataset_name,
+        drnb_home=ctx.drnb_home,
+        sub_dir=ctx.data_sub_dir,
+        verbose=verbose,
+    )
+
+
 def read_palette(
     dataset,
     drnb_home=None,
