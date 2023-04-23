@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 from drnb.embed import get_coords
 from drnb.log import log
-from drnb.util import Jsonizable, islisty
+from drnb.util import islisty
 
 
 def evaluate_embedding(evaluators, X, embedding, ctx=None):
@@ -20,8 +20,8 @@ def evaluate_embedding(evaluators, X, embedding, ctx=None):
 
 
 @dataclass
-class EvalResult(Jsonizable):
-    eval_type: str
-    label: str
-    value: float
+class EvalResult:
+    eval_type: str = ""
+    label: str = ""
+    value: float = 0.0
     info: dict = field(default_factory=dict)
