@@ -184,7 +184,7 @@ class SeabornPlotter:
     def new(cls, **kwargs):
         return cls(**kwargs)
 
-    def plot(self, embedded, data=None, y=None, ctx=None):
+    def plot(self, embedded, data=None, y=None, ctx=None, ax=None):
         if data is None:
             if ctx is None:
                 raise ValueError("Must provide data")
@@ -226,7 +226,7 @@ class SeabornPlotter:
         else:
             alpha_scale = self.alpha_scale
 
-        ax = sns_embed_plot(
+        ax_out = sns_embed_plot(
             coords,
             color_col=y,
             cex=cex,
@@ -238,12 +238,13 @@ class SeabornPlotter:
             pc_axes=self.pc_axes,
             flipx=self.flipx,
             flipy=self.flipy,
+            ax=ax,
         )
         if sm is not None:
-            if ax.get_legend() is not None:
-                ax.get_legend().remove()
-            ax.figure.colorbar(sm)
-        plt.show()
+            if ax_out.get_legend() is not None:
+                ax_out.get_legend().remove()
+            ax_out.figure.colorbar(sm)
+        return ax_out
 
     def get_palette(self, ctx):
         if ctx is None:
@@ -505,6 +506,7 @@ def sns_embed_plot(
     pc_axes=False,
     flipx=False,
     flipy=False,
+    ax=None,
 ):
     if title is None:
         title = ""
@@ -534,9 +536,13 @@ def sns_embed_plot(
     if palette is not None:
         scatter_kwargs["palette"] = palette
 
-    if figsize is None:
-        figsize = (6, 4)
-    plt.figure(figsize=figsize)
+    if ax is not None:
+        scatter_kwargs["ax"] = ax
+        legend = False
+    else:
+        if figsize is None:
+            figsize = (6, 4)
+        plt.figure(figsize=figsize)
 
     force_legend = isinstance(legend, str) and legend == "force"
     nlegcol = 0
@@ -934,18 +940,20 @@ def clickable_neighbors(plot, nn):
     return f
 
 
-def sns_result_plot(embed_result):
-    SeabornPlotter().plot(embed_result["coords"], ctx=embed_result["context"])
+def sns_result_plot(embed_result, title=None, ax=None):
+    SeabornPlotter(title=title).plot(
+        embed_result["coords"], ctx=embed_result["context"], ax=ax
+    )
 
 
-def plotly_result_plot(embed_result):
-    PlotlyPlotter().plot(embed_result["coords"], ctx=embed_result["context"])
+def plotly_result_plot(embed_result, title=None):
+    PlotlyPlotter(title=title).plot(embed_result["coords"], ctx=embed_result["context"])
 
 
-def result_plot(embed_result, plot_type="sns"):
+def result_plot(embed_result, plot_type="sns", title=None, ax=None):
     if plot_type == "sns":
-        sns_result_plot(embed_result)
+        sns_result_plot(embed_result, title=title, ax=ax)
     elif plot_type == "plotly":
-        plotly_result_plot(embed_result)
+        plotly_result_plot(embed_result, title=title)
     else:
         raise ValueError(f"Unknown plot_type {plot_type}")
