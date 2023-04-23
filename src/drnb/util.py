@@ -8,6 +8,8 @@ import json_fix
 import numpy as np
 import pandas as pd
 
+from drnb.log import log
+
 
 def get_method_and_args(method, default=None):
     kwds = default
@@ -94,6 +96,12 @@ def default_list(val=None):
 def default_dict(val=None):
     if val is None:
         return field(default_factory=dict)
+    return field(default_factory=lambda: val)
+
+
+def default_set(val=None):
+    if val is None:
+        return field(default_factory=set)
     return field(default_factory=lambda: val)
 
 

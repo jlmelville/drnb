@@ -5,7 +5,7 @@ from typing import Any
 import drnb.io as nbio
 import drnb.io.dataset as dataio
 import drnb.plot as nbplot
-from drnb.embed import get_embedder_name
+from drnb.embed import check_embed_method, embedder, get_embedder_name
 from drnb.embed.factory import create_embedder
 from drnb.eval import evaluate_embedding
 from drnb.eval.factory import create_evaluators
@@ -28,25 +28,32 @@ class EmbedderPipeline:
     plotters: list = default_list()
     exporter: Any = None
     verbose: bool = False
+    pipeline_name: str = f"pipeline-{dts_to_str()}"
 
-    def run(self, dataset_name, experiment=None, verbose=None):
+    def run_many(self, dataset_names, verbose=None):
         if verbose is None:
             verbose = self.verbose
         with log_verbosity(verbose):
-            return self._run(dataset_name, experiment=experiment)
+            results = {}
+            for dataset_name in dataset_names:
+                log.info("Running %s", dataset_name)
+                results[dataset_name] = self._run(dataset_name)
+        return results
 
-    def _run(self, dataset_name, experiment):
-        if experiment is None:
-            experiment = f"experiment-{dts_to_str()}"
-            log.info("Using experiment name: %s", experiment)
+    def run(self, dataset_name, verbose=None):
+        if verbose is None:
+            verbose = self.verbose
+        with log_verbosity(verbose):
+            return self._run(dataset_name)
 
+    def _run(self, dataset_name):
         ctx = EmbedContext(
             embed_method_name=self.embed_method_name,
             embed_method_variant=self.embed_method_variant,
             dataset_name=dataset_name,
             drnb_home=self.importer.drnb_home,
             data_sub_dir=self.importer.sub_dir,
-            experiment_name=experiment,
+            experiment_name=self.pipeline_name,
         )
         log.info("Getting dataset %s", ctx.dataset_name)
         x, y = self.importer.import_data(ctx.dataset_name)
@@ -236,11 +243,6 @@ class EmbedPipelineExporter:
             self.export_dict.clear()
 
 
-# helper method to create an embedder configuration
-def embedder(name, params=None, **kwargs):
-    return (name, kwargs | dict(params=params))
-
-
 def create_exporter(export):
     if export is not None:
         if not islisty(export):
@@ -385,14 +387,7 @@ def standard_metrics():
 def standard_pipeline(
     method, *, params=None, verbose=False, extra_eval=None, extra_plot=None
 ):
-    # in most cases you pass the method name and params to pass to the embedder
-    # or a list of chained pre-computed embedder config
-    if not isinstance(method, list):
-        # or a pre-computed embedder config to allow for drnb keywords
-        if not isinstance(method, tuple):
-            method = embedder(method, params=params)
-    elif params is not None:
-        raise ValueError("params must be None when chained embedder provided")
+    method = check_embed_method(method, params)
 
     if extra_plot is None:
         plot = True
