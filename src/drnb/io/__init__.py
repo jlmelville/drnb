@@ -1,5 +1,7 @@
 # Functions for reading and writing data
 
+import bz2
+import gzip
 import json
 import os
 import pickle
@@ -141,20 +143,57 @@ def read_npy(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
     return np.load(data_file_path)
 
 
-def read_pickle(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
-    data_file_path = get_data_file_path(
-        name,
-        "pkl",
-        suffix=suffix,
-        drnb_home=drnb_home,
-        sub_dir=sub_dir,
-        create_sub_dir=False,
-        verbose=verbose,
+def get_pkl_ext(compression=None):
+    ext = ".pkl"
+    if compression is not None:
+        if compression == "":
+            ext = ".pkl"
+        elif compression == "gzip":
+            ext = ".pkl.gz"
+        elif compression == "bz2":
+            ext = ".pkl.bz2"
+        else:
+            raise ValueError(f"Unknown compression type: {compression}")
+    return ext
+
+
+def read_pickle(
+    name, suffix=None, drnb_home=None, sub_dir=None, verbose=False, compression="any"
+):
+    if compression == "any":
+        compression = ["bz2", "gzip", ""]
+    if not isinstance(compression, list):
+        compression = [compression]
+    exts = [get_pkl_ext(c) for c in compression]
+    for ext in exts:
+        data_file_path = get_data_file_path(
+            name,
+            ext,
+            suffix=suffix,
+            drnb_home=drnb_home,
+            sub_dir=sub_dir,
+            create_sub_dir=False,
+            verbose=verbose,
+        )
+        if not data_file_path.exists():
+            continue
+        if verbose:
+            log.info(
+                "Looking for pkl format from %s", data_relative_path(data_file_path)
+            )
+        if ext == ".pkl":
+            with open(data_file_path, "rb") as f:
+                return pickle.load(f)
+        elif ext == ".pkl.gz":
+            with gzip.open(data_file_path, "rb") as f:
+                return pickle.load(f)
+        else:
+            with bz2.open(data_file_path, "rb") as f:
+                return pickle.load(f)
+    raise FileNotFoundError(
+        f"Missing pickle file {data_file_path.with_suffix('')} "
+        f"for compression {compression}"
     )
-    if verbose:
-        log.info("Looking for pkl format from %s", data_relative_path(data_file_path))
-    with open(data_file_path, "rb") as f:
-        return pickle.load(f)
 
 
 def read_pandas_csv(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
@@ -257,14 +296,26 @@ def write_pickle(
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
+    compression=None,
+    overwrite=True,
 ):
+    ext = get_pkl_ext(compression)
     output_path = get_data_file_path(
-        name, ".pkl", suffix, drnb_home, sub_dir, create_sub_dir, verbose
+        name, ext, suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
     if verbose:
         log.info("Writing pkl format to %s", data_relative_path(output_path))
-    with open(output_path, "wb") as f:
-        pickle.dump(x, f, pickle.HIGHEST_PROTOCOL)
+    if not overwrite and output_path.exists():
+        raise FileExistsError(f"File {output_path} already exists")
+    if compression is None:
+        with open(output_path, "wb") as f:
+            pickle.dump(x, f, pickle.HIGHEST_PROTOCOL)
+    elif compression == "gzip":
+        with gzip.open(output_path, "wb") as f:
+            pickle.dump(x, f, pickle.HIGHEST_PROTOCOL)
+    else:
+        with bz2.open(output_path, "wb") as f:
+            pickle.dump(x, f, pickle.HIGHEST_PROTOCOL)
     return output_path
 
 
