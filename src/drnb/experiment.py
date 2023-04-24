@@ -5,6 +5,7 @@ import pandas as pd
 
 import drnb.embed.pipeline as pl
 from drnb.embed import check_embed_method, get_embedder_name
+from drnb.io import read_pickle, write_pickle
 from drnb.log import log
 from drnb.plot import result_plot
 from drnb.util import default_dict, default_list, default_set, dts_to_str
@@ -100,6 +101,28 @@ class Experiment:
                     ax=axes[i, j],
                 )
         plt.tight_layout()
+
+    def save(self, compression="gzip", overwrite=False):
+        self.name = check_experiment(self.name)
+
+        write_pickle(
+            x=self,
+            name=self.name,
+            suffix="",
+            sub_dir="experiments",
+            create_sub_dir=True,
+            compression=compression,
+            overwrite=overwrite,
+        )
+
+
+def read_experiment(name, compression="any"):
+    return read_pickle(
+        name,
+        sub_dir="experiments",
+        suffix="",
+        compression=compression,
+    )
 
 
 def check_experiment(experiment):
