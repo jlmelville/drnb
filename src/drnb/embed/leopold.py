@@ -33,7 +33,14 @@ def leopold(
     init_scale=10.0,
     dens_scale=0.0,
     dof=1.0,
+    anneal_dens=0,
+    anneal_dof=0,
 ):
+    if anneal_dens > n_epochs:
+        raise ValueError("anneal_dens must be <= n_epochs")
+    if anneal_dof > n_epochs:
+        raise ValueError("anneal_dof must be <= n_epochs")
+
     if optargs is None:
         optargs = {"decay_alpha": True}
     # specifying learning_rate takes precedence over any value of alpha set in opt args
@@ -70,7 +77,6 @@ def leopold(
     beta_scaled = sklearn.preprocessing.minmax_scale(
         beta_unscaled, feature_range=(min_scale_d, max_scale_d)
     )
-    beta = (1.0 - dens_scale) + dens_scale * beta_scaled
 
     dmat = nn_to_sparse(knn_idx, symmetrize=symmetrize)
     dmat.eliminate_zeros()
@@ -90,26 +96,57 @@ def leopold(
         knn_i,
         knn_j,
         ptr,
-        beta,
+        beta_scaled,
+        dens_scale,
         dof,
+        anneal_dens,
+        anneal_dof,
     )
 
     return Y
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=False)
-def _leopold(Y, n_epochs, opt, samples, rng_state, knn_i, knn_j, ptr, prec, dof):
+def _leopold(
+    Y,
+    n_epochs,
+    opt,
+    samples,
+    rng_state,
+    knn_i,
+    knn_j,
+    ptr,
+    prec,
+    dens_scale,
+    dof,
+    anneal_dens,
+    anneal_dof,
+):
     nobs, ndim = Y.shape
 
     degrees = np.zeros((nobs,), dtype=np.int32)
     for i in knn_i:
         degrees[i] = degrees[i] + 1
 
+    # Anneal over anneal_dens epochs and then pad out with the dens_scale to n_epochs
+    epoch_dens_scale = np.linspace(0.0, dens_scale, anneal_dens)
+    epoch_dens_scale = np.append(
+        epoch_dens_scale, np.repeat(dens_scale, n_epochs - len(epoch_dens_scale))
+    )
+
+    # dof > 2.0 is not visually that different
+    max_dof = max(2.0, dof)
+    # space out the annealing of dof non-linearly
+    epoch_dof = np.flip(np.exp(np.linspace(np.log(dof), np.log(max_dof), anneal_dof)))
+    epoch_dof = np.append(epoch_dof, np.repeat(dof, n_epochs - len(epoch_dof)))
+
     for n in range(n_epochs):
+        beta = (1.0 - epoch_dens_scale[n]) + epoch_dens_scale[n] * prec
+        edof = epoch_dof[n]
         grads = np.zeros((nobs, ndim), dtype=np.float32)
 
-        _leopold_nbrs(Y, knn_i, knn_j, ptr, prec, dof, grads)
-        _leopold_non_nbrs(Y, samples[n], degrees, rng_state, prec, dof, grads)
+        _leopold_nbrs(Y, knn_i, knn_j, ptr, beta, edof, grads)
+        _leopold_non_nbrs(Y, samples[n], degrees, rng_state, beta, edof, grads)
 
         Y = opt.opt(Y, grads, n, n_epochs)
         for d in range(ndim):
@@ -149,6 +186,7 @@ def _leopold_non_nbrs(Y, n_samples, degrees, rng_state, prec, dof, grads):
                 continue
             dij2 = rdist(Yi, Y[j])
             beta = prec[i] * prec[j]
+
             wwij = 1.0 + (beta / dof) * dij2
             wij = pow(wwij, -dof)
             grad_coeff = (-2.0 * beta * wij) / (wwij * (1.001 - wij))
