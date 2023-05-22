@@ -9,7 +9,7 @@ def ncvis_negative_plan(n_negative=5, n_epochs=200):
 
     negative_plan /= negative_plan.sum()
     negative_plan *= n_epochs * n_negative
-    negative_plan = negative_plan.round().astype(np.int)
+    negative_plan = negative_plan.round().astype(int)
     negative_plan[negative_plan < 1] = 1
     return negative_plan
 
@@ -23,7 +23,7 @@ def create_sample_plan(n_samples, n_epochs, strategy="unif"):
     elif strategy == "dec":
         samples = np.flip(ncvis_negative_plan(n_samples, n_epochs))
     elif strategy == "unif":
-        samples = np.array([n_samples] * n_epochs, dtype=np.int)
+        samples = np.array([n_samples] * n_epochs, dtype=int)
     else:
         raise ValueError(f"Unknown sample strategy {strategy}")
     return samples
