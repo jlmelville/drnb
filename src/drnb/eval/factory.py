@@ -4,6 +4,7 @@ from drnb.util import get_method_and_args
 
 from .astress import ApproxStressEval
 from .globalscore import GlobalScore
+from .labelpres import LabelPreservationEval
 from .nbrpres import NbrPreservationEval
 from .rpc import RandomPairCorrelEval
 from .rte import RandomTripletEval
@@ -36,6 +37,8 @@ def create_evaluators(eval_metrics=None):
             ctor = UndirectedNbrPreservationEval
         elif embed_eval_name == "soccur":
             ctor = SOccurrenceEval
+        elif embed_eval_name == "lp":
+            ctor = LabelPreservationEval
         elif embed_eval_name == "astress":
             ctor = ApproxStressEval
         elif embed_eval_name == "exact-stress":
