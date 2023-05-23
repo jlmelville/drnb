@@ -158,11 +158,15 @@ def label_encode(arr):
     return np.array([value_to_int[value] for value in arr])
 
 
-def get_labels(target):
+def get_labels(target, label_id=-1):
     if isinstance(target, np.ndarray):
-        return label_encode(target[:, -1])
+        if not isinstance(label_id, int):
+            raise ValueError("label_id must be an integer when target is an array")
+        return label_encode(target[:, label_id])
     if isinstance(target, pd.DataFrame):
-        return label_encode(target.iloc[:, -1].values)
+        if isinstance(label_id, int):
+            return label_encode(target.iloc[:, label_id].values)
+        return label_encode(target.loc[:, label_id].values)
     if isinstance(target, range):
         return None
     raise ValueError(f"Unknown target type {type(target)}")
@@ -173,6 +177,7 @@ class LabelPreservationEval(EmbeddingEval):
     metric: str = "euclidean"
     n_neighbors: Union[List[int], int] = 15  # can also be a list
     verbose: bool = False
+    label_id: Union[int, str] = -1
 
     def listify_n_neighbors(self):
         if not isinstance(self.n_neighbors, List):
@@ -199,7 +204,7 @@ class LabelPreservationEval(EmbeddingEval):
             )
         except FileNotFoundError:
             return None
-        labels = get_labels(target)
+        labels = get_labels(target, self.label_id)
         return labels
 
     def evaluatev(self, _, coords, ctx=None):
