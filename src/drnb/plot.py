@@ -1,6 +1,6 @@
 import math
-from dataclasses import dataclass
-from typing import Any, Callable
+from dataclasses import dataclass, field
+from typing import Any, Callable, Optional
 
 import glasbey
 import matplotlib
@@ -36,8 +36,8 @@ class NoPlotter:
 
 @dataclass
 class ColorScale:
-    vmin: float = None
-    vmax: float = None
+    vmin: Optional[float] = None
+    vmax: Optional[float] = None
     palette: Any = None
 
     @classmethod
@@ -73,12 +73,14 @@ class ColorScale:
 @dataclass
 class ColorByKo:
     n_neighbors: int = 15
-    scale: ColorScale = ColorScale()
+    scale: ColorScale = field(default_factory=ColorScale)
     normalize: bool = True
     log1p: bool = False
 
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
+        if ctx is None:
+            return []
         res = np.array(hub.fetch_nbr_stats(ctx.dataset_name, self.n_neighbors)["ko"])
         if self.normalize:
             res = res / self.n_neighbors
@@ -96,12 +98,14 @@ class ColorByKo:
 @dataclass
 class ColorBySo:
     n_neighbors: int = 15
-    scale: ColorScale = ColorScale()
+    scale: ColorScale = field(default_factory=ColorScale)
     normalize: bool = True
     log1p: bool = False
 
     # pylint: disable=unused-argument
     def __call__(self, data, target, coords, ctx=None):
+        if ctx is None:
+            return []
         res = np.array(hub.fetch_nbr_stats(ctx.dataset_name, self.n_neighbors)["so"])
         if self.normalize:
             res = res / self.n_neighbors
@@ -119,7 +123,7 @@ class ColorBySo:
 @dataclass
 class ColorByNbrPres:
     n_neighbors: int = 15
-    scale: ColorScale = ColorScale()
+    scale: ColorScale = field(default_factory=ColorScale)
     normalize: bool = True
     metric: str = "euclidean"
 
@@ -142,7 +146,7 @@ class ColorByNbrPres:
 @dataclass
 class ColorByRte:
     n_triplets_per_point: int = 5
-    scale: ColorScale = ColorScale()
+    scale: ColorScale = field(default_factory=ColorScale)
     normalize: bool = True
     metric: str = "euclidean"
     random_state: int = None
