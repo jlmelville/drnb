@@ -21,7 +21,7 @@
         "${workspaceFolder}/setup.cfg"
     ],
     "python.formatting.blackPath": "${workspaceFolder}/venv/bin/black",
-    "python.formatting.provider": "black",
+    "python.formatting.provider": "none",
     "python.linting.enabled": true,
     "python.linting.flake8Args": [
         "--config",
@@ -36,5 +36,14 @@
     ],
     "python.linting.pylintCategorySeverity.refactor": "Information",
     "python.linting.pylintEnabled": true,
-    "python.linting.pylintPath": "${workspaceFolder}/venv/bin/pylint"
+    "python.linting.pylintPath": "${workspaceFolder}/venv/bin/pylint",
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "python.testing.pytestArgs": [],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestPath": "${workspaceFolder}/venv/bin/pytest",
+    "python.testing.promptToConfigure": false,
+    "python.terminal.activateEnvInCurrentTerminal": true
 }
