@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 from typing import List, Union
 
 import numpy as np
@@ -13,73 +14,46 @@ from drnb.neighbors import calculate_neighbors
 
 
 def label_pres(
-    data,
     labels,
-    n_nbrs: Union[List[int], int] = 15,
-    method="exact",
-    metric="euclidean",
-    method_kwds=None,
-    nbrs=None,
-    verbose=False,
+    nbr_idxs,
+    n_neighbors: List[int],
+    balanced,
 ):
-    if isinstance(n_nbrs, int):
-        n_nbrs = [n_nbrs]
-
     if labels is None:
         log.warning("No labels provided")
-        return [np.nan] * len(n_nbrs)
+        return [np.nan] * len(n_neighbors)
 
-    max_n_nbrs = max(n_nbrs)
-    nbr_idxs = get_nbr_idxs(
-        data,
-        n_nbrs=max_n_nbrs,
-        method=method,
-        metric=metric,
-        method_kwds=method_kwds,
-        nbrs=nbrs,
-        verbose=verbose,
-    )
+    counts = get_counts(labels)
+
     max_n_nbrs = nbr_idxs.shape[1]
     lps = []
-    for nbrs in n_nbrs:
+    num_classes = np.max(labels) + 1
+    for nbrs in n_neighbors:
         if nbrs <= max_n_nbrs:
             predicted_labels = labels[nbr_idxs[:, :nbrs]]
-            lps.append(np.mean(majority_vote(labels, predicted_labels)))
+            mv = majority_vote(labels, predicted_labels, counts)
+            if balanced:
+                mean = np.sum(mv / (counts[labels] * num_classes))
+            else:
+                mean = np.mean(mv)
+            lps.append(mean)
         else:
             lps.append(np.nan)
     return lps
 
 
 def label_presv(
-    data,
     labels,
-    n_nbrs: Union[List[int], int] = 15,
-    method="exact",
-    metric="euclidean",
-    method_kwds=None,
-    nbrs=None,
-    verbose=False,
+    nbr_idxs,
+    n_neighbors: List[int],
 ):
-    if isinstance(n_nbrs, int):
-        n_nbrs = [n_nbrs]
-
     if labels is None:
         log.warning("No labels provided")
-        return [] * len(n_nbrs)
+        return [] * len(n_neighbors)
 
-    max_n_nbrs = max(n_nbrs)
-    nbr_idxs = get_nbr_idxs(
-        data,
-        n_nbrs=max_n_nbrs,
-        method=method,
-        metric=metric,
-        method_kwds=method_kwds,
-        nbrs=nbrs,
-        verbose=verbose,
-    )
     max_n_nbrs = nbr_idxs.shape[1]
     lps = []
-    for nbrs in n_nbrs:
+    for nbrs in n_neighbors:
         if nbrs <= max_n_nbrs:
             predicted_labels = labels[nbr_idxs[:, :nbrs]]
             lps.append(majority_vote(labels, predicted_labels))
@@ -88,32 +62,42 @@ def label_presv(
     return lps
 
 
+def majority_vote(true_labels, predicted_labels, counts=None):
+    if counts is None:
+        counts = get_counts(true_labels)
+    return majority_vote_impl(true_labels, predicted_labels, counts)
+
+
 @njit(parallel=True)
-def majority_vote(true_labels, predicted_labels):
+def majority_vote_impl(true_labels, predicted_labels, counts):
     num_samples = true_labels.shape[0]
     result = np.zeros(num_samples, dtype=np.float64)
     # pylint: disable=not-an-iterable
     for i in prange(num_samples):
-        counts = {}
+        votes = {}
         for label in predicted_labels[i]:
-            if label in counts:
-                counts[label] += 1
+            if label in votes:
+                votes[label] += 1
             else:
-                counts[label] = 1
+                votes[label] = 1
 
-        # find labels with max count
-        max_count = -1
+        # find labels with max vote
+        max_vote = -1
         majority_votes = []
-        for label, count in counts.items():
-            if count > max_count:
-                max_count = count
+        for label, vote in votes.items():
+            if vote > max_vote:
+                max_vote = vote
                 majority_votes = [label]
-            elif count == max_count:
+            elif vote == max_vote:
                 majority_votes.append(label)
 
         # Check if true label is in majority votes
         if true_labels[i] in majority_votes:
-            result[i] = 1.0 / len(majority_votes)
+            majority_votes = np.array(majority_votes)
+            # for ties, use the frequency with which we would guess the correct
+            # label based on the relative frequencies of the tied labels in the
+            # dataset as a whole
+            result[i] = counts[true_labels[i]] / np.sum(counts[majority_votes])
     return result
 
 
@@ -147,6 +131,20 @@ def get_nbr_idxs(
     return nbrs.idx[:, 1:n_calc_nbrs]
 
 
+def get_counts(labels):
+    counts = count_integers(labels)
+    return np.array([counts[label] for label in labels])
+
+
+def count_integers(lst: np.ndarray) -> np.ndarray:
+    if len(lst) == 0:
+        return np.array([])
+    counter = Counter(lst)
+    max_value = np.max(lst)
+    counts = [counter[i] for i in range(max_value + 1)]
+    return np.array(counts)
+
+
 def label_encode(arr):
     # Get the unique values in the array
     unique_values = np.unique(arr)
@@ -175,25 +173,19 @@ def get_labels(target, label_id=-1):
 @dataclass
 class LabelPreservationEval(EmbeddingEval):
     metric: str = "euclidean"
-    n_neighbors: Union[List[int], int] = 15  # can also be a list
-    verbose: bool = False
+    n_neighbors: List[int] = field(default_factory=lambda: [15])
     label_id: Union[int, str] = -1
-
-    def listify_n_neighbors(self):
-        if not isinstance(self.n_neighbors, List):
-            self.n_neighbors = [self.n_neighbors]
+    balanced: bool = True
+    verbose: bool = False
 
     def requires(self):
-        self.listify_n_neighbors()
         return dict(
             name="neighbors",
             metric=self.metric,
             n_neighbors=int(np.max(self.n_neighbors)),
         )
 
-    def _evaluate_setup(self, ctx=None):
-        self.listify_n_neighbors()
-
+    def _evaluate_setup(self, coords, ctx):
         if ctx is None:
             raise ValueError("ctx is None")
 
@@ -202,35 +194,41 @@ class LabelPreservationEval(EmbeddingEval):
                 ctx.dataset_name,
                 drnb_home=ctx.drnb_home,
             )
-        except FileNotFoundError:
-            return None
+        except FileNotFoundError as exc:
+            raise ValueError("Can't find target file") from exc
+
         labels = get_labels(target, self.label_id)
-        return labels
 
-    def evaluatev(self, _, coords, ctx=None):
-        labels = self._evaluate_setup(ctx)
-
-        return label_presv(
-            coords,
-            labels,
-            n_nbrs=self.n_neighbors,
+        max_n_nbrs = max(self.n_neighbors)
+        nbr_idxs = get_nbr_idxs(
+            data=coords,
+            n_nbrs=max_n_nbrs,
             method="exact",
-            metric=self.metric,
+            metric="euclidean",
             method_kwds=None,
             nbrs=None,
+            verbose=False,
         )
 
-    def evaluate(self, X, coords, ctx=None):
-        labels = self._evaluate_setup(ctx)
+        return labels, nbr_idxs
+
+    def evaluatev(self, _, coords, ctx=None):
+        labels, nbr_idxs = self._evaluate_setup(coords, ctx)
+
+        return label_presv(
+            labels,
+            nbr_idxs,
+            self.n_neighbors,
+        )
+
+    def evaluate(self, _, coords, ctx=None):
+        labels, nbr_idxs = self._evaluate_setup(coords, ctx)
 
         lps = label_pres(
-            coords,
             labels,
-            n_nbrs=self.n_neighbors,
-            method="exact",
-            metric=self.metric,
-            method_kwds=None,
-            nbrs=None,
+            nbr_idxs,
+            self.n_neighbors,
+            self.balanced,
         )
         return [
             EvalResult(
@@ -243,7 +241,15 @@ class LabelPreservationEval(EmbeddingEval):
         ]
 
     def to_str(self, n_neighbors):
-        return f"lp-{n_neighbors}-{self.metric}"
+        if self.balanced:
+            balance_indicator = "b"
+        else:
+            balance_indicator = ""
+        if self.metric == "euclidean":
+            metric_indicator = ""
+        else:
+            metric_indicator = f"-{self.metric}"
+        return f"lp{balance_indicator}-{n_neighbors}{metric_indicator}"
 
     def __str__(self):
         return self.to_str(self.n_neighbors)
