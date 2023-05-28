@@ -1,7 +1,13 @@
 import numpy as np
 from numpy.testing import assert_allclose, assert_array_equal
 
-from drnb.eval.labelpres import count_integers, get_counts, label_pres, majority_vote
+from drnb.eval.labelpres import (
+    count_integers,
+    get_counts,
+    label_pres,
+    label_presv,
+    majority_vote,
+)
 
 
 def test_majority_vote_all_ties():
@@ -127,5 +133,25 @@ def test_label_pres_balanced_and_unbalanced_are_equal_for_equal_label_frequencie
     assert np.allclose(
         balanced_result,
         unbalanced_result,
+        equal_nan=True,
+    )
+
+
+def test_label_presv():
+    labels = np.array([0, 1, 2, 3, 0])
+    nbr_idxs = np.array([[1, 2], [2, 3], [3, 4], [4, 0], [0, 1]])
+    n_neighbors = [1, 2, 3]
+    lpresv = label_presv(labels, nbr_idxs, n_neighbors)
+    assert np.allclose(
+        lpresv,
+        np.array(
+            [
+                [0.0, 0.0, 0.0, 0.0, 1.0],
+                [0.0, 0.0, 0.0, 0.0, 0.66666667],
+                [np.nan, np.nan, np.nan, np.nan, np.nan],
+            ]
+        ),
+        rtol=1e-3,
+        atol=1e-6,
         equal_nan=True,
     )

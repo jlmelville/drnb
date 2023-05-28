@@ -21,17 +21,15 @@ def label_pres(
 ):
     if labels is None:
         log.warning("No labels provided")
-        return [np.nan] * len(n_neighbors)
+        return np.full((len(n_neighbors),), np.nan)
 
     counts = get_counts(labels)
-
     max_n_nbrs = nbr_idxs.shape[1]
     lps = []
     num_classes = np.max(labels) + 1
     for nbrs in n_neighbors:
         if nbrs <= max_n_nbrs:
-            predicted_labels = labels[nbr_idxs[:, :nbrs]]
-            mv = majority_vote(labels, predicted_labels, counts)
+            mv = _label_pres_impl(labels, nbr_idxs, nbrs, counts)
             if balanced:
                 mean = np.sum(mv / (counts[labels] * num_classes))
             else:
@@ -39,7 +37,7 @@ def label_pres(
             lps.append(mean)
         else:
             lps.append(np.nan)
-    return lps
+    return np.array(lps)
 
 
 def label_presv(
@@ -49,17 +47,19 @@ def label_presv(
 ):
     if labels is None:
         log.warning("No labels provided")
-        return [] * len(n_neighbors)
+        return np.full((len(n_neighbors), len(labels)), np.nan)
 
-    max_n_nbrs = nbr_idxs.shape[1]
-    lps = []
-    for nbrs in n_neighbors:
-        if nbrs <= max_n_nbrs:
-            predicted_labels = labels[nbr_idxs[:, :nbrs]]
-            lps.append(majority_vote(labels, predicted_labels))
-        else:
-            lps.append([])
-    return lps
+    counts = get_counts(labels)
+    return np.array(
+        [_label_pres_impl(labels, nbr_idxs, nbrs, counts) for nbrs in n_neighbors]
+    )
+
+
+def _label_pres_impl(labels, nbr_idxs, nbrs, counts=None):
+    if nbrs > nbr_idxs.shape[1]:
+        return [np.nan] * len(labels)
+    predicted_labels = labels[nbr_idxs[:, :nbrs]]
+    return majority_vote(labels, predicted_labels, counts)
 
 
 def majority_vote(true_labels, predicted_labels, counts=None):
@@ -156,7 +156,7 @@ def label_encode(arr):
     return np.array([value_to_int[value] for value in arr])
 
 
-def get_labels(target, label_id=-1):
+def get_labels(target, label_id: Union[int, str] = -1):
     if isinstance(target, np.ndarray):
         if not isinstance(label_id, int):
             raise ValueError("label_id must be an integer when target is an array")
