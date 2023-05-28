@@ -1,6 +1,7 @@
 import numpy as np
 
 from drnb.preprocess import numpyfy
+from drnb.log import log
 
 FAISS_STATUS = dict(loaded=False, ok=False)
 FAISS_METRICS = ["cosine", "euclidean"]
@@ -32,11 +33,11 @@ def faiss_neighbors(
     n_neighbors=15,
     metric="euclidean",
     return_distance=True,
+    use_gpu=True,
 ):
     if not FAISS_STATUS["loaded"]:
         load_faiss()
     if not FAISS_STATUS["ok"]:
-        # faiss = None
         raise NotImplementedError("faiss not available")
 
     if metric == "cosine":
@@ -47,16 +48,17 @@ def faiss_neighbors(
         raise ValueError(f"Unsupported metric for faiss: '{metric}'")
 
     X = numpyfy(X, dtype=np.float32, layout="c")
-
-    res = faiss.StandardGpuResources()
-    index_flat = faiss_space(X.shape[1])
-    gpu_index_flat = faiss.index_cpu_to_gpu(res, 0, index_flat)
-
     if metric == "cosine":
         faiss.normalize_L2(X)
-    gpu_index_flat.add(X)
 
-    distances, indices = gpu_index_flat.search(X, n_neighbors)
+    index_flat = faiss_space(X.shape[1])
+    if use_gpu:
+        log.debug("using GPU")
+        distances, indices = faiss_neighbors_gpu(index_flat, X, n_neighbors)
+    else:
+        log.debug("using CPU")
+        distances, indices = faiss_neighbors_cpu(index_flat, X, n_neighbors)
+
     if return_distance:
         if metric == "euclidean":
             distances = np.sqrt(distances)
@@ -64,3 +66,19 @@ def faiss_neighbors(
             distances = 1.0 - distances
         return indices, distances
     return indices
+
+
+def faiss_neighbors_generic(index, data, n_neighbors):
+    index.add(data)
+    return index.search(data, n_neighbors)
+
+
+def faiss_neighbors_cpu(index, data, n_neighbors):
+    return faiss_neighbors_generic(index, data, n_neighbors)
+
+
+def faiss_neighbors_gpu(index, data, n_neighbors):
+    res = faiss.StandardGpuResources()
+    gpu_index = faiss.index_cpu_to_gpu(res, 0, index)  # Move index to GPU
+    distances_gpu, indices_gpu = faiss_neighbors_generic(gpu_index, data, n_neighbors)
+    return distances_gpu.copy(), indices_gpu.copy()
