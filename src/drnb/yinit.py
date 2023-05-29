@@ -1,6 +1,9 @@
+from typing import Optional, Union, cast
+
 import numpy as np
 import openTSNE.initialization
 import scipy.sparse.csgraph
+import scipy.sparse.linalg
 import sklearn.decomposition
 import umap
 from sklearn.utils import check_random_state
@@ -53,8 +56,8 @@ def umap_random_init(n, random_state=42, max_coord=10.0):
 
 
 def umap_graph_spectral_init(
-    x=None,
-    knn=None,
+    x: Optional[np.ndarray] = None,
+    knn: Union[list[np.ndarray], tuple[np.ndarray], NearestNeighbors, None] = None,
     metric="euclidean",
     n_neighbors=15,
     global_neighbors=None,
@@ -81,6 +84,7 @@ def umap_graph_spectral_init(
         )
     if isinstance(knn, NearestNeighbors):
         knn = [knn.idx, knn.dist]
+    knn = cast(list[np.ndarray], knn)
 
     knn_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
         X=x,
@@ -89,9 +93,11 @@ def umap_graph_spectral_init(
         n_neighbors=knn[0].shape[1],
         random_state=None,
         metric=None,
+        return_dists=None,
     )
 
     if global_neighbors is not None:
+        x = cast(np.ndarray, x)
         if n_global_neighbors is None:
             n_global_neighbors = logn_neighbors(x.shape[0])
 
@@ -117,6 +123,7 @@ def umap_graph_spectral_init(
             n_neighbors=global_nn.idx.shape[1],
             random_state=None,
             metric=None,
+            return_dists=None,
         )
 
         log.info(
@@ -188,6 +195,7 @@ def binary_graph_spectral_init(
     knn_graph = umap_graph_binary(knn)
 
     if global_neighbors is not None:
+        x = cast(np.ndarray, x)
         if n_global_neighbors is None:
             n_global_neighbors = logn_neighbors(x.shape[0])
 
@@ -251,7 +259,13 @@ def scale1(x):
     return x / np.linalg.norm(x)
 
 
-def tsvd_warm_spectral(graph, dim=2, random_state=42, tol=1e-5, jitter=True):
+def tsvd_warm_spectral(
+    graph,
+    dim=2,
+    random_state: Union[int, np.random.RandomState] = 42,
+    tol=1e-5,
+    jitter=True,
+):
     n_components, _ = scipy.sparse.csgraph.connected_components(graph)
     if n_components > 1:
         raise ValueError("Multiple components detected")
@@ -271,7 +285,7 @@ def tsvd_warm_spectral(graph, dim=2, random_state=42, tol=1e-5, jitter=True):
     guess = tsvd.fit_transform(L)
     guess[:, 0] = np.sqrt(scale1(diag_data[0]))
 
-    Eye = scipy.sparse.identity(graph.shape[0], dtype=np.float64)
+    Eye = scipy.sparse.identity(graph.shape[0], dtype=np.float64)  # type: ignore
     eigenvalues, eigenvectors = scipy.sparse.linalg.lobpcg(
         Eye - L,
         guess,

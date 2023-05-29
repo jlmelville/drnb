@@ -1,5 +1,6 @@
 import math
 from dataclasses import dataclass
+from typing import Optional
 
 import numba
 import numpy as np
@@ -14,7 +15,7 @@ from drnb.neighbors.hubness import nn_to_sparse
 from drnb.optim import create_opt
 from drnb.rng import setup_rngn
 from drnb.sampling import create_sample_plan
-from drnb.yinit import binary_graph_spectral_init, pca, scale_coords, umap_random_init
+from drnb.yinit import standard_neighbor_init
 
 
 def leopold(
@@ -28,7 +29,7 @@ def leopold(
     random_state=42,
     learning_rate=1.0,
     opt="adam",
-    optargs=None,
+    optargs: Optional[dict] = None,
     symmetrize="or",
     init_scale=10.0,
     dens_scale=0.0,
@@ -51,22 +52,14 @@ def leopold(
     optim = create_opt(nobs, opt, optargs)
     rng_state = setup_rngn(nobs, random_state)
 
-    if isinstance(init, np.ndarray):
-        if init.shape != (nobs, 2):
-            raise ValueError("Initialization array has incorrect shape")
-        log.info("Using pre-supplied initialization coordinates")
-        Y = init
-    elif init == "pca":
-        Y = pca(X)
-    elif init == "rand":
-        Y = umap_random_init(nobs, random_state)
-    elif init == "spectral":
-        Y = binary_graph_spectral_init(knn=knn_idx)
-    else:
-        raise ValueError(f"Unknown init option '{init}'")
-    if init_scale is not None:
-        Y = scale_coords(Y, max_coord=init_scale)
-    Y = Y.astype(np.float32, order="C")
+    Y = standard_neighbor_init(
+        init,
+        nobs=nobs,
+        random_state=random_state,
+        knn_idx=knn_idx,
+        X=X,
+        init_scale=init_scale,
+    )
 
     # local densities
     mean_d = np.mean(knn_dist, axis=1)
@@ -75,7 +68,7 @@ def leopold(
     mean_d[mean_d < min_scale_d] = min_scale_d
     beta_unscaled = 1.0 / mean_d
     beta_scaled = sklearn.preprocessing.minmax_scale(
-        beta_unscaled, feature_range=(min_scale_d, max_scale_d)
+        beta_unscaled, feature_range=(min_scale_d, max_scale_d)  # type: ignore
     )
 
     dmat = nn_to_sparse(knn_idx, symmetrize=symmetrize)
@@ -196,7 +189,7 @@ def _leopold_non_nbrs(Y, n_samples, degrees, rng_state, prec, dof, grads):
 
 @dataclass
 class Leopold(drnb.embed.Embedder):
-    precomputed_init: np.ndarray = None
+    precomputed_init: Optional[np.ndarray] = None
 
     def embed_impl(self, x, params, ctx=None):
         if self.precomputed_init is not None:

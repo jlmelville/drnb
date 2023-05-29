@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 
 
@@ -14,7 +16,7 @@ def ncvis_negative_plan(n_negative=5, n_epochs=200):
     return negative_plan
 
 
-def create_sample_plan(n_samples, n_epochs, strategy="unif"):
+def create_sample_plan(n_samples, n_epochs, strategy: Optional[str] = "unif"):
     if strategy is None:
         strategy = "unif"
 
