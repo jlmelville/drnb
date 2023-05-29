@@ -95,10 +95,14 @@ class Experiment:
         _, axes = plt.subplots(nrows=len(datasets), ncols=len(methods), figsize=figsize)
         for i, dataset in enumerate(datasets):
             for j, method in enumerate(methods):
+                if len(axes.shape) == 1:
+                    ax = axes[i]
+                else:
+                    ax = axes[i, j]
                 result_plot(
                     self.results[method][dataset],
                     title=f"{method} on {dataset}",
-                    ax=axes[i, j],
+                    ax=ax,
                 )
         plt.tight_layout()
 
