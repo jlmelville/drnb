@@ -7,6 +7,7 @@ import os
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
+from typing import List, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -60,7 +61,9 @@ def get_path(drnb_home=None, sub_dir=None, create_sub_dir=False, verbose=False):
     return data_path
 
 
-def ensure_suffix(suffix, default_suffix=""):
+def ensure_suffix(suffix, default_suffix: Optional[str] = ""):
+    if default_suffix is None:
+        default_suffix = ""
     if suffix is None:
         suffix = default_suffix
     if not suffix:
@@ -88,7 +91,7 @@ def get_data_file_path(
     ext,
     suffix=None,
     drnb_home=None,
-    sub_dir=None,
+    sub_dir: Optional[str] = None,
     create_sub_dir=True,
     verbose=False,
 ):
@@ -165,6 +168,7 @@ def read_pickle(
     if not isinstance(compression, list):
         compression = [compression]
     exts = [get_pkl_ext(c) for c in compression]
+    data_file_path = None
     for ext in exts:
         data_file_path = get_data_file_path(
             name,
@@ -190,6 +194,8 @@ def read_pickle(
         else:
             with bz2.open(data_file_path, "rb") as f:
                 return pickle.load(f)
+    if data_file_path is None:
+        raise ValueError("No compression specified")
     raise FileNotFoundError(
         f"Missing pickle file {data_file_path.with_suffix('')} "
         f"for compression {compression}"
@@ -357,11 +363,11 @@ def write_data(
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
-    file_type=None,
+    file_type: str | List[str] = "csv",
 ):
-    if not islisty(file_type):
+    if isinstance(file_type, str):
         file_type = [file_type]
-
+    file_type = cast(List[str], file_type)
     suffix = ensure_suffix(suffix)
 
     output_paths = []
@@ -390,9 +396,9 @@ def write_data(
 
 @dataclass
 class FileExporter:
-    drnb_home: str = None
-    sub_dir: str = None
-    suffix: str = None
+    drnb_home: Optional[str] = None
+    sub_dir: Optional[str] = None
+    suffix: Optional[str] = None
     create_sub_dir: bool = True
     verbose: bool = False
     file_type: str = "csv"

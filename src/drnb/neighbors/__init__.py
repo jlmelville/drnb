@@ -2,6 +2,7 @@ import itertools
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List, Optional, cast
 
 import numpy as np
 import scipy.sparse.csgraph
@@ -10,11 +11,12 @@ import sklearn.metrics
 import drnb.neighbors.sklearn as sknbrs
 from drnb.io import data_relative_path, get_path, read_data, write_data
 from drnb.log import log
+from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.preprocess import numpyfy
 from drnb.util import FromDict, Jsonizable, default_dict, default_list, islisty
 
 from . import annoy, faiss, hnsw, pynndescent
-from .nbrinfo import NbrInfo, NearestNeighbors
+from .nbrinfo import NbrInfo
 
 
 def n_connected_components(graph):
@@ -55,7 +57,7 @@ def calculate_neighbors(
     include_self=True,
     verbose=False,
     method_kwds=None,
-    name=None,
+    name: str = "",
 ):
     n_neighbors = int(n_neighbors)
     if not include_self:
@@ -201,8 +203,8 @@ def find_candidate_neighbors_info(
     sub_dir="nn",
     n_neighbors=1,
     metric="euclidean",
-    method=None,
-    exact=None,
+    method: Optional[str] = None,
+    exact: Optional[bool] = None,
     return_distance=True,
 ):
     if name is None:
@@ -257,6 +259,7 @@ def find_candidate_neighbors_info(
     if not nn_infos:
         return None
 
+    nn_infos = cast(List[NbrInfo], nn_infos)
     # the smallest file which has enough neighbors
     candidate_infos = sorted(nn_infos, key=lambda x: x.n_nbrs)
     candidate_info = candidate_infos[0]
@@ -264,7 +267,7 @@ def find_candidate_neighbors_info(
     # favor npy or pkl files over csv
     preferred_exts = [".npy", ".pkl"]
     for cinfo in candidate_infos:
-        if cinfo.idx_path.suffix in preferred_exts:
+        if cinfo.idx_path is not None and cinfo.idx_path.suffix in preferred_exts:
             return cinfo
     return candidate_info
 
@@ -274,7 +277,7 @@ def read_neighbors(
     n_neighbors=15,
     metric="euclidean",
     method=None,
-    exact=False,
+    exact: Optional[bool] = False,
     drnb_home=None,
     sub_dir="nn",
     return_distance=True,
@@ -428,7 +431,7 @@ def write_neighbors(
     drnb_home=None,
     sub_dir="nn",
     create_sub_dir=True,
-    file_type="npy",
+    file_type: str | List[str] = "npy",
     verbose=False,
 ):
     # e.g. mnist.150.euclidean.exact.faiss.dist.npy
@@ -503,8 +506,8 @@ def slice_neighbors(neighbors_data, n_neighbors):
 class NeighborsRequest(FromDict, Jsonizable):
     n_neighbors: list = default_list([15])
     method: str = "exact"
-    metric: str = default_list(["euclidean"])
-    file_types: list = default_list(["pkl"])
+    metric: str | list = default_list(["euclidean"])
+    file_types: list[str] = default_list(["pkl"])
     params: dict = default_dict()
     verbose: bool = False
 
@@ -520,6 +523,7 @@ class NeighborsRequest(FromDict, Jsonizable):
 
         if not islisty(self.metric):
             self.metric = [self.metric]
+        neighbors_output_paths = []
         for metric in self.metric:
             neighbors_data = calculate_neighbors(
                 data=data,
@@ -531,7 +535,6 @@ class NeighborsRequest(FromDict, Jsonizable):
                 **self.params,
             )
 
-            neighbors_output_paths = []
             for n_neighbors in self.n_neighbors:
                 try:
                     sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)

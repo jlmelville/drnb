@@ -83,6 +83,7 @@ def umap_graph_spectral_init(
             method_kwds=dict(random_state=random_state),
         )
     if isinstance(knn, NearestNeighbors):
+        knn.dist = cast(np.ndarray, knn.dist)
         knn = [knn.idx, knn.dist]
     knn = cast(list[np.ndarray], knn)
 

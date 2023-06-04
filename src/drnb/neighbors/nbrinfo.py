@@ -1,5 +1,6 @@
 import pathlib
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 
@@ -26,8 +27,8 @@ class NbrInfo:
     exact: bool  # exact or approximate neighbors
     method: str  # method to generate e.g. "faiss", "annoy", "hnsw"
     has_distances: bool  # True if the distances are present
-    idx_path: pathlib.Path  # the path to the idx file (optional)
-    dist_path: pathlib.Path  # the path to the dist file (if it exists)
+    idx_path: Optional[pathlib.Path]  # the path to the idx file (optional)
+    dist_path: Optional[pathlib.Path]  # the path to the dist file (if it exists)
 
     @property
     def idx_suffix(self):
@@ -98,5 +99,5 @@ class NbrInfo:
 @dataclass
 class NearestNeighbors:
     idx: np.ndarray
-    info: NbrInfo = None
-    dist: np.ndarray = None
+    info: Optional[NbrInfo] = None
+    dist: Optional[np.ndarray] = None

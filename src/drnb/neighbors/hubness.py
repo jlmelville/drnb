@@ -1,4 +1,5 @@
 import pickle
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -10,7 +11,7 @@ from drnb.dimension import mle_global
 from drnb.io import data_relative_path
 from drnb.io.dataset import get_dataset_info, list_available_datasets
 from drnb.log import log
-from drnb.neighbors import read_neighbors
+from drnb.neighbors import NearestNeighbors, read_neighbors
 from drnb.util import islisty
 
 
@@ -157,13 +158,22 @@ def describe(df, count_zeros=True):
     return pd.concat(aggs)
 
 
-def get_nbrs(name, n_neighbors, metric="euclidean"):
-    nbrs = read_neighbors(name, n_neighbors=n_neighbors + 1, exact=True, metric=metric)
+def get_nbrs(name, n_neighbors, metric="euclidean") -> NearestNeighbors:
+    nbrs = read_neighbors(
+        name,
+        n_neighbors=n_neighbors + 1,
+        exact=True,
+        metric=metric,
+        return_distance=True,
+    )
     if nbrs is None:
         raise ValueError(
             f"Couldn't get exact {n_neighbors} neighbors"
             f" with metric '{metric}' for '{name}'"
         )
+    nbrs = cast(NearestNeighbors, nbrs)
+    nbrs.idx = cast(np.ndarray, nbrs.idx)
+    nbrs.dist = cast(np.ndarray, nbrs.dist)
     nbrs.idx = nbrs.idx[:, 1:]
     nbrs.dist = nbrs.dist[:, 1:]
     return nbrs
@@ -176,11 +186,17 @@ def nbr_stats(name, n_neighbors, metric="euclidean"):
     nc = n_components(nbrs)
     mle_dint = mle_global(nbrs.dist, remove_self=True)
     data_info = get_dataset_info(name)
+
+    if nbrs.info is not None:
+        idx_path = nbrs.info.idx_path
+    else:
+        idx_path = None
+
     return dict(
         name=name,
         n_dim=data_info["n_dim"],
         n_items=data_info["n_items"],
-        idx_path=nbrs.info.idx_path,
+        idx_path=idx_path,
         n_components=nc,
         dint=mle_dint,
         n_neighbors=n_neighbors,
@@ -225,6 +241,8 @@ def write_nbr_stats(nstats):
 
 def read_nbr_stats(name, n_neighbors, metric="euclidean"):
     nbrs = get_nbrs(name, n_neighbors, metric=metric)
+    if nbrs.info is None:
+        raise ValueError("Neighborhood data has no file info")
     # unlike the neighbor data itself, the stats file has to be an exact match
     # otherwise we won't find it
     if nbrs.info.n_nbrs != n_neighbors + 1:

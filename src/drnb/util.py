@@ -2,6 +2,7 @@ import collections.abc
 import datetime
 import json
 from dataclasses import asdict, field
+from typing import Optional
 
 # pylint: disable=unused-import
 # import json_fix
@@ -11,7 +12,7 @@ import pandas as pd
 from drnb.log import log
 
 
-def get_method_and_args(method, default=None):
+def get_method_and_args(method, default: Optional[dict] = None):
     kwds = default
     if isinstance(method, tuple):
         if len(method) != 2:
