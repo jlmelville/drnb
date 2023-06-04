@@ -1,3 +1,88 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=61.2"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "drnb"
+requires-python = ">=3.10"
+version = "0.1.0"
+description = "Dimensionality reduction notebook"
+authors = [{name = "James Melville", email = "jlmelville@gmail.com"}]
+license = {text = "MIT"}
+classifiers = ["License :: OSI Approved :: MIT License"]
+dependencies = [
+    "numpy",
+    "cython",
+    "glasbey",
+    "hnswlib",
+    "importlib-metadata",
+    "ipython-autotime",
+    "ipywidgets",
+    "json-fix",
+    "jupyterlab",
+    "jupyterlab-system-monitor",
+    "matplotlib",
+    "nb-black; python_version < '3.11'",
+    "nb-black @ git+ssh://git@github.com/IsaGrue/nb_black ; python_version >= '3.11'",
+    "ncompress",
+    "openTSNE",
+    "pacmap",
+    "pandas",
+    "pyarrow",
+    "pymde",
+    "rich",
+    "seaborn",
+    "plotly",
+    "trimap",
+    "umap-learn",
+    "umato",
+    "ncvis",
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[project.urls]
+"Homepage" = "https://github.com/jlmelville/drnb"
+"Bug Tracker" = "https://github.com/jlmelville/drnb/issues"
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "flake8",
+    "isort",
+    "pylint",
+    "setup-cfg-fmt",
+    "pytest",
+]
+faiss-gpu = ["faiss-gpu"]
+
+[tool.setuptools]
+zip-safe = true
+license-files = ["LICENSE"]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = false
+
+[tool.pylint]
+disable = """
+locally-disabled,
+line-too-long,
+trailing-whitespace,
+missing-docstring,
+literal-comparison,
+too-many-instance-attributes, too-few-public-methods, too-many-public-methods,
+too-many-arguments, too-many-locals, too-many-branches, invalid-name, duplicate-code"""
+max-line-length = "88"
+generated-members = """
+np.*,
+numba.*,
+torch.*,
+ncvis.*"""
+extension-pkg-allow-list = "hnswlib"
+
+[tool.isort]
+profile = "black"

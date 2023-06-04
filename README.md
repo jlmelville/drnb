@@ -14,6 +14,9 @@ various datasets and that might be of interest to others.
 
 ## Installing
 
+This should work with Python 3.10 and 3.11 (although see the section on faiss below for why you
+may want to stick with 3.10).
+
 I tried stepping into the modern age with [poetry](https://python-poetry.org/) but had trouble with
 [llvmite](https://pypi.org/project/llvmlite/) and [ncvis](https://pypi.org/project/ncvis/). So
 pip it is: (of course a virtual env is highly recommended):
@@ -48,8 +51,14 @@ for calculating exact nearest neighbors with the euclidean or cosine metric. Tha
 PyPI version is an [unofficially built wheel](https://github.com/facebookresearch/faiss/issues/1101)
 and is currently stuck on version 1.7.2 due to
 [the wheel size being too large](https://github.com/kyamagu/faiss-wheels/issues/57). Right now there
-is a `pip install -e .[faiss_gpu]` identifier in this repo, but it doesn't do anything more than
+is a `pip install -e .[faiss-gpu]` identifier in this repo, but it doesn't do anything more than
 `pip install faiss-gpu`.
+
+**Note**: as of June 2023, `faiss-gpu` does not currently support Python 3.11, so you will either 
+have to stick with Python 3.10 or attempt to build faiss yourself. I have failed to successfully 
+build faiss with GPU support on WSL2 with Ubuntu and a Pascal-era card (GTX 1080) -- it builds 
+without complaint (although it fails several tests) but most or all nearest neighbor distances are 
+returned as all zeros. So I recommend sticking with Python 3.10 for now.
 
 ## Data setup
 
