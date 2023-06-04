@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
@@ -20,10 +22,13 @@ def numpyfy(data, dtype=None, layout=None):
     return data
 
 
-def scale_data(data, scale_type=None, params=None):
+def scale_data(data, scale_type=None, params: Optional[dict] = None):
     if scale_type is None or not scale_type:
         log.info("No scaling")
         return data
+
+    if params is None:
+        params = {}
 
     if scale_type == "center":
         log.info("Centering")
@@ -73,3 +78,19 @@ def filter_columns(data, cols):
         return data[cols]
     # better be a numpy 2d array indexed by column integer index
     return data[:, cols]
+
+
+def renormalize(data, norm=""):
+    if norm == "l2":
+        return renormalize_l2(data)
+    elif norm == "l1":
+        return renormalize_l1(data)
+    return data
+
+
+def renormalize_l1(data, eps=1e-8):
+    return data / (np.sum(np.abs(data), axis=1)[:, np.newaxis] + eps)
+
+
+def renormalize_l2(data, eps=1e-8):
+    return data / (np.linalg.norm(data, axis=1)[:, np.newaxis] + eps)
