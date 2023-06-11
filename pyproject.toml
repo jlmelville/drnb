@@ -37,6 +37,7 @@ dependencies = [
     "umap-learn",
     "umato",
     "ncvis",
+    "h5py"
 ]
 
 [project.readme]
