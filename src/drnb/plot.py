@@ -202,6 +202,8 @@ class SeabornPlotter:
         palette = self.palette
         if palette is None:
             palette = self.get_palette(ctx)
+        if not palette:
+            palette = None
         sm = None
         if isinstance(self.color_by, Callable):
             y = self.color_by(data, y, coords, ctx)
@@ -762,6 +764,10 @@ class PlotlyPlotter:
         palette = self.palette
         if palette is None:
             palette = self.get_palette(ctx)
+        # Setting the palette to "False" means to force the palette off so you get
+        # the glasbey colors (e.g. you think the original dataset palette is bad)
+        if not palette:
+            palette = None
         if isinstance(self.color_by, Callable):
             y = self.color_by(data, y, coords, ctx)
 
