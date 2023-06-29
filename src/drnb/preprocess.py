@@ -80,17 +80,17 @@ def filter_columns(data, cols):
     return data[:, cols]
 
 
-def renormalize(data, norm=""):
+def normalize(data, norm=""):
     if norm == "l2":
-        return renormalize_l2(data)
+        return normalize_l2(data)
     elif norm == "l1":
-        return renormalize_l1(data)
+        return normalize_l1(data)
     return data
 
 
-def renormalize_l1(data, eps=1e-8):
+def normalize_l1(data, eps=1e-8):
     return data / (np.sum(np.abs(data), axis=1)[:, np.newaxis] + eps)
 
 
-def renormalize_l2(data, eps=1e-8):
+def normalize_l2(data, eps=1e-8):
     return data / (np.linalg.norm(data, axis=1)[:, np.newaxis] + eps)
