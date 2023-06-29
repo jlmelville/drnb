@@ -44,7 +44,7 @@ are using VSCode then the `.vscode/settings.json` sets those tools up with the c
 `setup.cfg` . That all assumes you are using the virtual environment in `venv`. Otherwise the usual
 `pip install -e .` will do fine.
 
-### faiss
+### Faiss
 
 If you have a GPU, I strongly recommend installing [faiss-gpu](https://pypi.org/project/faiss-gpu/)
 for calculating exact nearest neighbors with the euclidean or cosine metric. That said, the
@@ -54,11 +54,11 @@ and is currently stuck on version 1.7.2 due to
 is a `pip install -e .[faiss-gpu]` identifier in this repo, but it doesn't do anything more than
 `pip install faiss-gpu`.
 
-**Note**: as of June 2023, `faiss-gpu` does not currently support Python 3.11, so you will either 
-have to stick with Python 3.10 or attempt to build faiss yourself. I have failed to successfully 
-build faiss with GPU support on WSL2 with Ubuntu and a Pascal-era card (GTX 1080) -- it builds 
-without complaint (although it fails several tests) but most or all nearest neighbor distances are 
-returned as all zeros. So I recommend sticking with Python 3.10 for now.
+**Note**: as of June 2023, `faiss-gpu` does not currently support Python 3.11, so you will either
+have to stick with Python 3.10 or attempt to build Faiss yourself. With a recent CUDA update to
+12.2, I have finally successfully [built Faiss with GPU support on WSL2 with Ubuntu](https://gist.github.com/jlmelville/9b4f0d91ede13bff18d26759140709f9)
+and a Pascal-era card (GTX 1080) -- at least it *seems* to work for what I want it to do. But I
+wouldn't blame you for sticking with Python 3.10 for now.
 
 ## Data setup
 
