@@ -1,6 +1,6 @@
 import pathlib
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 import drnb.io as nbio
 import drnb.io.dataset as dataio
@@ -22,7 +22,7 @@ class EmbedderPipeline:
     # a way to refer to a specific parameterization of an embedding method,
     # e.g. the method might be umap, but you may want to refer to it as densvis
     embed_method_variant: str = ""
-    importer: Any = dataio.DatasetImporter()
+    importer: Any = field(default_factory=dataio.DatasetImporter)
     embedder: Any = None
     evaluators: list = field(default_factory=list)
     plotters: list = default_list()
@@ -99,7 +99,7 @@ class EmbedderPipeline:
 
 @dataclass
 class EmbedPipelineExporter:
-    out_types: default_list()
+    out_types: list = default_list()
     export_dict: dict = default_dict()
 
     def cache_data(self, requirers, embedding_result, ctx):
@@ -151,6 +151,8 @@ class EmbedPipelineExporter:
                 metric=require["metric"],
             )
         )
+        if triplets_request is None:
+            return
         triplet_output_paths = triplets_request.create_triplets(
             embed_coords,
             dataset_name=ctx.embed_triplets_name,
@@ -198,11 +200,15 @@ class EmbedPipelineExporter:
                 metric=require["metric"],
             )
         )
+        if neighbors_request is None:
+            return
         neighbors_output_paths = neighbors_request.create_neighbors(
             embed_coords,
             dataset_name=ctx.embed_nn_name,
             nbr_dir=ctx.experiment_name,
         )
+        if not neighbors_output_paths:
+            return
 
         if "neighbors" not in self.export_dict:
             self.export_dict["neighbors"] = []
@@ -295,11 +301,11 @@ class EmbedContext:
     dataset_name: str
     embed_method_name: str
     embed_method_variant: str = ""
-    drnb_home: pathlib.Path = nbio.get_drnb_home()
+    drnb_home: Optional[pathlib.Path] = nbio.get_drnb_home()
     data_sub_dir: str = "data"
     nn_sub_dir: str = "nn"
     triplet_sub_dir: str = "triplets"
-    experiment_name: str = None
+    experiment_name: Optional[str] = None
 
     @property
     def embed_method_label(self):
@@ -378,6 +384,7 @@ def standard_metrics():
         "rte",
         "rpc",
         ("nnp", dict(n_neighbors=[15, 50, 150])),
+        # ("lp", dict(n_neighbors=[15, 50, 150])),
         # ("unnp", dict(n_neighbors=[15, 50, 150])),
         # ("soccur", dict(n_neighbors=[15, 50, 150])),
     ]
