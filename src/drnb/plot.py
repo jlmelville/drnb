@@ -149,7 +149,7 @@ class ColorByRte:
     scale: ColorScale = field(default_factory=ColorScale)
     normalize: bool = True
     metric: str = "euclidean"
-    random_state: int = None
+    random_state: Optional[int] = None
 
     def rte(self):
         return RandomTripletEval(
@@ -171,15 +171,15 @@ class ColorByRte:
 
 @dataclass
 class SeabornPlotter:
-    cex: int = None
-    alpha_scale: float = None
-    title: str = None
-    figsize: tuple = None
+    cex: Optional[int] = None
+    alpha_scale: Optional[float] = None
+    title: Optional[str] = None
+    figsize: Optional[tuple] = None
     legend: bool = True
     palette: Any = None
     color_by: Any = None
-    vmin: float = None
-    vmax: float = None
+    vmin: Optional[float] = None
+    vmax: Optional[float] = None
     pc_axes: bool = False
     flipx: bool = False
     flipy: bool = False
@@ -304,7 +304,7 @@ class RandomTripletHistogram:
     n_triplets_per_point: int = 5
     normalize: bool = True
     metric: str = "euclidean"
-    random_state: int = None
+    random_state: Optional[int] = None
 
     def rte(self):
         return RandomTripletEval(
@@ -332,7 +332,7 @@ class RandomTripletHistogram:
 class RandomPairDistanceScatterplot:
     n_triplets_per_point: int = 5
     metric: str = "euclidean"
-    random_state: int = None
+    random_state: Optional[int] = None
 
     def rpc(self):
         return RandomPairCorrelEval(
@@ -504,7 +504,7 @@ def sns_embed_plot(
     coords,
     color_col=None,
     cex=10,
-    alpha_scale=1,
+    alpha_scale: float = 1.0,
     palette=None,
     title="",
     figsize=None,
@@ -605,8 +605,8 @@ def sns_embed_plot(
 def plotly_embed_plot(
     coords,
     color_col=None,
-    cex=10,
-    alpha_scale=1,
+    cex=10.0,
+    alpha_scale=1.0,
     palette=None,
     title="",
     figsize=None,
@@ -727,15 +727,15 @@ def plotly_embed_plot(
 
 @dataclass
 class PlotlyPlotter:
-    cex: int = None
-    alpha_scale: float = None
-    title: str = None
-    figsize: tuple = None
+    cex: Optional[int] = None
+    alpha_scale: Optional[float] = None
+    title: Optional[str] = None
+    figsize: Optional[tuple] = None
     legend: bool = True
     palette: Any = None
     color_by: Any = None
-    vmin: float = None
-    vmax: float = None
+    vmin: Optional[float] = None
+    vmax: Optional[float] = None
     pc_axes: bool = False
     flipx: bool = False
     flipy: bool = False

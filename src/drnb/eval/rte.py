@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 
@@ -17,7 +18,7 @@ from .base import EmbeddingEval
 
 @dataclass
 class RandomTripletEval(EmbeddingEval):
-    random_state: int = None
+    random_state: Optional[int] = None
     n_triplets_per_point: int = 5
     use_precomputed_triplets: bool = True
     metric: str = "euclidean"
