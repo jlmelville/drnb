@@ -1,4 +1,5 @@
 import numba
+import numpy as np
 
 
 @numba.njit(
@@ -19,6 +20,11 @@ def rdist(x, y):
         result += diff * diff
 
     return result
+
+
+@numba.njit(fastmath=True, cache=True)
+def euclidean(x, y):
+    return np.sqrt(rdist(x, y))
 
 
 @numba.njit()
