@@ -20,9 +20,11 @@ DRNB_HOME_ENV_VAR = "DRNB_HOME"
 DEBUG = False
 
 
-def get_drnb_home():
+def get_drnb_home(fail_if_not_set: bool = True) -> Optional[Path]:
     if DRNB_HOME_ENV_VAR in os.environ:
         return Path(os.environ[DRNB_HOME_ENV_VAR])
+    if fail_if_not_set:
+        raise ValueError("Environment variable {DRNB_HOME_ENV_VAR} not set")
     return None
 
 

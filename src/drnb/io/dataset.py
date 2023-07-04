@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional, cast
 
 import pandas as pd
 
@@ -99,7 +100,7 @@ def read_palette(
 
 @dataclass
 class DatasetImporter:
-    drnb_home: Path = None
+    drnb_home: Optional[Path] = None
     sub_dir: str = "data"
     data_suffix: str = "data"
     target_suffix: str = "target"
@@ -113,6 +114,7 @@ class DatasetImporter:
         drnb_home = self.drnb_home
         if drnb_home is None:
             drnb_home = get_drnb_home()
+        drnb_home = cast(Path, drnb_home)
         data, target = read_dataset(
             name,
             drnb_home=drnb_home,
@@ -229,9 +231,12 @@ def _get_dataset_info(name, drnb_home=None, sub_dir="data"):
         ).set_index("name")
 
 
-def list_available_datasets(drnb_home=None, sub_dir="data", with_target=False):
+def list_available_datasets(
+    drnb_home: Optional[Path] = None, sub_dir="data", with_target=False
+):
     if drnb_home is None:
         drnb_home = get_drnb_home()
+    drnb_home = cast(Path, drnb_home)
     data_path = drnb_home
     if sub_dir is not None:
         data_path = drnb_home / sub_dir

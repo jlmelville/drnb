@@ -1,33 +1,35 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 import sklearn.decomposition
 
-from drnb.io import stringify_paths, write_json, write_pickle
+from drnb.io import FileExporter, stringify_paths, write_json, write_pickle
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
 from drnb.neighbors import NeighborsRequest, create_neighbors_request
 from drnb.preprocess import create_scale_kwargs, filter_columns, numpyfy, scale_data
 from drnb.triplets import TripletsRequest, create_triplets_request
-from drnb.util import Jsonizable, dts_now
+from drnb.util import Jsonizable, dts_to_str
 
 
 @dataclass
 class DatasetPipeline(Jsonizable):
-    convert: dict = field(default_factory=lambda: dict(dtype="float32", layout="c"))
+    convert: Optional[Dict] = field(
+        default_factory=lambda: dict(dtype="float32", layout="c")
+    )
     scale: dict = field(default_factory=dict)
     check_for_duplicates: bool = False
-    reduce: int = None
+    reduce: Optional[int] = None
     reduce_result: Any = None
-    drnb_home: Path = None
+    drnb_home: Optional[Path] = None
     data_sub_dir: str = "data"
-    data_exporters: list = field(default_factory=list)
-    target_exporters: list = field(default_factory=list)
-    neighbors_request: NeighborsRequest = None
-    triplets_request: TripletsRequest = None
+    data_exporters: Optional[List[FileExporter]] = field(default_factory=list)
+    target_exporters: Optional[List[FileExporter]] = field(default_factory=list)
+    neighbors_request: Optional[NeighborsRequest] = None
+    triplets_request: Optional[TripletsRequest] = None
     verbose: bool = False
 
     def run(
@@ -68,7 +70,7 @@ class DatasetPipeline(Jsonizable):
         if tags is None:
             tags = []
 
-        started_on = dts_now()
+        started_on = dts_to_str()
 
         data, target = self.get_target(data, target, target_cols)
 
@@ -100,9 +102,9 @@ class DatasetPipeline(Jsonizable):
 
         neighbors_output_paths = self.calculate_neighbors(data, name)
         triplets_output_paths = self.calculate_triplets(data, name)
-        created_on = dts_now()
+        created_on = dts_to_str()
         result = DatasetPipelineResult(
-            self,
+            str(self),
             data_shape=data.shape,
             data_output_paths=data_output_paths,
             target_shape=target_shape,
@@ -264,16 +266,16 @@ class DatasetPipelineResult(Jsonizable):
     started_on: str = "unknown"
     created_on: str = "unknown"
     updated_on: str = "unknown"
-    data_shape: tuple = None
+    data_shape: Optional[tuple] = None
     n_na_rows: int = 0
-    n_duplicates: int = None
-    reduce_result: str = None
+    n_duplicates: Optional[int] = None
+    reduce_result: Optional[str] = None
     data_output_paths: list = field(default_factory=list)
-    target_shape: tuple = None
-    target_output_paths: list = field(default_factory=list)
-    neighbors_output_paths: list = field(default_factory=list)
-    triplets_output_paths: list = field(default_factory=list)
-    url: str = None
+    target_shape: Optional[tuple] = None
+    target_output_paths: Optional[List[str]] = field(default_factory=list)
+    neighbors_output_paths: Optional[List[str]] = field(default_factory=list)
+    triplets_output_paths: Optional[List[str]] = field(default_factory=list)
+    url: Optional[str] = None
     tags: list = field(default_factory=list)
     data_cols: list = field(default_factory=list)
     target_cols: list = field(default_factory=list)
