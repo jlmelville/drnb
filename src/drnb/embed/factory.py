@@ -75,14 +75,14 @@ def str_to_ctor(method):
         from drnb.embed.leopold import Leopold as ctor
     elif method == "spacemap":
         from drnb.embed.spacemap import Spacemap as ctor
-    elif method == "skmmds":
-        from drnb.embed.mmds import Mmds as ctor
     elif method == "mmds":
         from drnb.embed.smmds import Mmds as ctor
     elif method == "rescale":
         from drnb.embed.rescale import Rescale as ctor
     elif method == "umato":
         from drnb.embed.umato import Umato as ctor
+    elif method == "sklearn-mmds":
+        from drnb.embed.mmds import Mmds as ctor
     else:
         raise ValueError(f"Unknown method {method}")
     return ctor
