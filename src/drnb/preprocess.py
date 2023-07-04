@@ -2,6 +2,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 
 from drnb.log import log
@@ -83,7 +84,7 @@ def filter_columns(data, cols):
 def normalize(data, norm=""):
     if norm == "l2":
         return normalize_l2(data)
-    elif norm == "l1":
+    if norm == "l1":
         return normalize_l1(data)
     return data
 
@@ -94,3 +95,15 @@ def normalize_l1(data, eps=1e-8):
 
 def normalize_l2(data, eps=1e-8):
     return data / (np.linalg.norm(data, axis=1)[:, np.newaxis] + eps)
+
+
+def pca(data, n_components):
+    log.info("Reducing initial dimensionality to %d", n_components)
+    reducer = PCA(n_components=n_components).fit(data)
+    varex = float(np.sum(reducer.explained_variance_ratio_) * 100.0)
+    log.info(
+        "PCA: %d components explain %.2f%% of variance",
+        n_components,
+        varex,
+    )
+    return reducer.transform(data)
