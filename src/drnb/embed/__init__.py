@@ -5,6 +5,16 @@ from drnb.log import log
 
 
 # helper method to create an embedder configuration
+# An embedder can be as simple as:
+# embedder("tsne")
+# or as complex as:
+# embedder(
+#     "tsne",
+#     affinity="uniform",
+#     n_neighbors=10,
+#     anneal_exaggeration=True,
+#     params=dict(n_iter=2000),
+# )
 def embedder(name, params=None, **kwargs):
     return (name, kwargs | dict(params=params))
 
@@ -22,9 +32,11 @@ def check_embed_method(method, params=None):
 
 
 def get_embedder_name(method):
+    # chained embedder is a list of embedder names
     if isinstance(method, list):
         return "+".join(get_embedder_name(m) for m in method)
     if isinstance(method, tuple):
+        # method is either just the string name or a tuple of (name, params)
         if len(method) != 2:
             raise ValueError("Unexpected format for method")
         return method[0]
