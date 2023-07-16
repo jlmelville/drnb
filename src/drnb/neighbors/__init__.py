@@ -2,7 +2,7 @@ import itertools
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import Dict, List, Optional, cast
 
 import numpy as np
 import scipy.sparse.csgraph
@@ -13,7 +13,7 @@ from drnb.io import data_relative_path, get_path, read_data, write_data
 from drnb.log import log
 from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.preprocess import numpyfy
-from drnb.util import FromDict, Jsonizable, default_dict, default_list, islisty
+from drnb.util import FromDict, Jsonizable, islisty
 
 from . import annoy, faiss, hnsw, pynndescent
 from .nbrinfo import NbrInfo
@@ -480,13 +480,17 @@ def get_neighbors_with_ctx(
     name = knn_defaults.get("name")
     knn_defaults["cache"] = name is not None and name
 
-    return get_neighbors(
+    result = get_neighbors(
         data=data,
         n_neighbors=n_neighbors,
         metric=metric,
         return_distance=return_distance,
         **full_knn_params,
     )
+    # let's just make sure we get the dist member
+    if return_distance and result.dist is None:
+        raise ValueError("return_distance was True but no distance data was returned")
+    return result
 
 
 # this should only be used for creating reduced neighbor data for writing
@@ -504,11 +508,11 @@ def slice_neighbors(neighbors_data, n_neighbors):
 
 @dataclass
 class NeighborsRequest(FromDict, Jsonizable):
-    n_neighbors: list = default_list([15])
+    n_neighbors: List[int] = field(default_factory=lambda: [15])
     method: str = "exact"
-    metric: str | list = default_list(["euclidean"])
-    file_types: list[str] = default_list(["pkl"])
-    params: dict = default_dict()
+    metric: str | List[str] = field(default_factory=lambda: ["euclidean"])
+    file_types: List[str] = field(default_factory=lambda: ["pkl"])
+    params: Dict = field(default_factory=dict)
     verbose: bool = False
 
     def create_neighbors(self, data, dataset_name, nbr_dir="nn", suffix=None):

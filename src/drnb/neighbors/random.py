@@ -1,4 +1,7 @@
+from typing import cast
+
 import numpy as np
+from numpy.typing import NDArray
 from sklearn.utils import check_random_state
 
 from . import NearestNeighbors
@@ -56,7 +59,7 @@ def mid_near_neighbors(
             data=data, n_neighbors=n_random, distance=metric, random_state=seed
         )
         mn_idx[:, i] = rnbrs.idx[:, mid_index]
+        rnbrs.dist = cast(NDArray, rnbrs.dist)
         mn_dist[:, i] = rnbrs.dist[:, mid_index]
-
     mn_idx, mn_dist = sort_neighbors(mn_idx, mn_dist)
     return NearestNeighbors(idx=mn_idx, dist=mn_dist)

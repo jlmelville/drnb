@@ -1,4 +1,4 @@
-from typing import Optional, Union, cast
+from typing import List, Optional, Tuple, Union, cast
 
 import numpy as np
 import openTSNE.initialization
@@ -57,7 +57,7 @@ def umap_random_init(n, random_state=42, max_coord=10.0):
 
 def umap_graph_spectral_init(
     x: Optional[np.ndarray] = None,
-    knn: Union[list[np.ndarray], tuple[np.ndarray], NearestNeighbors, None] = None,
+    knn: Optional[List[np.ndarray], Tuple[np.ndarray], NearestNeighbors] = None,
     metric="euclidean",
     n_neighbors=15,
     global_neighbors=None,
@@ -85,7 +85,7 @@ def umap_graph_spectral_init(
     if isinstance(knn, NearestNeighbors):
         knn.dist = cast(np.ndarray, knn.dist)
         knn = [knn.idx, knn.dist]
-    knn = cast(list[np.ndarray], knn)
+    knn = cast(List[np.ndarray], knn)
 
     knn_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
         X=x,

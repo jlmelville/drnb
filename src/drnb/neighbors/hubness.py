@@ -111,7 +111,7 @@ def _nn_to_sparse_binary(idx):
 # symmetrize operation to carry out on matrix and its transpose:
 # "and" to carry out AND operation (mutual nearest neighbors only)
 # "or" to carry out OR operation (undirected nearest neighbors)
-def nn_to_sparse(nbrs, symmetrize=None):
+def nn_to_sparse(nbrs, symmetrize=None) -> scipy.sparse.coo_matrix:
     if isinstance(nbrs, np.ndarray):
         idx = nbrs
         dist = None
@@ -140,6 +140,11 @@ def nn_to_sparse(nbrs, symmetrize=None):
         elif symmetrize == "and":
             # use mutual neighbors (i needs to be a neighbor of j AND vice versa)
             dmat = dmat.minimum(dmat.transpose()).tocoo()
+        elif symmetrize == "mean":
+            dmat_csr = dmat.tocsr()
+            dmat_csr = cast(dmat_csr.dtype, dmat_csr)
+            # Calculate the average of the matrix and its transpose
+            dmat = ((dmat_csr + dmat_csr.transpose()) / 2).tocoo()
         else:
             raise ValueError(f"Unknown symmetrization '{symmetrize}'")
     return dmat

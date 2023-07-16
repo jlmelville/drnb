@@ -1,7 +1,7 @@
 import collections.abc
 import datetime
 import json
-from dataclasses import asdict, field
+from dataclasses import asdict
 from typing import Optional
 
 # pylint: disable=unused-import
@@ -86,24 +86,6 @@ def codes_to_categories(y, category_names, col_name):
         name=col_name,
         dtype="category",
     )
-
-
-def default_list(val=None):
-    if val is None:
-        return field(default_factory=list)
-    return field(default_factory=lambda: val)
-
-
-def default_dict(val=None):
-    if val is None:
-        return field(default_factory=dict)
-    return field(default_factory=lambda: val)
-
-
-def default_set(val=None):
-    if val is None:
-        return field(default_factory=set)
-    return field(default_factory=lambda: val)
 
 
 def evenly_spaced(s, n):

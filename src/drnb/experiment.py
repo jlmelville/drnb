@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Set
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -8,20 +9,20 @@ from drnb.embed import check_embed_method, get_embedder_name
 from drnb.io import read_pickle, write_pickle
 from drnb.log import log
 from drnb.plot import result_plot
-from drnb.util import default_dict, default_list, default_set, dts_to_str
+from drnb.util import dts_to_str
 
 
 @dataclass
 class Experiment:
     name: str = ""
-    datasets: list = default_list()
-    uniq_datasets: set = default_set()
-    methods: list = default_list()
-    uniq_method_names: set = default_set()
-    results: dict = default_dict()
-    evaluations: list = default_list()
+    datasets: List[str] = field(default_factory=list)
+    uniq_datasets: Set[str] = field(default_factory=set)
+    methods: List = field(default_factory=list)
+    uniq_method_names: Set[str] = field(default_factory=set)
+    results: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    evaluations: List = field(default_factory=list)
 
-    def add_method(self, method, *, params=None, name=""):
+    def add_method(self, method, *, params=None, name: str = ""):
         method = check_embed_method(method, params)
         if not name:
             name = get_embedder_name(method)

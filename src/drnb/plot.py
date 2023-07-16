@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Callable, List, Optional
 
 import glasbey
 import matplotlib
@@ -21,7 +21,7 @@ from drnb.eval.rpc import RandomPairCorrelEval
 from drnb.eval.rte import RandomTripletEval
 from drnb.io.dataset import read_dataset_from_ctx, read_palette
 from drnb.log import log
-from drnb.util import default_list, evenly_spaced, get_method_and_args, islisty
+from drnb.util import evenly_spaced, get_method_and_args, islisty
 
 
 class NoPlotter:
@@ -741,7 +741,7 @@ class PlotlyPlotter:
     pc_axes: bool = False
     flipx: bool = False
     flipy: bool = False
-    hover: default_list() = None
+    hover: Optional[List] = None
     renderer: str = "jupyterlab"
     clickable: bool = False
     clickable_n_neighbors: int = 15
