@@ -237,9 +237,9 @@ class DatasetPipeline(Jsonizable):
             all_output_paths += stringify_paths(output_paths)
         return all_output_paths
 
-    def calculate_neighbors(self, data, name):
+    def calculate_neighbors(self, data, name: str) -> List[str]:
         if self.neighbors_request is None:
-            return None
+            return []
         log.info("Calculating nearest neighbors")
 
         neighbors_output_paths = self.neighbors_request.create_neighbors(

@@ -57,7 +57,7 @@ def umap_random_init(n, random_state=42, max_coord=10.0):
 
 def umap_graph_spectral_init(
     x: Optional[np.ndarray] = None,
-    knn: Optional[List[np.ndarray], Tuple[np.ndarray], NearestNeighbors] = None,
+    knn: List[np.ndarray] | Tuple[np.ndarray] | NearestNeighbors | None = None,
     metric="euclidean",
     n_neighbors=15,
     global_neighbors=None,

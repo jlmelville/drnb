@@ -2,7 +2,7 @@ import itertools
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import scipy.sparse.csgraph
@@ -428,12 +428,12 @@ def get_neighbors(
 
 def write_neighbors(
     neighbor_data,
-    drnb_home=None,
-    sub_dir="nn",
-    create_sub_dir=True,
+    drnb_home: Optional[Path] = None,
+    sub_dir: str = "nn",
+    create_sub_dir: bool = True,
     file_type: str | List[str] = "npy",
-    verbose=False,
-):
+    verbose: bool = False,
+) -> Tuple[List[Path], List[Path]]:
     # e.g. mnist.150.euclidean.exact.faiss.dist.npy
     if neighbor_data.info.name is None:
         raise ValueError("No neighbor data info name")
@@ -515,7 +515,9 @@ class NeighborsRequest(FromDict, Jsonizable):
     params: Dict = field(default_factory=dict)
     verbose: bool = False
 
-    def create_neighbors(self, data, dataset_name, nbr_dir="nn", suffix=None):
+    def create_neighbors(
+        self, data, dataset_name: str, nbr_dir: str = "nn", suffix: Optional[str] = None
+    ) -> List[Path]:
         if not self.n_neighbors:
             log.info("Neighbor request but no n_neighbors specified")
             return []
@@ -527,6 +529,7 @@ class NeighborsRequest(FromDict, Jsonizable):
 
         if not islisty(self.metric):
             self.metric = [self.metric]
+        self.metric = cast(List[str], self.metric)
         neighbors_output_paths = []
         for metric in self.metric:
             neighbors_data = calculate_neighbors(

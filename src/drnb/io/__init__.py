@@ -7,7 +7,7 @@ import os
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import Iterable, List, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -24,29 +24,37 @@ def get_drnb_home(fail_if_not_set: bool = True) -> Optional[Path]:
     if DRNB_HOME_ENV_VAR in os.environ:
         return Path(os.environ[DRNB_HOME_ENV_VAR])
     if fail_if_not_set:
-        raise ValueError("Environment variable {DRNB_HOME_ENV_VAR} not set")
+        raise ValueError(f"Environment variable {DRNB_HOME_ENV_VAR} not set")
     return None
 
 
-def data_relative_path(path):
-    if not DEBUG and path.is_relative_to(get_drnb_home()):
-        return path.relative_to(get_drnb_home())
+def data_relative_path(path: Path) -> Path:
+    drnb_home = get_drnb_home()
+    drnb_home = cast(Path, drnb_home)
+    if not DEBUG and path.is_relative_to(drnb_home):
+        return path.relative_to(drnb_home)
     return path
 
 
-def stringify_paths(paths):
+def stringify_paths(paths: Iterable[Path]) -> List[str]:
     return [str(data_relative_path(path)) for path in paths]
 
 
-def get_path(drnb_home=None, sub_dir=None, create_sub_dir=False, verbose=False):
+def get_path(
+    drnb_home: Optional[Path] = None,
+    sub_dir: Optional[str] = None,
+    create_sub_dir: bool = False,
+    verbose: bool = False,
+) -> Path:
     if drnb_home is None:
         drnb_home = get_drnb_home()
         if drnb_home is None:
             raise ValueError(
-                "No default path provided: " + f"set envvar {DRNB_HOME_ENV_VAR}"
+                f"No default path provided: set envvar {DRNB_HOME_ENV_VAR}"
             )
         if not drnb_home.is_dir():
             raise ValueError(f"Data root is not a directory: {str(drnb_home)}")
+    drnb_home = cast(Path, drnb_home)
     data_path = drnb_home
     if sub_dir is not None:
         data_path = drnb_home / sub_dir
@@ -63,11 +71,15 @@ def get_path(drnb_home=None, sub_dir=None, create_sub_dir=False, verbose=False):
     return data_path
 
 
-def ensure_suffix(suffix, default_suffix: Optional[str] = ""):
+def ensure_suffix(
+    suffix: str | List[str] | None, default_suffix: Optional[str] = ""
+) -> str:
     if default_suffix is None:
         default_suffix = ""
+    default_suffix = cast(str, default_suffix)
     if suffix is None:
         suffix = default_suffix
+    suffix = cast(str, suffix)
     if not suffix:
         return suffix
     if islisty(suffix):
@@ -96,7 +108,7 @@ def get_data_file_path(
     sub_dir: Optional[str] = None,
     create_sub_dir=True,
     verbose=False,
-):
+) -> Path:
     drnb_home = get_path(drnb_home, sub_dir, create_sub_dir, verbose)
     suffix = ensure_suffix(suffix, sub_dir)
     if suffix is not None:
@@ -263,7 +275,7 @@ def write_csv(
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
-):
+) -> Path:
     output_path = get_data_file_path(
         name, ".csv", suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
@@ -286,7 +298,7 @@ def write_npy(
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
-):
+) -> Path:
     output_path = get_data_file_path(
         name, ".npy", suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
@@ -306,7 +318,7 @@ def write_pickle(
     verbose=False,
     compression=None,
     overwrite=True,
-):
+) -> Path:
     ext = get_pkl_ext(compression)
     output_path = get_data_file_path(
         name, ext, suffix, drnb_home, sub_dir, create_sub_dir, verbose
@@ -335,7 +347,7 @@ def write_json(
     sub_dir=None,
     create_sub_dir=True,
     verbose=False,
-):
+) -> Path:
     output_path = get_data_file_path(
         name, ".json", suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
@@ -359,14 +371,14 @@ def is_file_type(target_file_type, file_type=None, suffix=None):
 
 def write_data(
     x,
-    name,
-    suffix=None,
-    drnb_home=None,
-    sub_dir=None,
-    create_sub_dir=True,
-    verbose=False,
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Optional[Path] = None,
+    sub_dir: Optional[str] = None,
+    create_sub_dir: bool = True,
+    verbose: bool = False,
     file_type: str | List[str] = "csv",
-):
+) -> List[Path]:
     if isinstance(file_type, str):
         file_type = [file_type]
     file_type = cast(List[str], file_type)
@@ -398,7 +410,7 @@ def write_data(
 
 @dataclass
 class FileExporter:
-    drnb_home: Optional[str] = None
+    drnb_home: Optional[Path] = None
     sub_dir: Optional[str] = None
     suffix: Optional[str] = None
     create_sub_dir: bool = True
