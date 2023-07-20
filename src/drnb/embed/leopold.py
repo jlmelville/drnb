@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, cast
 
 import numba
 import numpy as np
@@ -74,7 +74,6 @@ def leopold(
     dmat = nn_to_sparse(knn_idx, symmetrize=symmetrize)
     dmat.eliminate_zeros()
 
-    knn_i = dmat.row
     knn_j = dmat.col
     ptr = dmat.tocsr().indptr
 
@@ -86,7 +85,6 @@ def leopold(
         optim,
         samples,
         rng_state,
-        knn_i,
         knn_j,
         ptr,
         beta_scaled,
@@ -106,7 +104,6 @@ def _leopold(
     opt,
     samples,
     rng_state,
-    knn_i,
     knn_j,
     ptr,
     prec,
@@ -116,10 +113,6 @@ def _leopold(
     anneal_dof,
 ):
     nobs, ndim = Y.shape
-
-    degrees = np.zeros((nobs,), dtype=np.int32)
-    for i in knn_i:
-        degrees[i] = degrees[i] + 1
 
     # Anneal over anneal_dens epochs and then pad out with the dens_scale to n_epochs
     epoch_dens_scale = np.linspace(0.0, dens_scale, anneal_dens)
@@ -138,8 +131,8 @@ def _leopold(
         edof = epoch_dof[n]
         grads = np.zeros((nobs, ndim), dtype=np.float32)
 
-        _leopold_nbrs(Y, knn_i, knn_j, ptr, beta, edof, grads)
-        _leopold_non_nbrs(Y, samples[n], degrees, rng_state, beta, edof, grads)
+        _leopold_nbrs(Y, knn_j, ptr, beta, edof, grads)
+        _leopold_non_nbrs(Y, samples[n], ptr, rng_state, beta, edof, grads)
 
         Y = opt.opt(Y, grads, n, n_epochs)
         for d in range(ndim):
@@ -149,14 +142,12 @@ def _leopold(
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
-def _leopold_nbrs(Y, knn_i, knn_j, ptr, prec, dof, grads):
+def _leopold_nbrs(Y, knn_j, ptr, prec, dof, grads):
     ndim = Y.shape[1]
     # pylint:disable=not-an-iterable
-    for p in numba.prange(len(ptr) - 1):
-        for edge in range(ptr[p], ptr[p + 1]):
-            i = knn_i[edge]
-            Yi = Y[i]
-
+    for i in numba.prange(len(ptr) - 1):
+        Yi = Y[i]
+        for edge in range(ptr[i], ptr[i + 1]):
             j = knn_j[edge]
             dij2 = rdist(Yi, Y[j])
 
@@ -168,12 +159,13 @@ def _leopold_nbrs(Y, knn_i, knn_j, ptr, prec, dof, grads):
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
-def _leopold_non_nbrs(Y, n_samples, degrees, rng_state, prec, dof, grads):
+def _leopold_non_nbrs(Y, n_samples, ptr, rng_state, prec, dof, grads):
     nobs, ndim = Y.shape
     # pylint:disable=not-an-iterable
     for i in numba.prange(nobs):
         Yi = Y[i]
-        for _ in range(degrees[i] * n_samples):
+        # number of edges in i is ptr[i + 1] - ptr[i]
+        for _ in range((ptr[i + 1] - ptr[i]) * n_samples):
             j = tau_rand_int(rng_state[i]) % nobs
             if i == j:
                 continue
@@ -206,6 +198,7 @@ class Leopold(drnb.embed.Embedder):
             x, params.get("metric", "euclidean"), n_neighbors + 1, ctx=ctx
         )
         params["knn_idx"] = precomputed_knn.idx[:, 1:]
+        precomputed_knn.dist = cast(np.ndarray, precomputed_knn.dist)
         params["knn_dist"] = precomputed_knn.dist[:, 1:]
         return embed_leopold(x, params)
 
