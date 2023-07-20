@@ -246,8 +246,8 @@ class SeabornPlotter:
             flipy=self.flipy,
             ax=ax,
         )
-        plt.show()
-
+        if ax is None:
+            plt.show()
         if sm is not None:
             if ax_out.get_legend() is not None:
                 ax_out.get_legend().remove()

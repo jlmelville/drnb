@@ -105,6 +105,7 @@ class Experiment:
                     title=f"{method} on {dataset}",
                     ax=ax,
                 )
+        plt.show()
         plt.tight_layout()
 
     def save(self, compression="gzip", overwrite=False):
