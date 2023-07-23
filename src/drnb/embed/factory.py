@@ -83,6 +83,8 @@ def str_to_ctor(method):
         from drnb.embed.umato import Umato as ctor
     elif method == "sklearn-mmds":
         from drnb.embed.mmds import Mmds as ctor
+    elif method == "isomap":
+        from drnb.embed.isomap import Isomap as ctor
     else:
         raise ValueError(f"Unknown method {method}")
     return ctor
