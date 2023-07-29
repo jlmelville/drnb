@@ -24,6 +24,10 @@ def check_embed_method(method, params=None):
     # or a list of chained pre-computed embedder config
     if not isinstance(method, list):
         # or a pre-computed embedder config to allow for drnb keywords
+        if isinstance(method, tuple):
+            if len(method) != 2:
+                raise ValueError("Unexpected format for method")
+            method = embedder(method[0], params=params, **method[1])
         if not isinstance(method, tuple):
             method = embedder(method, params=params)
     elif params is not None:

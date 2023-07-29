@@ -1,6 +1,6 @@
 import pathlib
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 import drnb.io as nbio
 import drnb.io.dataset as dataio
@@ -13,7 +13,7 @@ from drnb.io.embed import create_embed_exporter
 from drnb.log import log, log_verbosity
 from drnb.neighbors import create_neighbors_request, find_candidate_neighbors_info
 from drnb.triplets import create_triplets_request, find_triplet_files
-from drnb.util import default_dict, default_list, dts_to_str, islisty
+from drnb.util import dts_to_str, islisty
 
 
 @dataclass
@@ -24,8 +24,8 @@ class EmbedderPipeline:
     embed_method_variant: str = ""
     importer: Any = field(default_factory=dataio.DatasetImporter)
     embedder: Any = None
-    evaluators: list = field(default_factory=list)
-    plotters: list = default_list()
+    evaluators: List = field(default_factory=list)
+    plotters: List = field(default_factory=list)
     exporter: Any = None
     verbose: bool = False
     pipeline_name: str = f"pipeline-{dts_to_str()}"
@@ -99,8 +99,8 @@ class EmbedderPipeline:
 
 @dataclass
 class EmbedPipelineExporter:
-    out_types: list = default_list()
-    export_dict: dict = default_dict()
+    out_types: List = field(default_factory=list)
+    export_dict: Dict = field(default_factory=dict)
 
     def cache_data(self, requirers, embedding_result, ctx):
         embed_coords = embedding_result["coords"]
