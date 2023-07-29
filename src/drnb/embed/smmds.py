@@ -364,7 +364,7 @@ def embed_mmds(
 # SKMMDS
 
 
-def skmmds(
+def _knn_mmds(
     X,
     knn_idx,
     knn_dist,
@@ -380,6 +380,7 @@ def skmmds(
     init_scale: float | Literal["knn"] = 10.0,
     pca: Optional[int] = None,
     eps: float = 1e-10,
+    impl: Literal["skmmds", "sikmmds"] = "skmmds",
 ):
     if optargs is None:
         optargs = {"decay_alpha": True}
@@ -390,6 +391,17 @@ def skmmds(
     nobs = X.shape[0]
     optim = create_opt(nobs, opt, optargs)
     rng_state = setup_rngn(nobs, random_state)
+
+    if pca is not None and np.min(X.shape) > pca:
+        X = pca_reduce(X, n_components=pca)
+        n_neighbors = knn_idx.shape[1]
+        log.info("Calculating new nearest neighbor data after PCA reduction")
+        pca_nn = nbrs.calculate_exact_neighbors(
+            data=X, metric="euclidean", n_neighbors=n_neighbors
+        )
+        knn_idx, knn_dist = pca_nn.idx, pca_nn.dist
+    else:
+        log.info("Requested PCA with n_components=%d is not possible, skipping", pca)
 
     if init_scale == "knn":
         init_scale = np.mean(knn_dist)
@@ -409,14 +421,16 @@ def skmmds(
     graph_dist = dmat.data
     ptr = dmat.tocsr().indptr
 
-    # this is probably bad because now the non-neighbors have distances
-    # drawn from a different distribution to the neighbors
-    if pca is not None and np.min(X.shape) > pca:
-        X = pca_reduce(X, n_components=pca)
-
     samples = create_sample_plan(n_samples, n_epochs, strategy=sample_strategy)
 
-    Y = _skmmds(
+    if impl == "skmmds":
+        mmds_fun = _skmmds
+    elif impl == "sikmmds":
+        mmds_fun = _sikmmds
+    else:
+        raise ValueError(f"Unknown implementation '{impl}'")
+
+    Y = mmds_fun(
         X,
         Y,
         n_epochs,
@@ -430,6 +444,43 @@ def skmmds(
     )
 
     return Y
+
+
+def skmmds(
+    X,
+    knn_idx,
+    knn_dist,
+    n_epochs=500,
+    init="spectral",
+    n_samples=5,
+    sample_strategy=None,
+    random_state=42,
+    learning_rate=1.0,
+    opt="adam",
+    optargs: Optional[dict] = None,
+    symmetrize="or",
+    init_scale: float | Literal["knn"] = 10.0,
+    pca: Optional[int] = None,
+    eps: float = 1e-10,
+):
+    return _knn_mmds(
+        X,
+        knn_idx,
+        knn_dist,
+        n_epochs,
+        init,
+        n_samples,
+        sample_strategy,
+        random_state,
+        learning_rate,
+        opt,
+        optargs,
+        symmetrize,
+        init_scale,
+        pca,
+        eps,
+        impl="skmmds",
+    )
 
 
 def _skmmds(X, Y, n_epochs, opt, samples, rng_state, graph_j, graph_dist, ptr, eps):
@@ -541,53 +592,24 @@ def sikmmds(
     pca: Optional[int] = None,
     eps: float = 1e-10,
 ):
-    if optargs is None:
-        optargs = {"decay_alpha": True}
-    # specifying learning_rate takes precedence over any value of alpha set in opt args
-    if learning_rate is not None:
-        optargs["alpha"] = learning_rate
-
-    nobs = X.shape[0]
-    optim = create_opt(nobs, opt, optargs)
-    rng_state = setup_rngn(nobs, random_state)
-
-    if init_scale == "knn":
-        init_scale = np.mean(knn_dist)
-    Y = standard_neighbor_init(
-        init,
-        nobs=nobs,
-        random_state=random_state,
-        knn_idx=knn_idx,
-        X=X,
-        init_scale=init_scale,
-    )
-
-    dmat = nn_to_sparse([knn_idx, knn_dist], symmetrize=symmetrize)
-    dmat.eliminate_zeros()
-
-    graph_j = dmat.col
-    graph_dist = dmat.data
-    ptr = dmat.tocsr().indptr
-
-    if pca is not None and np.min(X.shape) > pca:
-        X = pca_reduce(X, n_components=pca)
-
-    samples = create_sample_plan(n_samples, n_epochs, strategy=sample_strategy)
-
-    Y = _sikmmds(
+    return _knn_mmds(
         X,
-        Y,
+        knn_idx,
+        knn_dist,
         n_epochs,
-        optim,
-        samples,
-        rng_state,
-        graph_j,
-        graph_dist,
-        ptr,
+        init,
+        n_samples,
+        sample_strategy,
+        random_state,
+        learning_rate,
+        opt,
+        optargs,
+        symmetrize,
+        init_scale,
+        pca,
         eps,
+        impl="sikmmds",
     )
-
-    return Y
 
 
 def _sikmmds(
