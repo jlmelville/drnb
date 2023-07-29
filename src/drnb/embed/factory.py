@@ -85,6 +85,10 @@ def str_to_ctor(method):
         from drnb.embed.mmds import Mmds as ctor
     elif method == "isomap":
         from drnb.embed.isomap import Isomap as ctor
+    elif method == "skmmds":
+        from drnb.embed.smmds import Skmmds as ctor
+    elif method == "sikmmds":
+        from drnb.embed.smmds import Sikmmds as ctor
     else:
         raise ValueError(f"Unknown method {method}")
     return ctor
