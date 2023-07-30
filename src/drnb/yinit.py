@@ -6,6 +6,7 @@ import scipy.sparse.csgraph
 import scipy.sparse.linalg
 import sklearn.decomposition
 import umap
+from numpy.typing import NDArray
 from sklearn.utils import check_random_state
 
 import drnb.neighbors as nbrs
@@ -17,7 +18,7 @@ from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.neighbors.random import logn_neighbors
 
 
-def scale_coords(coords, max_coord=10.0):
+def scale_coords(coords: NDArray[np.float32], max_coord=10.0) -> NDArray[np.float32]:
     expansion = max_coord / np.abs(coords).max()
     return (coords * expansion).astype(np.float32)
 

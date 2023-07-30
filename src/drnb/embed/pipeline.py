@@ -1,11 +1,10 @@
-import pathlib
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import drnb.io as nbio
 import drnb.io.dataset as dataio
 import drnb.plot as nbplot
-from drnb.embed import check_embed_method, embedder, get_embedder_name
+from drnb.embed import EmbedContext, check_embed_method, embedder, get_embedder_name
 from drnb.embed.factory import create_embedder
 from drnb.eval import evaluate_embedding
 from drnb.eval.factory import create_evaluators
@@ -294,32 +293,6 @@ def create_pipeline(
         exporter=exporter,
         verbose=verbose,
     )
-
-
-@dataclass
-class EmbedContext:
-    dataset_name: str
-    embed_method_name: str
-    embed_method_variant: str = ""
-    drnb_home: Optional[pathlib.Path] = nbio.get_drnb_home()
-    data_sub_dir: str = "data"
-    nn_sub_dir: str = "nn"
-    triplet_sub_dir: str = "triplets"
-    experiment_name: Optional[str] = None
-
-    @property
-    def embed_method_label(self):
-        if self.embed_method_variant:
-            return self.embed_method_variant
-        return self.embed_method_name
-
-    @property
-    def embed_nn_name(self):
-        return f"{self.dataset_name}-{self.embed_method_label}-nn"
-
-    @property
-    def embed_triplets_name(self):
-        return f"{self.dataset_name}-{self.embed_method_label}-triplets"
 
 
 def color_by_ko(n_neighbors, color_scale=None, normalize=True, log1p=False):

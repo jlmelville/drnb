@@ -3,12 +3,14 @@ from typing import Literal, Optional, cast
 
 import numba
 import numpy as np
+from numpy.typing import NDArray
 from umap.utils import tau_rand_int
 
 import drnb.embed
 import drnb.neighbors as nbrs
 import drnb.neighbors.random
 from drnb.distances import distance_function
+from drnb.embed import EmbedContext
 from drnb.embed.umap.utils import euclidean
 from drnb.log import log
 from drnb.neighbors.hubness import nn_to_sparse
@@ -111,7 +113,9 @@ def _smmds_epoch(
     return grads
 
 
-def mmds_init(init, nobs, X=None, init_scale=None, random_state=42):
+def mmds_init(
+    init, nobs, X=None, init_scale=None, random_state=42
+) -> NDArray[np.float32]:
     if isinstance(init, np.ndarray):
         if init.shape != (nobs, 2):
             raise ValueError("Initialization array has incorrect shape")
@@ -392,19 +396,23 @@ def _knn_mmds(
     optim = create_opt(nobs, opt, optargs)
     rng_state = setup_rngn(nobs, random_state)
 
-    if pca is not None and np.min(X.shape) > pca:
-        X = pca_reduce(X, n_components=pca)
-        n_neighbors = knn_idx.shape[1]
-        log.info("Calculating new nearest neighbor data after PCA reduction")
-        pca_nn = nbrs.calculate_exact_neighbors(
-            data=X, metric="euclidean", n_neighbors=n_neighbors
-        )
-        knn_idx, knn_dist = pca_nn.idx, pca_nn.dist
-    else:
-        log.info("Requested PCA with n_components=%d is not possible, skipping", pca)
+    if pca is not None:
+        if np.min(X.shape) > pca:
+            X = pca_reduce(X, n_components=pca)
+            n_neighbors = knn_idx.shape[1]
+            log.info("Calculating new nearest neighbor data after PCA reduction")
+            pca_nn = nbrs.calculate_exact_neighbors(
+                data=X, metric="euclidean", n_neighbors=n_neighbors
+            )
+            knn_idx, knn_dist = pca_nn.idx, pca_nn.dist
+        else:
+            log.info(
+                "Requested PCA with n_components=%d is not possible, skipping", pca
+            )
 
     if init_scale == "knn":
         init_scale = np.mean(knn_dist)
+        log.info("Using knn distance mean for init_scale: %f", init_scale)
     Y = standard_neighbor_init(
         init,
         nobs=nobs,
@@ -537,26 +545,59 @@ def _skmmds_non_nbrs(X, Y, n_samples, ptr, rng_state, eps, grads):
 
 
 @dataclass
-class Skmmds(drnb.embed.Embedder):
+class InitMixin:
     precomputed_init: Optional[np.ndarray] = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def handle_precomputed_init(self, params: dict):
         if self.precomputed_init is not None:
             log.info("Using precomputed initial coordinates")
             params["init"] = self.precomputed_init
+        return params
 
+
+@dataclass
+class KNNMixin:
+    precomputed_knn: Optional[nbrs.NearestNeighbors] = None
+
+    def handle_precomputed_knn(
+        self,
+        x: np.ndarray,
+        params: dict,
+        n_neighbors_default: int = 15,
+        ctx: Optional[EmbedContext] = None,
+    ):
         if "n_neighbors" in params:
             n_neighbors = params["n_neighbors"]
             del params["n_neighbors"]
         else:
-            n_neighbors = 15
+            n_neighbors = n_neighbors_default
 
-        precomputed_knn = nbrs.get_neighbors_with_ctx(
-            x, params.get("metric", "euclidean"), n_neighbors + 1, ctx=ctx
-        )
+        if self.precomputed_knn is not None:
+            log.info("Using directly-provided precomputed knn")
+            precomputed_knn = self.precomputed_knn
+            if precomputed_knn.dist is None:
+                raise ValueError("Must provide neighbor distance in precomputed knn")
+        else:
+            log.info("Looking up precomputed knn")
+            precomputed_knn = nbrs.get_neighbors_with_ctx(
+                x, params.get("metric", "euclidean"), n_neighbors + 1, ctx=ctx
+            )
+            precomputed_knn.dist = cast(np.ndarray, precomputed_knn.dist)
+
         params["knn_idx"] = precomputed_knn.idx[:, 1:]
-        precomputed_knn.dist = cast(np.ndarray, precomputed_knn.dist)
         params["knn_dist"] = precomputed_knn.dist[:, 1:]
+
+        return params
+
+
+@dataclass
+class Skmmds(InitMixin, KNNMixin, drnb.embed.Embedder):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: Optional[EmbedContext] = None
+    ):
+        params = self.handle_precomputed_init(params)
+        params = self.handle_precomputed_knn(x, params, ctx=ctx)
+
         return embed_skmmds(x, params)
 
 
@@ -683,26 +724,13 @@ def _sikmmds_non_nbrs(X, Y, n_samples, ptr, rng_state, eps, grads):
 
 
 @dataclass
-class Sikmmds(drnb.embed.Embedder):
-    precomputed_init: Optional[np.ndarray] = None
+class Sikmmds(InitMixin, KNNMixin, drnb.embed.Embedder):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: Optional[EmbedContext] = None
+    ):
+        params = self.handle_precomputed_init(params)
+        params = self.handle_precomputed_knn(x, params, ctx=ctx)
 
-    def embed_impl(self, x, params, ctx=None):
-        if self.precomputed_init is not None:
-            log.info("Using precomputed initial coordinates")
-            params["init"] = self.precomputed_init
-
-        if "n_neighbors" in params:
-            n_neighbors = params["n_neighbors"]
-            del params["n_neighbors"]
-        else:
-            n_neighbors = 15
-
-        precomputed_knn = nbrs.get_neighbors_with_ctx(
-            x, params.get("metric", "euclidean"), n_neighbors + 1, ctx=ctx
-        )
-        params["knn_idx"] = precomputed_knn.idx[:, 1:]
-        precomputed_knn.dist = cast(np.ndarray, precomputed_knn.dist)
-        params["knn_dist"] = precomputed_knn.dist[:, 1:]
         return embed_sikmmds(x, params)
 
 

@@ -1,6 +1,11 @@
 import abc
+import pathlib
 from dataclasses import dataclass, field
+from typing import Optional
 
+import numpy as np
+
+import drnb.io as nbio
 from drnb.log import log
 
 
@@ -48,6 +53,32 @@ def get_embedder_name(method):
 
 
 @dataclass
+class EmbedContext:
+    dataset_name: str
+    embed_method_name: str
+    embed_method_variant: str = ""
+    drnb_home: Optional[pathlib.Path] = nbio.get_drnb_home()
+    data_sub_dir: str = "data"
+    nn_sub_dir: str = "nn"
+    triplet_sub_dir: str = "triplets"
+    experiment_name: Optional[str] = None
+
+    @property
+    def embed_method_label(self):
+        if self.embed_method_variant:
+            return self.embed_method_variant
+        return self.embed_method_name
+
+    @property
+    def embed_nn_name(self):
+        return f"{self.dataset_name}-{self.embed_method_label}-nn"
+
+    @property
+    def embed_triplets_name(self):
+        return f"{self.dataset_name}-{self.embed_method_label}-triplets"
+
+
+@dataclass
 class Embedder(abc.ABC):
     params: dict = field(default_factory=dict)
 
@@ -56,7 +87,9 @@ class Embedder(abc.ABC):
         return self.embed_impl(x, params, ctx)
 
     @abc.abstractmethod
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: Optional[EmbedContext] = None
+    ):
         pass
 
 
