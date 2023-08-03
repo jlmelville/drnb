@@ -83,7 +83,7 @@ class Experiment:
         )
         return df.reindex(index, axis=1)
 
-    def plot(self, datasets=None, methods=None, figsize=None):
+    def plot(self, datasets=None, methods=None, figsize=None, **kwargs):
         """Plot the results of the experiment, datasets on the rows and methods on the
         columns."""
         if methods is None:
@@ -102,8 +102,9 @@ class Experiment:
                     ax = axes[i, j]
                 result_plot(
                     self.results[method][dataset],
-                    title=f"{method} on {dataset}",
                     ax=ax,
+                    title=f"{method} on {dataset}",
+                    **kwargs,
                 )
         plt.show()
         plt.tight_layout()

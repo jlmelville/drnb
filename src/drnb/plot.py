@@ -952,20 +952,20 @@ def clickable_neighbors(plot, nn):
     return f
 
 
-def sns_result_plot(embed_result, title=None, ax=None):
-    SeabornPlotter(title=title).plot(
+def sns_result_plot(embed_result, *, ax=None, **kwargs):
+    SeabornPlotter(**kwargs).plot(
         embed_result["coords"], ctx=embed_result["context"], ax=ax
     )
 
 
-def plotly_result_plot(embed_result, title=None):
-    PlotlyPlotter(title=title).plot(embed_result["coords"], ctx=embed_result["context"])
+def plotly_result_plot(embed_result, **kwargs):
+    PlotlyPlotter(**kwargs).plot(embed_result["coords"], ctx=embed_result["context"])
 
 
-def result_plot(embed_result, plot_type="sns", title=None, ax=None):
+def result_plot(embed_result, plot_type="sns", *, ax=None, **kwargs):
     if plot_type == "sns":
-        sns_result_plot(embed_result, title=title, ax=ax)
+        sns_result_plot(embed_result, ax=ax, **kwargs)
     elif plot_type == "plotly":
-        plotly_result_plot(embed_result, title=title)
+        plotly_result_plot(embed_result, **kwargs)
     else:
         raise ValueError(f"Unknown plot_type {plot_type}")
