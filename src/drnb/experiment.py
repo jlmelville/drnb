@@ -109,7 +109,11 @@ class Experiment:
         plt.show()
         plt.tight_layout()
 
-    def save(self, compression="gzip", overwrite=False):
+    def save(self, compression="gzip", overwrite=False, name=None):
+        """If `name` is provided, the experiment will be renamed."""
+        if name is not None:
+            self.name = name
+            log.info("Renaming experiment to %s", self.name)
         self.name = check_experiment(self.name)
 
         write_pickle(
@@ -139,7 +143,7 @@ def check_experiment(experiment):
     return experiment
 
 
-def short_col(colname, sep="-"):
+def short_col(colname, sep="-") -> str:
     """Return everything up to (but not including) the second `sep` in the string
     `colname` or return `colname` in its entirety if `sep` doesn't occur twice.
 
@@ -154,7 +158,7 @@ def short_col(colname, sep="-"):
     return colname[:index2]
 
 
-def get_metric_names(results):
+def get_metric_names(results) -> List[str]:
     return [short_col(ev.label) for ev in list(results.values())[0]["evaluations"]]
 
 
