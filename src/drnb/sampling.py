@@ -16,7 +16,12 @@ def ncvis_negative_plan(n_negative=5, n_epochs=200):
     return negative_plan
 
 
-def create_sample_plan(n_samples, n_epochs, strategy: Optional[str] = "unif"):
+def create_sample_plan(
+    n_samples,
+    n_epochs,
+    strategy: Optional[str] = "unif",
+    n_obs=None,
+):
     if strategy is None:
         strategy = "unif"
 
@@ -28,4 +33,6 @@ def create_sample_plan(n_samples, n_epochs, strategy: Optional[str] = "unif"):
         samples = np.array([n_samples] * n_epochs, dtype=int)
     else:
         raise ValueError(f"Unknown sample strategy {strategy}")
+    if n_obs is not None:
+        samples[samples > n_obs] = n_obs
     return samples
