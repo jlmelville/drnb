@@ -343,7 +343,6 @@ def _sikmmds(
     nobs, ndim = Y.shape
     graph_j, graph_dist, ptr = nbr_graph.indices, nbr_graph.data, nbr_graph.indptr
     rgraph_j, rgraph_dist, rptr = rnbr_graph.indices, rnbr_graph.data, rnbr_graph.indptr
-
     n_rand_nbrs = np.diff(rptr)
 
     for n in range(n_epochs):
@@ -433,6 +432,116 @@ def embed_sikmmds(
     log.info("Running SIKMMDS")
     params["X"] = x
     embedded = sikmmds(**params)
+    log.info("Embedding completed")
+
+    return embedded
+
+
+def rsikmmds(
+    X,
+    knn_idx,
+    knn_dist,
+    n_epochs=500,
+    init="spectral",
+    n_samples=5,
+    sample_strategy=None,
+    random_state=42,
+    learning_rate=1.0,
+    opt="adam",
+    optargs: Optional[dict] = None,
+    symmetrize="or",
+    init_scale: float | Literal["knn"] = 10.0,
+    pca: Optional[int] = None,
+    eps: float = 1e-10,
+):
+    nobs = X.shape[0]
+
+    opt = setup_opt(nobs, learning_rate, opt, optargs)
+
+    rng_state = setup_rngn(nobs, random_state)
+
+    X, knn_idx, knn_dist = knn_pca(X, knn_idx, knn_dist, n_components=pca)
+
+    Y = knn_init(X, knn_idx, knn_dist, init, random_state, init_scale)
+
+    nbr_graph = symmetrize_nn(knn_idx, knn_dist, symmetrize=symmetrize)
+
+    samples = create_sample_plan(n_samples, n_epochs, strategy=sample_strategy)
+
+    rng_state = setup_rngn(nobs, random_state)
+    return _rsikmmds(Y, n_epochs, opt, samples, rng_state, nbr_graph, eps)
+
+
+def _rsikmmds(
+    Y,
+    n_epochs,
+    opt,
+    samples,
+    rng_state,
+    nbr_graph,
+    eps,
+):
+    nobs, ndim = Y.shape
+    graph_j, graph_dist, ptr = nbr_graph.indices, nbr_graph.data, nbr_graph.indptr
+    radii = nbr_graph.max(axis=1).toarray().flatten()
+    for n in range(n_epochs):
+        grads = np.zeros((nobs, ndim), dtype=np.float32)
+        _skmmds_nbrs(Y, graph_j, graph_dist, ptr, eps, grads)
+        _rsikmmds_non_nbrs(radii, Y, samples[n], ptr, rng_state, eps, grads)
+
+        Y = opt.opt(Y, grads, n, n_epochs)
+        center(Y)
+
+    return Y
+
+
+@numba.jit(nopython=True, fastmath=True, parallel=True)
+def _rsikmmds_non_nbrs(radii, Y, n_samples, ptr, rng_state, eps, grads):
+    nobs, ndim = Y.shape
+    nobs_minus_1 = nobs - 1
+
+    # pylint:disable=not-an-iterable
+    for i in numba.prange(nobs):
+        n_nbr_edges = ptr[i + 1] - ptr[i]
+        n_nnbr_edges_to_sample = n_nbr_edges * n_samples
+        ri = radii[i]
+        n_nnbr_edges_to_sample = min(n_nnbr_edges_to_sample, nobs_minus_1)
+        Yi = Y[i]
+        for _ in range(n_nnbr_edges_to_sample):
+            j = tau_rand_int(rng_state[i]) % nobs
+            if i == j:
+                continue
+            Yj = Y[j]
+
+            rij = ri + radii[j]
+            dij = euclidean(Yi, Yj)
+
+            if dij >= rij:
+                continue
+
+            grad_coeff = (dij - rij) / (dij + eps)
+            for d in range(ndim):
+                grads[i, d] += grad_coeff * (Yi[d] - Yj[d])
+
+
+@dataclass
+class Rsikmmds(InitMixin, KNNMixin, drnb.embed.Embedder):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: Optional[EmbedContext] = None
+    ):
+        params = self.handle_precomputed_init(params)
+        params = self.handle_precomputed_knn(x, params, ctx=ctx)
+
+        return embed_rsikmmds(x, params)
+
+
+def embed_rsikmmds(
+    x,
+    params,
+):
+    log.info("Running RSIKMMDS")
+    params["X"] = x
+    embedded = rsikmmds(**params)
     log.info("Embedding completed")
 
     return embedded

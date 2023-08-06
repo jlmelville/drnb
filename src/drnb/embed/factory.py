@@ -89,6 +89,8 @@ def str_to_ctor(method):
         from drnb.embed.skmmds import Skmmds as ctor
     elif method == "sikmmds":
         from drnb.embed.skmmds import Sikmmds as ctor
+    elif method == "rsikmmds":
+        from drnb.embed.skmmds import Rsikmmds as ctor
     else:
         raise ValueError(f"Unknown method {method}")
     return ctor
