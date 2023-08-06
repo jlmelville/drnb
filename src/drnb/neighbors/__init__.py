@@ -337,7 +337,7 @@ def get_exact_neighbors(
     cache=True,
     data=None,
     method_kwds=None,
-):
+) -> NearestNeighbors:
     if name is None or not name:
         cache = False
 
@@ -356,6 +356,29 @@ def get_exact_neighbors(
     )
 
 
+def calculate_exact_neighbors(
+    data,
+    n_neighbors=15,
+    metric="euclidean",
+    return_distance: bool = True,
+    include_self: bool = True,
+    verbose: bool = False,
+    method_kwds: Optional[dict] = None,
+    name: str = "",
+) -> NearestNeighbors:
+    return calculate_neighbors(
+        data,
+        n_neighbors=n_neighbors,
+        metric=metric,
+        method="exact",
+        return_distance=return_distance,
+        include_self=include_self,
+        verbose=verbose,
+        method_kwds=method_kwds,
+        name=name,
+    )
+
+
 def get_neighbors(
     name,
     n_neighbors=15,
@@ -370,7 +393,7 @@ def get_neighbors(
     # used only by calc
     data=None,
     method_kwds=None,
-):
+) -> NearestNeighbors:
     if method is not None:
         if method == "exact":
             read_exact = True
