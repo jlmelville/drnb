@@ -5,41 +5,39 @@
         ],
         "editor.tabSize": 2
     },
-    "editor.bracketPairColorization.enabled": true,
-    "editor.codeActionsOnSave": {
-        "source.organizeImports": true
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        },
+        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.formatOnSave": true,
+        "editor.rulers": [
+            88
+        ],
     },
-    "editor.formatOnSave": true,
-    "editor.rulers": [
-        88
-    ],
+    "editor.bracketPairColorization.enabled": true,
     "files.watcherExclude": {
         "**/venv/**": true
     },
+    "flake8.args": [
+        "--config=${workspaceFolder}/setup.cfg"
+    ],
     "isort.args": [
         "--settings-file",
         "${workspaceFolder}/setup.cfg"
     ],
-    "python.formatting.blackPath": "${workspaceFolder}/venv/bin/black",
-    "python.formatting.provider": "none",
-    "python.linting.enabled": true,
-    "python.linting.flake8Args": [
-        "--config",
-        "${workspaceFolder}/setup.cfg"
-    ],
-    "python.linting.flake8Enabled": true,
-    "python.linting.flake8Path": "${workspaceFolder}/venv/bin/flake8",
-    "python.linting.maxNumberOfProblems": 1000,
-    "python.linting.pylintCategorySeverity.refactor": "Information",
-    "python.linting.pylintEnabled": true,
-    "python.linting.pylintPath": "${workspaceFolder}/venv/bin/pylint",
-    "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter"
+    "pylint.severity": {
+        "convention": "Information",
+        "error": "Error",
+        "fatal": "Error",
+        "info": "Information",
+        "refactor": "Information",
+        "warning": "Warning"
     },
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "python.testing.promptToConfigure": false,
     "python.testing.pytestArgs": [],
-    "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "python.testing.pytestPath": "${workspaceFolder}/venv/bin/pytest",
-    "python.testing.promptToConfigure": false,
-    "python.terminal.activateEnvInCurrentTerminal": true
+    "python.testing.unittestEnabled": false
 }
