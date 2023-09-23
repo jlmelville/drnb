@@ -35,8 +35,8 @@ pip install -e .
 
 or
 
-```bash
-pip install -e .[dev]
+```zsh
+pip install -e '.[dev]'
 ```
 
 The `dev` extra identifier just installs some linting tools for use when developing `drnb` . If you
@@ -44,15 +44,23 @@ are using VSCode then the `.vscode/settings.json` sets those tools up with the c
 `setup.cfg` . That all assumes you are using the virtual environment in `venv`. Otherwise the usual
 `pip install -e .` will do fine.
 
-### Faiss
+### Optional packages
 
-If you have a GPU, I strongly recommend installing [faiss-gpu](https://pypi.org/project/faiss-gpu/)
-for calculating exact nearest neighbors with the euclidean or cosine metric. That said, the
-PyPI version is an [unofficially built wheel](https://github.com/facebookresearch/faiss/issues/1101)
-and is currently stuck on version 1.7.2 due to
-[the wheel size being too large](https://github.com/kyamagu/faiss-wheels/issues/57). Right now there
-is a `pip install -e .[faiss-gpu]` identifier in this repo, but it doesn't do anything more than
-`pip install faiss-gpu`.
+#### ncvis
+
+The [ncvis](https://github.com/stat-ml/ncvis) method hasn't been updated for a while and I couldn't
+make it build on an ARM-based Mac. It also has some problems with installation order with `numpy`
+and `cython`, so if you want to try your luck installing this, just `pip install ncvis` after
+installing drnb.
+
+#### Faiss
+
+If you have an CUDA-compatible GPU, I strongly recommend installing
+[faiss-gpu](https://pypi.org/project/faiss-gpu/) for calculating exact nearest neighbors with the
+euclidean or cosine metric. That said, the PyPI version is an [unofficially built wheel](https://github.com/facebookresearch/faiss/issues/1101)
+and is currently stuck on version 1.7.2 due to [the wheel size being too large](https://github.com/kyamagu/faiss-wheels/issues/57).
+Right now there is a `pip install -e .[faiss-gpu]` identifier in this repo, but it doesn't do 
+anything more than `pip install faiss-gpu`.
 
 **Note**: as of June 2023, `faiss-gpu` does not currently support Python 3.11, so you will either
 have to stick with Python 3.10 or attempt to build Faiss yourself. With a recent CUDA update to

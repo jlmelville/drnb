@@ -22,8 +22,7 @@ dependencies = [
     "jupyterlab",
     "jupyterlab-system-monitor",
     "matplotlib",
-    "nb-black; python_version < '3.11'",
-    "nb-black @ git+ssh://git@github.com/IsaGrue/nb_black ; python_version >= '3.11'",
+    "nb-black @ git+ssh://git@github.com/IsaGrue/nb_black",
     "ncompress",
     "openTSNE",
     "pacmap",
@@ -36,7 +35,6 @@ dependencies = [
     "trimap",
     "umap-learn",
     "umato",
-    "ncvis",
     "h5py"
 ]
 
