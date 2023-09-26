@@ -6,22 +6,21 @@
         "editor.tabSize": 2
     },
     "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "always"
+        },
         "editor.defaultFormatter": "ms-python.black-formatter",
-        "editor.formatOnSave": true
+        "editor.formatOnSave": true,
+        "editor.rulers": [
+            88
+        ],
     },
     "editor.bracketPairColorization.enabled": true,
-    "editor.codeActionsOnSave": {
-        "source.organizeImports": true
-    },
-    "editor.formatOnSave": true,
-    "editor.rulers": [
-        88
-    ],
     "files.watcherExclude": {
         "**/venv/**": true
     },
     "flake8.args": [
-        "--config==${workspaceFolder}/setup.cfg"
+        "--config=${workspaceFolder}/setup.cfg"
     ],
     "isort.args": [
         "--settings-file",
