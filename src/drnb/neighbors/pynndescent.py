@@ -7,15 +7,15 @@ from drnb.distances import distance_function
 
 PYNNDESCENT_METRICS = pynndescent.pynndescent_.pynnd_dist.named_distances
 
-PYNNDESCENT_DEFAULTS = dict(
-    metric_kwds=None,
-    random_state=42,
-    low_memory=True,
-    n_trees=None,
-    n_iters=None,
-    max_candidates=60,
-    n_jobs=-1,
-)
+PYNNDESCENT_DEFAULTS = {
+    "metric_kwds": None,
+    "random_state": 42,
+    "low_memory": True,
+    "n_trees": None,
+    "n_iters": None,
+    "max_candidates": 60,
+    "n_jobs": -1,
+}
 
 
 def pynndescent_neighbors(
@@ -26,6 +26,7 @@ def pynndescent_neighbors(
     random_state=42,
     low_memory=True,
     n_trees=None,
+    tree_init=True,
     n_iters=None,
     max_candidates=60,
     n_jobs=-1,
@@ -45,6 +46,7 @@ def pynndescent_neighbors(
         metric_kwds=metric_kwds,
         random_state=random_state,
         n_trees=n_trees,
+        tree_init=tree_init,
         n_iters=n_iters,
         max_candidates=max_candidates,
         low_memory=low_memory,
