@@ -180,7 +180,10 @@ def read_data(
         except ModuleNotFoundError as e:
             # Seems like this could happen if we read pickled dataframe based on older
             # pandas version
-            log.warning("Module not found: %s", e)
+            log.warning("Module not found: %s from %s", e, reader_func.__name__)
+        except ValueError as e:
+            # usually from reading numpy array with object dtype
+            log.warning("Value error: %s from %s", e, reader_func.__name__)
     raise FileNotFoundError(f"Data for {dataset} suffix={suffix} sub_dir={sub_dir}")
 
 
