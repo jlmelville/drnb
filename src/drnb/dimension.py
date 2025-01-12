@@ -3,7 +3,14 @@ import numpy as np
 
 # Levina and Bickel 2004
 # https://proceedings.neurips.cc/paper/2004/hash/74934548253bcab8490ebd74afed7031-Abstract.html
-def mle_local(knn_dist, eps=1.0e-10, n_neighbors=None, remove_self=False):
+def mle_local(
+    knn_dist: np.ndarray,
+    eps: float = 1.0e-10,
+    n_neighbors: int | None = None,
+    remove_self: bool = False,
+) -> np.ndarray:
+    """Compute local intrinsic dimensionality using the maximum likelihood estimation
+    method proposed by Levina and Bickel (2004)."""
     if remove_self:
         # remove self-neighbor
         knn_dist = knn_dist[:, 1:]
@@ -23,7 +30,14 @@ def mle_local(knn_dist, eps=1.0e-10, n_neighbors=None, remove_self=False):
 
 # MacKay and Ghahramani 2005
 # http://www.inference.org.uk/mackay/dimension/
-def mle_global(knn_dist, eps=1.0e-10, n_neighbors=None, remove_self=False):
+def mle_global(
+    knn_dist: np.ndarray,
+    eps: float = 1.0e-10,
+    n_neighbors: int | None = None,
+    remove_self: bool = False,
+) -> float:
+    """Compute global intrinsic dimensionality using the maximum likelihood estimation
+    method proposed by MacKay and Ghahramani (2005)."""
     id_local = mle_local(
         knn_dist, eps=eps, n_neighbors=n_neighbors, remove_self=remove_self
     )

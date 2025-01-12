@@ -1,12 +1,9 @@
-import abc
-import pathlib
-from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, List
 
 import numpy as np
 
-import drnb.io as nbio
 from drnb.log import log
+from drnb.types import EmbedResult
 
 
 # helper method to create an embedder configuration
@@ -20,11 +17,30 @@ from drnb.log import log
 #     anneal_exaggeration=True,
 #     params=dict(n_iter=2000),
 # )
-def embedder(name, params=None, **kwargs):
-    return (name, kwargs | dict(params=params))
+def embedder(name: str, params: dict | None = None, **kwargs) -> tuple[str, dict]:
+    """Create an embedder configuration.
+    `name` is the name of the embedder, e.g. "tsne"
+    `params` is an optional dictionary of parameters which will be passed to the
+    underlying implementation, e.g. the constructor of a scikit-learn class.
+    `kwargs` are additional parameters which will be passed to drnb's embedder
+    class which wraps the underlying implementation and which attempts to provide an
+    interface that is consistent across different implementations for common
+    functionality such as pre-computed nearest neighbors and initialized coordinates.
+
+    An embedder can be as simple as:
+    `embedder("tsne")`
+    or as complex as:
+    `embedder("tsne", affinity="uniform", n_neighbors=10, anneal_exaggeration=True, params={ "n_iter": 2000 })`
+    """
+    return (name, kwargs | {"params": params})
 
 
-def check_embed_method(method, params=None):
+def check_embed_method(
+    method: str | list | tuple, params: dict | None = None
+) -> str | list | tuple:
+    """Ensure that the embedder method is in the correct format. Chained embedders
+    can be provided as a list of pre-computed embedder configurations, but in this case
+    the params must be None."""
     # in most cases you pass the method name and params to pass to the embedder
     # or a list of chained pre-computed embedder config
     if not isinstance(method, list):
@@ -40,7 +56,8 @@ def check_embed_method(method, params=None):
     return method
 
 
-def get_embedder_name(method):
+def get_embedder_name(method: List[str] | tuple | str) -> str:
+    """Get the name of the embedder."""
     # chained embedder is a list of embedder names
     if isinstance(method, list):
         return "+".join(get_embedder_name(m) for m in method)
@@ -52,48 +69,8 @@ def get_embedder_name(method):
     return method
 
 
-@dataclass
-class EmbedContext:
-    dataset_name: str
-    embed_method_name: str
-    embed_method_variant: str = ""
-    drnb_home: Optional[pathlib.Path] = nbio.get_drnb_home()
-    data_sub_dir: str = "data"
-    nn_sub_dir: str = "nn"
-    triplet_sub_dir: str = "triplets"
-    experiment_name: Optional[str] = None
-
-    @property
-    def embed_method_label(self):
-        if self.embed_method_variant:
-            return self.embed_method_variant
-        return self.embed_method_name
-
-    @property
-    def embed_nn_name(self):
-        return f"{self.dataset_name}-{self.embed_method_label}-nn"
-
-    @property
-    def embed_triplets_name(self):
-        return f"{self.dataset_name}-{self.embed_method_label}-triplets"
-
-
-@dataclass
-class Embedder(abc.ABC):
-    params: dict = field(default_factory=dict)
-
-    def embed(self, x, ctx=None):
-        params = dict(self.params)
-        return self.embed_impl(x, params, ctx)
-
-    @abc.abstractmethod
-    def embed_impl(
-        self, x: np.ndarray, params: dict, ctx: Optional[EmbedContext] = None
-    ):
-        pass
-
-
-def get_coords(embedded):
+def get_coords(embedded: EmbedResult) -> np.ndarray:
+    """Get the coordinates from the embedded data."""
     if isinstance(embedded, tuple):
         coords = embedded[0]
     elif isinstance(embedded, dict):
@@ -103,7 +80,19 @@ def get_coords(embedded):
     return coords
 
 
-def run_embed(x, params, ctor, name):
+def fit_transform_embed(
+    x: np.ndarray, params: dict, ctor: Any, name: str, **kwargs
+) -> np.ndarray:
+    """Create an embedder via `ctor` and its `params`, run the embedding and return the
+    embedded coordinates. The embedder must have a `fit_transform` method that takes
+    the data `x` and returns the embedded coordinates. Any kwargs are passed to the
+    embedder's constructor along with the params.
+
+    This is a convenience function which removes a small amount of boilerplate code
+    from Embedders which follow the sklearn API and return the embedded coordinates
+    only."""
+    # add kwargs to params
+    params |= kwargs
     log.info("Running %s", name)
     embedder_ = ctor(
         **params,

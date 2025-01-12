@@ -1,8 +1,9 @@
-from typing import Iterable
+from typing import List
 
-from drnb.util import get_method_and_args
+from drnb.util import get_method_and_args, islisty
 
 from .astress import ApproxStressEval
+from .base import EmbeddingEval
 from .globalscore import GlobalScore
 from .labelpres import LabelPreservationEval
 from .nbrpres import NbrPreservationEval
@@ -13,11 +14,28 @@ from .stress import StressEval
 from .unbrpres import UndirectedNbrPreservationEval
 
 
-def create_evaluators(eval_metrics=None):
+def create_evaluators(
+    eval_metrics: str | List[str] | None = None,
+) -> List[EmbeddingEval]:
+    """Create a list of embedding evaluators based on the given list of evaluation
+    metrics. If eval_metrics is None, return an empty list.
+
+    Possible evaluation metrics are:
+    - "gs": Global score
+    - "rte": Random triplet evaluation
+    - "rpc": Random pair correlation evaluation
+    - "nnp": Neighbourhood preservation evaluation
+    - "unnp": Undirected neighbourhood preservation evaluation
+    - "soccur": Second-order occurrence evaluation
+    - "lp": Label preservation evaluation
+    - "astress": Approximate stress evaluation
+    - "exact-stress": Exact stress evaluation
+    """
+
     if eval_metrics is None:
         return []
 
-    if not isinstance(eval_metrics, Iterable):
+    if not islisty(eval_metrics):
         eval_metrics = [eval_metrics]
 
     evaluators = []

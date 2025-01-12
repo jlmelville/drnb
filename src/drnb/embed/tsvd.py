@@ -1,27 +1,27 @@
 from dataclasses import dataclass
 
+import numpy as np
 import sklearn.decomposition
 
 import drnb.embed
-from drnb.log import log
+import drnb.embed.base
+from drnb.embed.context import EmbedContext
 from drnb.preprocess import center
+from drnb.types import EmbedResult
 
 
 @dataclass
-class Tsvd(drnb.embed.Embedder):
-    def embed_impl(self, x, params, ctx=None):
-        return embed_tsvd(x, params)
+class Tsvd(drnb.embed.base.Embedder):
+    """Truncated SVD embedding."""
 
-
-def embed_tsvd(x, params):
-    x = center(x)
-
-    log.info("Running Truncated SVD")
-    embedder = sklearn.decomposition.TruncatedSVD(
-        n_components=2,
-        **params,
-    )
-    embedded = embedder.fit_transform(x)
-    log.info("Embedding completed")
-    
-    return embedded
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
+        x = center(x)
+        return drnb.embed.fit_transform_embed(
+            x,
+            params,
+            sklearn.decomposition.TruncatedSVD,
+            "TruncatedSVD",
+            n_components=2,
+        )

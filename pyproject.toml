@@ -1,87 +1,58 @@
-[build-system]
-requires = ["setuptools>=61.2"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "drnb"
-requires-python = ">=3.10"
-version = "0.1.0"
-description = "Dimensionality reduction notebook"
+version = "0.2.0"
+description = "Dimensionality reduction notebooks"
+readme = "README.md"
+requires-python = ">=3.12"
 authors = [{name = "James Melville", email = "jlmelville@gmail.com"}]
 license = {text = "MIT"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dependencies = [
-    "numpy",
-    "cython",
-    "glasbey",
-    "hnswlib",
-    "importlib-metadata",
-    "ipython-autotime",
-    "ipywidgets",
-    "json-fix",
-    "jupyterlab",
-    "jupyterlab-system-monitor",
-    "matplotlib",
-    "nb-black @ git+ssh://git@github.com/IsaGrue/nb_black",
-    "ncompress",
-    "openTSNE",
-    "pacmap",
-    "pandas",
-    "pyarrow",
-    "pymde",
-    "rich",
-    "seaborn",
-    "plotly",
-    "trimap",
-    "umap-learn",
-    "umato",
-    "h5py"
+    "annoy>=1.17.3",
+    "glasbey>=0.2.1",
+    "hnswlib>=0.8.0",
+    "httpx>=0.28.1",
+    "ipykernel>=6.29.5",
+    # dependency of numba 0.6.0 leaves us little room to manoeuvre with numpy
+    "numpy>=1.22,<2.1",
+    "opentsne>=1.0.2",
+    "pacmap>=0.7.6",
+    "pandas>=2.2.3",
+    "plotly>=5.24.1",
+    "pyarrow>=18.1.0",
+    "pynndescent>=0.5.13",
+    "rich[jupyter]>=13.9.4",
+    "scikit-learn>=1.6.0",
+    "seaborn>=0.13.2",
+    "trimap>=1.1.4",
+    "umap-learn>=0.5.7",
+    "umato>=0.1.3",
 ]
 
-[project.readme]
-file = "README.md"
-content-type = "text/markdown"
 
-[project.urls]
-"Homepage" = "https://github.com/jlmelville/drnb"
-"Bug Tracker" = "https://github.com/jlmelville/drnb/issues"
-
-[project.optional-dependencies]
-dev = [
-    "black",
-    "flake8",
-    "isort",
-    "pylint",
-    "setup-cfg-fmt",
-    "pytest",
-]
-faiss-gpu = ["faiss-gpu"]
-
-[tool.setuptools]
-zip-safe = true
-license-files = ["LICENSE"]
-include-package-data = false
-
-[tool.setuptools.packages.find]
-where = ["src"]
-namespaces = false
+[tool.ruff.lint]
+# Enable the isort plugin
+select = ["I"]
 
 [tool.pylint]
-disable = """
-locally-disabled,
-line-too-long,
-trailing-whitespace,
-missing-docstring,
-literal-comparison,
-too-many-instance-attributes, too-few-public-methods, too-many-public-methods,
-too-many-arguments, too-many-locals, too-many-branches, invalid-name, duplicate-code"""
-max-line-length = "88"
-generated-members = """
-np.*,
-numba.*,
-torch.*,
-ncvis.*"""
-extension-pkg-allow-list = "hnswlib"
+disable = [
+    "invalid-name",
+    "missing-module-docstring",
+    "line-too-long",
+    "too-many-arguments",
+    "too-many-locals",
+    "too-many-branches",
+]
 
-[tool.isort]
-profile = "black"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "drnb",
+    "pytest>=8.3.4",
+    "ruff>=0.8.5",
+]
+
+

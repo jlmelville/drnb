@@ -1,19 +1,23 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Literal, Set, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.axes import Axes
 
 import drnb.embed.pipeline as pl
 from drnb.embed import check_embed_method, get_embedder_name
 from drnb.io import read_pickle, write_pickle
 from drnb.log import log
-from drnb.plot import result_plot
+from drnb.plot.plotly import plotly_result_plot
+from drnb.plot.seaborn import sns_result_plot
 from drnb.util import dts_to_str
 
 
 @dataclass
 class Experiment:
+    """Class to run and store the results of an experiment."""
+
     name: str = ""
     datasets: List[str] = field(default_factory=list)
     uniq_datasets: Set[str] = field(default_factory=set)
@@ -23,6 +27,7 @@ class Experiment:
     evaluations: List = field(default_factory=list)
 
     def add_method(self, method, *, params=None, name: str = ""):
+        """Add an embedding method to the experiment."""
         method = check_embed_method(method, params)
         if not name:
             name = get_embedder_name(method)
@@ -31,18 +36,21 @@ class Experiment:
         self.methods.append((method, name))
         self.uniq_method_names.add(name)
 
-    def add_datasets(self, datasets):
+    def add_datasets(self, datasets: List[str]):
+        """Add a list of datasets to the experiment."""
         for dataset in datasets:
             self.add_dataset(dataset)
 
-    def add_dataset(self, dataset):
+    def add_dataset(self, dataset: str):
+        """Add a dataset to the experiment."""
         if dataset in self.uniq_datasets:
             raise ValueError(f"Experiment already has a dataset '{dataset}'")
         self.uniq_datasets.add(dataset)
         self.datasets.append(dataset)
 
     def run(self):
-        self.name = check_experiment(self.name)
+        """Run the experiment."""
+        self.name = ensure_experiment_name(self.name)
         for method, method_name in self.methods:
             pipeline = pl.create_pipeline(
                 method=method,
@@ -60,7 +68,13 @@ class Experiment:
                 embed_result = pipeline.run(dataset)
                 method_results[dataset] = embed_result
 
-    def to_df(self, datasets=None, methods=None, metrics=None):
+    def to_df(
+        self,
+        datasets: List[str] | None = None,
+        methods: List[str] | str | None = None,
+        metrics: List[str] | None = None,
+    ):
+        """Convert the results of the experiment to a DataFrame."""
         if methods is None:
             methods = [name for _, name in self.methods]
         if not isinstance(methods, list):
@@ -83,7 +97,13 @@ class Experiment:
         )
         return df.reindex(index, axis=1)
 
-    def plot(self, datasets=None, methods=None, figsize=None, **kwargs):
+    def plot(
+        self,
+        datasets: List[str] | None = None,
+        methods: List[str] | None = None,
+        figsize: Tuple[float, float] | None = None,
+        **kwargs,
+    ):
         """Plot the results of the experiment, datasets on the rows and methods on the
         columns."""
         if methods is None:
@@ -109,12 +129,18 @@ class Experiment:
         plt.show()
         plt.tight_layout()
 
-    def save(self, compression="gzip", overwrite=False, name=None):
-        """If `name` is provided, the experiment will be renamed."""
+    def save(
+        self,
+        compression: Literal["gzip", "bz2", ""] | None = "gzip",
+        overwrite: bool = False,
+        name: str = None,
+    ):
+        """Save the experiment to the repository. If `name` is provided, the experiment
+        will be renamed."""
         if name is not None:
             self.name = name
             log.info("Renaming experiment to %s", self.name)
-        self.name = check_experiment(self.name)
+        self.name = ensure_experiment_name(self.name)
 
         write_pickle(
             x=self,
@@ -127,23 +153,29 @@ class Experiment:
         )
 
 
-def read_experiment(name, compression="any"):
+def read_experiment(
+    experiment_name: str,
+    compression: List[str] | Literal["gzip", "bz2", "any", ""] = "any",
+) -> Experiment:
+    """Read an experiment from the repository."""
     return read_pickle(
-        name,
+        experiment_name,
         sub_dir="experiments",
         suffix="",
         compression=compression,
     )
 
 
-def check_experiment(experiment):
-    if experiment is None or not experiment:
-        experiment = f"experiment-{dts_to_str()}"
-        log.info("Using experiment name: %s", experiment)
-    return experiment
+def ensure_experiment_name(experiment_name: str | None) -> str:
+    """Ensure that the experiment name is not empty and return a default name if it
+    is."""
+    if experiment_name is None or not experiment_name:
+        experiment_name = f"experiment-{dts_to_str()}"
+        log.info("Using experiment name: %s", experiment_name)
+    return experiment_name
 
 
-def short_col(colname, sep="-") -> str:
+def short_col(colname: str, sep: str = "-") -> str:
     """Return everything up to (but not including) the second `sep` in the string
     `colname` or return `colname` in its entirety if `sep` doesn't occur twice.
 
@@ -158,11 +190,15 @@ def short_col(colname, sep="-") -> str:
     return colname[:index2]
 
 
-def get_metric_names(results) -> List[str]:
+def get_metric_names(results: Dict[str, Any]) -> List[str]:
+    """Get the metric names from the first entry in the results dictionary."""
     return [short_col(ev.label) for ev in list(results.values())[0]["evaluations"]]
 
 
-def results_to_df(results, datasets=None):
+def results_to_df(
+    results: Dict[str, Any], datasets: List[str] | None = None
+) -> pd.DataFrame:
+    """Convert the results of an experiment to a DataFrame."""
     col_names = get_metric_names(results)
     if datasets is None:
         datasets = results.keys()
@@ -172,3 +208,19 @@ def results_to_df(results, datasets=None):
             continue
         df.loc[name] = [ev.value for ev in res["evaluations"]]
     return df
+
+
+def result_plot(
+    embed_result: dict,
+    plot_type: Literal["sns", "plotly"] = "sns",
+    *,
+    ax: Axes = None,
+    **kwargs,
+):
+    """Plot the result of an embedding using the specified plot type."""
+    if plot_type == "sns":
+        sns_result_plot(embed_result, ax=ax, **kwargs)
+    elif plot_type == "plotly":
+        plotly_result_plot(embed_result, **kwargs)
+    else:
+        raise ValueError(f"Unknown plot_type {plot_type}")

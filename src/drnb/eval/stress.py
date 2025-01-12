@@ -3,13 +3,18 @@ from dataclasses import dataclass
 import numba
 import numpy as np
 
-from drnb.distances import distance_function
-from drnb.eval import EvalResult
+from drnb.distances import DistanceFunc, distance_function
+from drnb.embed.context import EmbedContext
+from drnb.eval.base import EmbeddingEval, EvalResult
 
-from .base import EmbeddingEval
 
-
-def stress(X, coords, metric="euclidean"):
+def stress(
+    X: np.ndarray,
+    coords: np.ndarray,
+    metric: str = "euclidean",
+) -> float:
+    """Compute the stress of an embedding: the sum of squared differences between
+    pairwise distances in the original space and the embedding space."""
     xdfun = distance_function(metric)
     ydfun = distance_function("euclidean")
 
@@ -17,7 +22,12 @@ def stress(X, coords, metric="euclidean"):
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
-def _stress(X, Y, xdfun, ydfun):
+def _stress(
+    X: np.ndarray,
+    Y: np.ndarray,
+    xdfun: DistanceFunc,
+    ydfun: DistanceFunc,
+) -> float:
     nobs, _ = X.shape
     stressv = np.zeros(nobs)
     # pylint: disable=not-an-iterable
@@ -31,15 +41,24 @@ def _stress(X, Y, xdfun, ydfun):
 
 @dataclass
 class StressEval(EmbeddingEval):
+    """Compute the stress of an embedding: the sum of squared differences between
+    pairwise distances in the original space and the embedding space.
+
+    Attributes:
+        metric: Distance metric to use for calculating the stress.
+    """
+
     metric: str = "euclidean"
 
-    def evaluate(self, X, coords, ctx=None):
+    def evaluate(
+        self, X: np.ndarray, coords: np.ndarray, _: EmbedContext = None
+    ) -> EvalResult:
         result = stress(X, coords, self.metric)
 
         return EvalResult(
             eval_type="Stress",
             label=str(self),
-            info=dict(metric=self.metric),
+            info={"metric": self.metric},
             value=result,
         )
 

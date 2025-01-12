@@ -1,17 +1,19 @@
 from dataclasses import dataclass
 
 import numba
+import numpy as np
 from umap.layouts import clip, rdist
 from umap.utils import tau_rand_int
 
 import drnb.embed.umap
-from drnb.embed import run_embed
+from drnb.embed import fit_transform_embed
+from drnb.embed.context import EmbedContext
 from drnb.embed.umap.custom import CustomGradientUMAP
+from drnb.types import EmbedResult
 
 
 # note that gamma has been renamed to z-bar in this function
 # I reuse gamma internally to represent z-bar * m * xi from the paper
-# pylint: disable=unused-argument
 def negtsne_gradient_func(
     head_embedding,
     tail_embedding,
@@ -19,8 +21,8 @@ def negtsne_gradient_func(
     tail,
     n_vertices,
     epochs_per_sample,
-    a,
-    b,
+    _,
+    __,
     rng_state,
     z_bar,
     dim,
@@ -31,6 +33,7 @@ def negtsne_gradient_func(
     epoch_of_next_sample,
     n,
 ):
+    """Perform a single negative t-SNE gradient update."""
     xi = 2 / (n_vertices * (n_vertices - 1))
     # pylint: disable=not-an-iterable
     for i in numba.prange(epochs_per_sample.shape[0]):
@@ -94,6 +97,8 @@ def negtsne_gradient_func(
 
 
 class NegTSNE(CustomGradientUMAP):
+    """Neg-t-SNE implementation."""
+
     def __init__(self, **kwargs):
         if "anneal_lr" not in kwargs:
             kwargs["anneal_lr"] = False
@@ -102,9 +107,13 @@ class NegTSNE(CustomGradientUMAP):
 
 @dataclass
 class NegTsne(drnb.embed.umap.Umap):
+    """Embedder for Neg-t-SNE."""
+
     use_precomputed_knn: bool = True
     drnb_init: str = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         params = self.update_params(x, params, ctx)
-        return run_embed(x, params, NegTSNE, "Neg-t-SNE")
+        return fit_transform_embed(x, params, NegTSNE, "Neg-t-SNE")

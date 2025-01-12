@@ -1,9 +1,28 @@
+from typing import Protocol
+
 import numba
 import numpy as np
 from numba.experimental import jitclass
 
 
-def create_opt(nobs, opt, optargs=None):
+# pylint: disable=too-few-public-methods
+class OptimizerProtocol(Protocol):
+    """Optimizer protocol."""
+
+    # pylint: disable=missing-function-docstring
+    def opt(
+        self,
+        Y: np.ndarray,
+        grads: np.ndarray,
+        epoch: int,
+        n_epochs: int,
+    ) -> np.ndarray: ...
+
+
+def create_opt(
+    nobs: int, opt: str | OptimizerProtocol, optargs=None
+) -> OptimizerProtocol:
+    """Create optimizer object by name."""
     # allow creation of optimizer object directly
     if not isinstance(opt, str):
         return opt
@@ -31,6 +50,7 @@ def create_opt(nobs, opt, optargs=None):
 
 @numba.jit(nopython=True, fastmath=True)
 def next_alpha(alpha, epoch, n_epochs):
+    """Decay learning rate."""
     return alpha * (
         numba.float32(1.0) - (numba.float32(epoch) / numba.float32(n_epochs))
     )
@@ -38,6 +58,7 @@ def next_alpha(alpha, epoch, n_epochs):
 
 @numba.jit(nopython=True, fastmath=True)
 def warmup(alpha, epoch, n_warmup_epochs):
+    """Linear warmup of learning rate."""
     if epoch >= n_warmup_epochs:
         return alpha
     return alpha * numba.float32(epoch + 1) / numba.float32(n_warmup_epochs)
@@ -51,7 +72,11 @@ def warmup(alpha, epoch, n_warmup_epochs):
         ("decay_alpha", numba.boolean),
     ]
 )
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-few-public-methods
 class SteepestDescent:
+    """Steepest descent optimizer."""
+
     # pylint: disable=unused-argument
     def __init__(self, nobs, ndim, alpha=1.0, decay_alpha=True):
         self.alpha = alpha
@@ -61,9 +86,10 @@ class SteepestDescent:
         self,
         Y: np.ndarray,
         grads: np.ndarray,
-        epoch: numba.int32,
-        n_epochs: numba.int32,
+        epoch: int,
+        n_epochs: int,
     ) -> np.ndarray:
+        """Update parameters using optimizer."""
         if self.decay_alpha:
             alpha = next_alpha(self.alpha, epoch, n_epochs)
         else:
@@ -81,7 +107,11 @@ class SteepestDescent:
         ("memory", numba.float32[:, :]),
     ]
 )
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-few-public-methods
 class Momentum:
+    """Momentum optimizer."""
+
     def __init__(self, nobs, ndim, alpha=1.0, decay_alpha=True, beta=0.5):
         self.alpha = alpha
         self.decay_alpha = decay_alpha
@@ -91,6 +121,7 @@ class Momentum:
     def opt(
         self, Y: np.ndarray, grads: np.ndarray, epoch: int, n_epochs: int
     ) -> np.ndarray:
+        """Update parameters using optimizer."""
         if self.decay_alpha:
             alpha = next_alpha(self.alpha, epoch, n_epochs)
         else:
@@ -111,9 +142,12 @@ class Momentum:
         ("memory", numba.float32[:, :]),
     ]
 )
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-few-public-methods
 class MomentumGH:
-    # Momentum as a weighted sum of previous gradients
-    # decouples direction from step size
+    """Momentum optimizer as a weighted sum of previous gradients. Decouples direction
+    from step size."""
+
     def __init__(self, nobs, ndim, alpha=1.0, decay_alpha=True, beta=0.5):
         self.alpha = alpha
         self.decay_alpha = decay_alpha
@@ -123,6 +157,7 @@ class MomentumGH:
     def opt(
         self, Y: np.ndarray, grads: np.ndarray, epoch: int, n_epochs: int
     ) -> np.ndarray:
+        """Update parameters using optimizer."""
         if self.decay_alpha:
             alpha = next_alpha(self.alpha, epoch, n_epochs)
         else:
@@ -150,7 +185,11 @@ class MomentumGH:
         ("warmup_alpha", numba.int32),
     ]
 )
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-few-public-methods
 class Adam:
+    """Adam optimizer."""
+
     def __init__(
         self,
         nobs,
@@ -177,6 +216,7 @@ class Adam:
     def opt(
         self, Y: np.ndarray, grads: np.ndarray, epoch: int, n_epochs: int
     ) -> np.ndarray:
+        """Update parameters using optimizer."""
         e1 = numba.float32(epoch + 1)
 
         if self.decay_alpha:
@@ -210,7 +250,11 @@ class Adam:
         ("warmup_alpha", numba.int32),
     ]
 )
+# pylint: disable=too-many-instance-attributes
+# pylint: disable=too-few-public-methods
 class AdaBelief:
+    """AdaBelief optimizer."""
+
     def __init__(
         self,
         nobs,
@@ -237,6 +281,7 @@ class AdaBelief:
     def opt(
         self, Y: np.ndarray, grads: np.ndarray, epoch: int, n_epochs: int
     ) -> np.ndarray:
+        """Update parameters using optimizer."""
         e1 = numba.float32(epoch + 1)
 
         if self.decay_alpha:
@@ -249,7 +294,7 @@ class AdaBelief:
 
         # self.m = self.beta1 * self.m + self.beta11 * grads
         self.m += self.beta11 * (grads - self.m)
-        # self.v = self.beta2 * self.v + self.beta21 * grads * grads
+        # self.v = self.beta2 * self.v + self.beta21 * (grads - self.m)**2 + eps
         self.v += self.beta21 * ((grads - self.m) ** 2 - self.v) + self.eps
 
         return Y - alpha * (self.m / (np.sqrt(self.v) + self.eps / vbcorr))

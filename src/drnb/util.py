@@ -2,7 +2,7 @@ import collections.abc
 import datetime
 import json
 from dataclasses import asdict
-from typing import Optional
+from typing import Any
 
 # pylint: disable=unused-import
 # import json_fix
@@ -10,9 +10,17 @@ import numpy as np
 import pandas as pd
 
 from drnb.log import log
+from drnb.types import ActionConfig
 
 
-def get_method_and_args(method, default: Optional[dict] = None):
+def get_method_and_args(
+    method: ActionConfig, default: dict | None = None
+) -> tuple[str, dict]:
+    """Get the method and arguments from the given tuple or string. If the method is a
+    tuple, the second element is assumed to be the keyword arguments. Returns the method
+    name and the keyword arguments (which could be empty)."""
+    if default is None:
+        default = {}
     kwds = default
     if isinstance(method, tuple):
         if len(method) != 2:
@@ -22,33 +30,33 @@ def get_method_and_args(method, default: Optional[dict] = None):
     return method, kwds
 
 
-def islisty(o):
+def islisty(o: Any) -> bool:
+    """Check if the object is a non-string iterable."""
     return not isinstance(o, str) and isinstance(o, collections.abc.Iterable)
 
 
-# normalize possible config list
-# bool or string or (file_type, {options}) should be put in a list
-def get_multi_config(config):
-    if not islisty(config) or isinstance(config, tuple):
-        return [config]
-    return config
-
-
 class Jsonizable:
+    """Mixin class to create a JSON serializable object."""
+
     @property
-    def __dict__(self):
+    def __dict__(self) -> dict:
         return asdict(self)
 
-    def to_json(self, indent=None):
+    def to_json(self, indent=None) -> str:
+        """Return a JSON string representation of the object."""
         return json.dumps(self.__dict__, indent=indent, ensure_ascii=False)
 
-    def __json__(self):
+    def __json__(self) -> dict:
         return self.__dict__
 
 
+# pylint: disable=too-few-public-methods
 class FromDict:
+    """Mixin class to create an object from a dictionary."""
+
     @classmethod
     def new(cls, **kwargs):
+        """Create a new object from the given keyword arguments."""
         return cls(**kwargs)
 
 
@@ -56,31 +64,40 @@ DATETIME_FMT = "%Y%m%d%H%M%S"
 READABLE_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
 
 
-def dts_now():
+def dts_now() -> float:
+    """Return the current timestamp in UTC."""
     return dt_now().timestamp()
 
 
-def dt_now():
+def dt_now() -> datetime.datetime:
+    """Return the current datetime object in UTC."""
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def dts_to_str(dts=None, fmt=DATETIME_FMT):
+def dts_to_str(dts: float | None = None, fmt: str = DATETIME_FMT) -> str:
+    """Convert a timestamp to a string with the given format."""
     if dts is None:
         dts = dts_now()
     return dts_to_dt(dts).strftime(fmt)
 
 
-def dts_to_dt(dts):
+def dts_to_dt(dts: float) -> datetime.datetime:
+    """Convert a timestamp to a datetime object."""
     return datetime.datetime.fromtimestamp(dts, tz=datetime.timezone.utc)
 
 
-def categorize(df, colname):
+def categorize(df: pd.DataFrame, colname: str):
+    """Convert the column colname in the DataFrame df to a Pandas category."""
     df[colname] = df[colname].astype("category")
 
 
-# convert the numpy array of integer codes to a pandas category series with name
+# convert the numpy array of integer codes or Pandas series to a Pandas category series with name
 # col_name using the list of category_names
-def codes_to_categories(y, category_names, col_name):
+def codes_to_categories(
+    y: pd.Series | np.ndarray, category_names: list[str], col_name: str
+) -> pd.Series:
+    """Convert the numpy array of integer codes or Pandas series to a Pandas category series with name
+    col_name using the list of category_names."""
     return pd.Series(
         list(map(category_names.__getitem__, y.astype(int))),
         name=col_name,
@@ -88,7 +105,7 @@ def codes_to_categories(y, category_names, col_name):
     )
 
 
-def evenly_spaced(s, n):
+def evenly_spaced(s: list, n: int) -> list:
     """Return a list of n items evenly spaced from the sequence s"""
     if n > len(s):
         raise ValueError(f"Can't return {n} items, length is {len(s)}")

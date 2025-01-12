@@ -1,4 +1,4 @@
-# Functions for reading and writing data
+"""Functions for reading and writing data in the data repository."""
 
 import bz2
 import gzip
@@ -7,45 +7,60 @@ import os
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Optional, cast
+from typing import Iterable, List, Literal, cast
 
 import numpy as np
 import pandas as pd
+from numpy.typing import DTypeLike
 
 from drnb.log import log
 from drnb.preprocess import numpyfy
-from drnb.util import islisty
+from drnb.util import Jsonizable, islisty
 
 DRNB_HOME_ENV_VAR = "DRNB_HOME"
 DEBUG = False
 
 
-def get_drnb_home(fail_if_not_set: bool = True) -> Optional[Path]:
+def get_drnb_home_maybe() -> Path | None:
+    """Get the root directory for the data repository. If the environment variable
+    DRNB_HOME is set, return the path. Otherwise return None."""
     if DRNB_HOME_ENV_VAR in os.environ:
         return Path(os.environ[DRNB_HOME_ENV_VAR])
-    if fail_if_not_set:
-        raise ValueError(f"Environment variable {DRNB_HOME_ENV_VAR} not set")
     return None
 
 
+def get_drnb_home() -> Path:
+    """Get the root directory for the data repository. If the environment variable
+    DRNB_HOME is set, return the path. Otherwise, raise an error."""
+    if DRNB_HOME_ENV_VAR in os.environ:
+        return Path(os.environ[DRNB_HOME_ENV_VAR])
+    raise ValueError(f"Environment variable {DRNB_HOME_ENV_VAR} not set")
+
+
 def data_relative_path(path: Path) -> Path:
+    """Return the relative path of a file or directory within the data repository."""
     drnb_home = get_drnb_home()
-    drnb_home = cast(Path, drnb_home)
     if not DEBUG and path.is_relative_to(drnb_home):
         return path.relative_to(drnb_home)
     return path
 
 
 def stringify_paths(paths: Iterable[Path]) -> List[str]:
+    """Convert a list of Path objects to a list of strings."""
     return [str(data_relative_path(path)) for path in paths]
 
 
 def get_path(
-    drnb_home: Optional[Path] = None,
-    sub_dir: Optional[str] = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
     create_sub_dir: bool = False,
     verbose: bool = False,
 ) -> Path:
+    """Get the path to the data repository. If drnb_home is provided, return it. If not,
+    get the path from the environment variable DRNB_HOME. If that is not set, raise an
+    error if fail_if_not_set is True, otherwise return None. If sub_dir is provided, get
+    the path to the subdirectory within the data repository. If the subdirectory does not
+    exist, create it if create_sub_dir is True, otherwise raise an error."""
     if drnb_home is None:
         drnb_home = get_drnb_home()
         if drnb_home is None:
@@ -54,7 +69,6 @@ def get_path(
             )
         if not drnb_home.is_dir():
             raise ValueError(f"Data root is not a directory: {str(drnb_home)}")
-    drnb_home = cast(Path, drnb_home)
     data_path = drnb_home
     if sub_dir is not None:
         data_path = drnb_home / sub_dir
@@ -72,15 +86,18 @@ def get_path(
 
 
 def ensure_suffix(
-    suffix: str | List[str] | None, default_suffix: Optional[str] = ""
+    suffix: str | List[str] | None, default_suffix: str | List[str] | None = ""
 ) -> str:
+    """Ensure that the suffix is a string starting with a hyphen or period. If suffix is
+    None, return default_suffix. If suffix is an empty string, return it. If suffix is a
+    list of strings, return the concatenation of the strings with a hyphen between them.
+    If suffix is a string that does not start with a hyphen or period, add a hyphen to
+    the beginning of the string."""
     if default_suffix is None:
         default_suffix = ""
-    default_suffix = cast(str, default_suffix)
     if suffix is None:
         suffix = default_suffix
-    suffix = cast(str, suffix)
-    if not suffix:
+    if suffix == "":
         return suffix
     if islisty(suffix):
         return "".join(s if s[0] in (".", "-", "_") else f"-{s}" for s in suffix)
@@ -89,7 +106,9 @@ def ensure_suffix(
     return suffix
 
 
-def ensure_file_extension(filename, ext):
+def ensure_file_extension(filename: Path | str, ext: str) -> str:
+    """Ensure that the filename has the given extension. If the filename does not have
+    the extension, add it. If the extension does not start with a period, add it."""
     # could be a Path
     if not isinstance(filename, str):
         filename = str(filename)
@@ -101,32 +120,48 @@ def ensure_file_extension(filename, ext):
 
 
 def get_data_file_path(
-    name,
-    ext,
-    suffix=None,
-    drnb_home=None,
-    sub_dir: Optional[str] = None,
-    create_sub_dir=True,
-    verbose=False,
+    name: str,
+    ext: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    create_sub_dir: bool = True,
+    verbose: bool = False,
 ) -> Path:
+    """Get the path to a file in the data repository. The file name is constructed from
+    the name, suffix, and extension. The file is located in the subdirectory of the data
+    repository specified by sub_dir. If the subdirectory does not exist, it is created
+    if create_sub_dir is True, otherwise an error is raised. The path to the file is
+    returned."""
     drnb_home = get_path(drnb_home, sub_dir, create_sub_dir, verbose)
     suffix = ensure_suffix(suffix, sub_dir)
-    if suffix is not None:
-        name = f"{name}{suffix}"
+    name = f"{name}{suffix}"
     name = ensure_file_extension(name, ext)
 
     return drnb_home / name
 
 
 def read_data(
-    dataset,
-    suffix=None,
-    drnb_home=None,
-    sub_dir="data",
-    as_numpy=False,
-    verbose=False,
-):
-    for reader_func in (read_npy, read_pickle, read_pandas_csv):
+    dataset: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str = "data",
+    as_numpy: bool | DTypeLike = False,
+    verbose: bool = False,
+) -> np.ndarray | pd.DataFrame:
+    """Read data from the data repository. The data is read from a numpy file, a pickle
+    file, or a CSV file, depending on which is found first. The data is returned as a
+    numpy array or pandas DataFrame. If as_numpy is True, the data is converted to a
+    numpy array before being returned. If as_numpy is a dtype, the data is converted to
+    a numpy array with the given dtype before being returned. If the data is not found,
+    a FileNotFoundError is raised."""
+    for reader_func in (
+        read_npy,
+        read_feather,
+        read_parquet,
+        read_pickle,
+        read_pandas_csv,
+    ):
         try:
             data = reader_func(
                 dataset,
@@ -142,10 +177,21 @@ def read_data(
             return data
         except FileNotFoundError:
             pass
+        except ModuleNotFoundError as e:
+            # Seems like this could happen if we read pickled dataframe based on older
+            # pandas version
+            log.warning("Module not found: %s", e)
     raise FileNotFoundError(f"Data for {dataset} suffix={suffix} sub_dir={sub_dir}")
 
 
-def read_npy(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
+def read_npy(
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    verbose: bool = False,
+) -> np.ndarray:
+    """Read a numpy file from the data repository and return the data."""
     data_file_path = get_data_file_path(
         name,
         ext="npy",
@@ -160,7 +206,11 @@ def read_npy(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
     return np.load(data_file_path)
 
 
-def get_pkl_ext(compression=None):
+def get_pkl_ext(compression: Literal["gzip", "bz2", ""] | None = None) -> str:
+    """Get the file extension for a pickle file with the given compression type. If
+    compression is None or an empty string, return ".pkl". If compression is "gzip",
+    return ".pkl.gz". If compression is "bz2", return ".pkl.bz2". Otherwise, raise a
+    ValueError."""
     ext = ".pkl"
     if compression is not None:
         if compression == "":
@@ -175,8 +225,17 @@ def get_pkl_ext(compression=None):
 
 
 def read_pickle(
-    name, suffix=None, drnb_home=None, sub_dir=None, verbose=False, compression="any"
-):
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    verbose: bool = False,
+    compression: Literal["gzip", "bz2", "any", ""] | List[str] = "any",
+) -> pd.DataFrame | np.ndarray | dict:
+    """Read a pickle file from the data repository and return the data. The compression
+    type can be specified as "gzip", "bz2", "any", or an empty string. If "any" is
+    specified, the function will try to read the file with each compression type in
+    turn. If the file is not found, a FileNotFoundError is raised."""
     if compression == "any":
         compression = ["bz2", "gzip", ""]
     if not isinstance(compression, list):
@@ -216,7 +275,14 @@ def read_pickle(
     )
 
 
-def read_pandas_csv(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
+def read_pandas_csv(
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    verbose: bool = False,
+) -> pd.DataFrame:
+    """Read a CSV file from the data repository and return it as a pandas DataFrame."""
     data_file_path = get_data_file_path(
         name,
         "csv",
@@ -240,7 +306,14 @@ def read_pandas_csv(name, suffix=None, drnb_home=None, sub_dir=None, verbose=Fal
     return data
 
 
-def read_json(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
+def read_json(
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    verbose: bool = False,
+) -> dict:
+    """Read a JSON file from the data repository."""
     data_file_path = get_data_file_path(
         name,
         ".json",
@@ -257,25 +330,71 @@ def read_json(name, suffix=None, drnb_home=None, sub_dir=None, verbose=False):
         return json.load(f)
 
 
-# Handles case when data is already loaded
-# if x and y are separate, return them
-# if x is a tuple of two items, then split them into x and y
-def get_xy(x, y):
-    if y is None and isinstance(x, tuple) and len(x) == 2:
-        y = x[1]
-        x = x[0]
-    return x, y
+def read_parquet(
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    verbose: bool = False,
+) -> pd.DataFrame:
+    """Read a parquet file from the data repository and return it as a pandas DataFrame."""
+    data_file_path = get_data_file_path(
+        name,
+        ".parquet",
+        suffix=suffix,
+        drnb_home=drnb_home,
+        sub_dir=sub_dir,
+        create_sub_dir=False,
+        verbose=verbose,
+    )
+    if verbose:
+        log.info(
+            "Looking for parquet format from %s", data_relative_path(data_file_path)
+        )
+
+    return pd.read_parquet(data_file_path, engine="pyarrow")
+
+
+def read_feather(
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    verbose: bool = False,
+) -> pd.DataFrame:
+    """Read a feather file from the data repository and return it as a pandas DataFrame."""
+    data_file_path = get_data_file_path(
+        name,
+        ".feather",
+        suffix=suffix,
+        drnb_home=drnb_home,
+        sub_dir=sub_dir,
+        create_sub_dir=False,
+        verbose=verbose,
+    )
+    if verbose:
+        log.info(
+            "Looking for feather format from %s", data_relative_path(data_file_path)
+        )
+
+    return pd.read_feather(data_file_path)
 
 
 def write_csv(
-    x,
-    name,
-    suffix=None,
-    drnb_home=None,
-    sub_dir=None,
-    create_sub_dir=True,
-    verbose=False,
+    x: pd.DataFrame | pd.Series | np.ndarray,
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    create_sub_dir: bool = True,
+    verbose: bool = False,
 ) -> Path:
+    """Write data to a CSV file in the data repository. The data can be a pandas
+    DataFrame, a pandas Series, or a numpy array. The data is written to a file with the
+    given name, suffix, and extension. The file is located in the subdirectory of the
+    data repository specified by sub_dir. If the subdirectory does not exist, it is
+    created if create_sub_dir is True, otherwise an error is raised. The path to the
+    file is returned."""
     output_path = get_data_file_path(
         name, ".csv", suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
@@ -291,14 +410,19 @@ def write_csv(
 
 
 def write_npy(
-    x,
-    name,
-    suffix=None,
-    drnb_home=None,
-    sub_dir=None,
-    create_sub_dir=True,
-    verbose=False,
+    x: np.ndarray,
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    create_sub_dir: bool = True,
+    verbose: bool = False,
 ) -> Path:
+    """Write data to a numpy file in the data repository. The data is written to a file
+    with the given name, suffix, and extension. The file is located in the subdirectory
+    of the data repository specified by sub_dir. If the subdirectory does not exist, it
+    is created if create_sub_dir is True, otherwise an error is raised. The path to the
+    file is returned."""
     output_path = get_data_file_path(
         name, ".npy", suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
@@ -309,16 +433,23 @@ def write_npy(
 
 
 def write_pickle(
-    x,
-    name,
-    suffix=None,
-    drnb_home=None,
-    sub_dir=None,
-    create_sub_dir=True,
-    verbose=False,
-    compression=None,
-    overwrite=True,
+    x: pd.DataFrame | pd.Series | np.ndarray,
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    create_sub_dir: bool = True,
+    verbose: bool = False,
+    compression: Literal["gzip", "bz2", ""] | None = None,
+    overwrite: bool = True,
 ) -> Path:
+    """Write data to a pickle file in the data repository. The data can be a pandas
+    DataFrame, a pandas Series, or a numpy array. The data is written to a file with the
+    given name, suffix, and extension. The file is located in the subdirectory of the
+    data repository specified by sub_dir. If the subdirectory does not exist, it is
+    created if create_sub_dir is True, otherwise an error is raised. The file can be
+    compressed with gzip or bz2. If overwrite is False, an error is raised if the file
+    already exists. The path to the file is returned."""
     ext = get_pkl_ext(compression)
     output_path = get_data_file_path(
         name, ext, suffix, drnb_home, sub_dir, create_sub_dir, verbose
@@ -340,14 +471,20 @@ def write_pickle(
 
 
 def write_json(
-    x,
-    name,
-    suffix=None,
-    drnb_home=None,
-    sub_dir=None,
-    create_sub_dir=True,
-    verbose=False,
+    x: dict | Jsonizable,
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    create_sub_dir: bool = True,
+    verbose: bool = False,
 ) -> Path:
+    """Write data to a JSON file in the data repository. Success is not guaranteed
+    unless the object is a dictionary or implements the Jsonizable mixin class.
+    The data is written to a file with the given name, suffix, and extension. The file
+    is located in the subdirectory of the data repository specified by sub_dir. If the
+    subdirectory does not exist, it is created if create_sub_dir is True, otherwise an
+    error is raised. The path to the file is returned."""
     output_path = get_data_file_path(
         name, ".json", suffix, drnb_home, sub_dir, create_sub_dir, verbose
     )
@@ -363,30 +500,95 @@ def write_json(
     return output_path
 
 
-def is_file_type(target_file_type, file_type=None, suffix=None):
+def write_parquet(
+    x: pd.DataFrame,
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    create_sub_dir: bool = True,
+    verbose: bool = False,
+) -> Path:
+    """Write data to a parquet file in the data repository. The data is written to a
+    file with the given name, suffix, and extension. The file is located in the
+    subdirectory of the data repository specified by sub_dir. If the subdirectory does
+    not exist, it is created if create_sub_dir is True, otherwise an error is raised.
+    The path to the file is returned."""
+    output_path = get_data_file_path(
+        name, ".parquet", suffix, drnb_home, sub_dir, create_sub_dir, verbose
+    )
+    if verbose:
+        log.info("Writing parquet format to %s", data_relative_path(output_path))
+    x.to_parquet(output_path, engine="pyarrow", compression="snappy", index=True)
+    return output_path
+
+
+def write_feather(
+    x: pd.DataFrame,
+    name: str,
+    suffix: str | List[str] | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
+    create_sub_dir: bool = True,
+    verbose: bool = False,
+) -> Path:
+    """Write data to a feather file in the data repository. The data is written to a
+    file with the given name, suffix, and extension. The file is located in the
+    subdirectory of the data repository specified by sub_dir. If the subdirectory does
+    not exist, it is created if create_sub_dir is True, otherwise an error is raised.
+    The path to the file is returned."""
+    output_path = get_data_file_path(
+        name, ".feather", suffix, drnb_home, sub_dir, create_sub_dir, verbose
+    )
+    if verbose:
+        log.info("Writing feather format to %s", data_relative_path(output_path))
+    x.to_feather(output_path)
+    return output_path
+
+
+def is_file_type(
+    target_file_type: str,
+    file_type: str | None = None,
+    suffix: str | List[str] | None = None,
+) -> bool:
+    """Check if the file type matches the target file type or ends with the target file
+    type. For example, if the target file type is "csv", compare to "csv" or ".csv"."""
     return (file_type is not None and file_type == target_file_type) or (
         suffix is not None and suffix.endswith(f".{target_file_type}")
     )
 
 
 def write_data(
-    x,
+    x: pd.DataFrame | pd.Series | np.ndarray,
     name: str,
     suffix: str | List[str] | None = None,
-    drnb_home: Optional[Path] = None,
-    sub_dir: Optional[str] = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str | None = None,
     create_sub_dir: bool = True,
     verbose: bool = False,
     file_type: str | List[str] = "csv",
 ) -> List[Path]:
+    """Write data to one or more files in the data repository. The data can be a pandas
+    DataFrame, a pandas Series, or a numpy array. The data is written to one or more
+    files with the given name, suffix, and extension. The file is located in the
+    subdirectory of the data repository specified by sub_dir. If the subdirectory does
+    not exist, it is created if create_sub_dir is True, otherwise an error is raised.
+    The file type can be one or more of "parquet", "csv", "pkl", or "npy". The paths to
+    the files are returned."""
     if isinstance(file_type, str):
         file_type = [file_type]
-    file_type = cast(List[str], file_type)
     suffix = ensure_suffix(suffix)
-
     output_paths = []
     for ftype in file_type:
-        if is_file_type("csv", ftype, suffix):
+        if is_file_type("parquet", ftype, suffix):
+            if not isinstance(x, pd.DataFrame):
+                continue
+            func = write_parquet
+        elif is_file_type("feather", ftype, suffix):
+            if not isinstance(x, pd.DataFrame):
+                continue
+            func = write_feather
+        elif is_file_type("csv", ftype, suffix):
             func = write_csv
         elif is_file_type("pkl", ftype, suffix):
             func = write_pickle
@@ -410,25 +612,49 @@ def write_data(
 
 @dataclass
 class FileExporter:
-    drnb_home: Optional[Path] = None
-    sub_dir: Optional[str] = None
-    suffix: Optional[str] = None
+    """Class to export data to files in the data repository."""
+
+    drnb_home: Path | str | None = None
+    sub_dir: str | None = None
+    suffix: str | List[str] | None = None
     create_sub_dir: bool = True
     verbose: bool = False
-    file_type: str = "csv"
+    file_type: str | List[str] = "csv"
 
     @classmethod
     def new(cls, **kwargs):
+        """Create a new FileExporter object from the given keyword arguments.
+
+        Arguments:
+        - drnb_home: Path | str | None = None. The root directory for the data repository.
+        - sub_dir: str | None = None. The subdirectory within the data repository.
+        - suffix: str | List[str] | None = None. The suffix to add to the file name.
+        - create_sub_dir: bool = True. Whether to create the subdirectory if it does not exist.
+        - verbose: bool = False. Whether to print verbose output.
+        - file_type: str | List[str] = "csv". The type of file or files to export to.
+        """
         return cls(**kwargs)
 
-    def export(self, name, data, suffix=None, sub_dir=None, drnb_home=None):
+    def export(
+        self,
+        name: str,
+        data: pd.DataFrame | pd.Series | np.ndarray,
+        suffix: str | List[str] | None = None,
+        sub_dir: str | None = None,
+        drnb_home: Path | str | None = None,
+    ) -> List[Path]:
+        """Export data to one or more files in the data repository. The data can be a
+        pandas DataFrame, a pandas Series, or a numpy array. The data is written to one
+        or more files with the given name, suffix, and extension. The file is located in
+        the subdirectory of the data repository specified by sub_dir. The paths to
+        the files are returned."""
         if drnb_home is None:
             drnb_home = self.drnb_home
         if suffix is None:
             suffix = self.suffix
         if sub_dir is None:
             sub_dir = self.sub_dir
-        output_path = write_data(
+        output_paths = write_data(
             data,
             name,
             drnb_home=drnb_home,
@@ -438,4 +664,4 @@ class FileExporter:
             verbose=self.verbose,
             file_type=self.file_type,
         )
-        return output_path
+        return output_paths

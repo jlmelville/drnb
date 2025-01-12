@@ -1,3 +1,4 @@
+import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
 SKLEARN_METRICS = {
@@ -6,23 +7,25 @@ SKLEARN_METRICS = {
     "euclidean": "euclidean",
 }
 
-SKLEARN_DEFAULTS = dict(
-    algorithm="auto",
-    n_jobs=-1,
-)
+SKLEARN_DEFAULTS = {
+    "algorithm": "auto",
+    "n_jobs": -1,
+}
 
 
 def sklearn_neighbors(
-    X,
-    n_neighbors=15,
+    X: np.ndarray,
+    n_neighbors: int = 15,
     algorithm="auto",
-    metric="euclidean",
+    metric: str = "euclidean",
     metric_kwds=None,
-    n_jobs=-1,
-    return_distance=True,
-):
+    n_jobs: int = -1,
+    return_distance: bool = True,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+    """Compute the nearest neighbors using the sklearn library. If `return_distance` is
+    True, the function will return both the indices and the distances to the neighbors.
+    Otherwise, it will only return the indices."""
     sklearn_space = SKLEARN_METRICS[metric]
-
     nn = NearestNeighbors(
         n_neighbors=n_neighbors,
         algorithm=algorithm,

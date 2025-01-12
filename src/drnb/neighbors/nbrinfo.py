@@ -1,13 +1,15 @@
-import pathlib
 from dataclasses import dataclass
-from typing import Optional
+from pathlib import Path
+from typing import Self
 
 import numpy as np
 
 from drnb.log import log
 
 
-def idx_to_dist(idx_path):
+def idx_to_dist(idx_path: Path) -> Path:
+    """Given the path to an index file, return the path to the corresponding distances
+    file."""
     dist_stem = idx_path.stem[:-3] + "dist"
     dist_path = idx_path.parent / (dist_stem + idx_path.suffix)
     return dist_path
@@ -15,34 +17,56 @@ def idx_to_dist(idx_path):
 
 # everything between name and the extension (exclusive)
 # e.g. iris.15.euclidean.exact.faiss.idx.npy => .15.euclidean.exact.faiss.idx
-def nn_suffix(path):
+def nn_suffix(path: Path) -> str:
+    """Return the suffix of a nearest neighbors file (excluding the name and the
+    extension).
+
+    e.g. iris.15.euclidean.exact.faiss.idx.npy => .15.euclidean.exact.faiss.idx
+    """
     return "".join(path.suffixes[:-1])
 
 
 @dataclass
+# pylint:disable=too-many-instance-attributes
 class NbrInfo:
+    """Information about the nearest neighbors of a dataset.
+
+    Fields:
+
+    - name: str: name of the dataset
+    - n_nbrs: int: number of neighbors
+    - metric: str: e.g. "euclidean"
+    - exact: bool: exact or approximate neighbors
+    - method: str: method to generate e.g. "faiss", "annoy", "hnsw"
+    - has_distances: bool: True if the distances are present
+    - idx_path: Path | None: the path to the idx file (optional)
+    - dist_path: Path | None: the path to the dist file (if it exists)
+    """
+
     name: str  # name of the dataset
     n_nbrs: int  # number of neighbors
     metric: str  # e.g. "euclidean"
     exact: bool  # exact or approximate neighbors
     method: str  # method to generate e.g. "faiss", "annoy", "hnsw"
     has_distances: bool  # True if the distances are present
-    idx_path: Optional[pathlib.Path]  # the path to the idx file (optional)
-    dist_path: Optional[pathlib.Path]  # the path to the dist file (if it exists)
+    idx_path: Path | None  # the path to the idx file (optional)
+    dist_path: Path | None  # the path to the dist file (if it exists)
 
     @property
-    def idx_suffix(self):
+    def idx_suffix(self) -> str:
+        """Return the suffix of the index file."""
         if self.idx_path is not None:
             return nn_suffix(self.idx_path)
-        return self.suffix("idx")
+        return self._suffix("idx")
 
     @property
-    def dist_suffix(self):
-        if self.idx_path is not None:
+    def dist_suffix(self) -> str:
+        """Return the suffix of the distances file."""
+        if self.dist_path is not None:
             return nn_suffix(self.dist_path)
-        return self.suffix("dist")
+        return self._suffix("dist")
 
-    def suffix(self, nn_component):
+    def _suffix(self, nn_component: str):
         return "." + ".".join(
             [
                 str(self.n_nbrs),
@@ -54,13 +78,15 @@ class NbrInfo:
         )
 
     @property
-    def neighbor_type(self):
+    def neighbor_type(self) -> str:
+        """Return the type of neighbors (exact or approximate)."""
         if self.exact:
             return "exact"
         return "approximate"
 
     @classmethod
-    def from_path(cls, idx_path, ignore_bad_path=False):
+    def from_path(cls, idx_path: Path, ignore_bad_path: bool = False) -> Self | None:
+        """Create a NbrInfo object from the path to an index file."""
         items = idx_path.stem.split(".")
         if len(items) != 6:
             msg = f"Unknown nn file format: {idx_path}"
@@ -98,6 +124,9 @@ class NbrInfo:
 
 @dataclass
 class NearestNeighbors:
+    """Nearest neighbors information. Contains the indices and optionally the distances
+    to the neighbors. The `info` field contains information about the neighbors."""
+
     idx: np.ndarray
-    info: Optional[NbrInfo] = None
-    dist: Optional[np.ndarray] = None
+    info: NbrInfo | None = None
+    dist: np.ndarray | None = None

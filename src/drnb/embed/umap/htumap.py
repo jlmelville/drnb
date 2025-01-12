@@ -1,19 +1,36 @@
 from dataclasses import dataclass
 from typing import NamedTuple
 
+import numpy as np
+
 import drnb.embed.umap
-from drnb.embed import run_embed
+from drnb.embed import fit_transform_embed
+from drnb.embed.context import EmbedContext
 from drnb.embed.umap.custom2 import CustomGradientUMAP2, epoch_func
+from drnb.types import EmbedResult
 
 
-def htumap_grad_coeff_attr(d2, grad_args):
+class HTUMAPGradientArgs(NamedTuple):
+    """Gradient arguments for Heavy-Tailed UMAP."""
+
+    a: float
+    b_div_a: float
+    a1a: float
+    ma: float
+    b2: float
+    mba2: float
+
+
+def htumap_grad_coeff_attr(d2: float, grad_args: HTUMAPGradientArgs) -> float:
+    """Gradient coefficient for the attractive cost function in Heavy-Tailed UMAP."""
     a = grad_args.a
     mba2 = grad_args.mba2
 
     return mba2 / (a + d2)
 
 
-def htumap_grad_coeff_rep(d2, grad_args):
+def htumap_grad_coeff_rep(d2: float, grad_args: HTUMAPGradientArgs) -> float:
+    """Gradient coefficient for the repulsive cost function in Heavy-Tailed UMAP."""
     ba = grad_args.b_div_a
     ma = grad_args.ma
     a1a = grad_args.a1a
@@ -24,19 +41,13 @@ def htumap_grad_coeff_rep(d2, grad_args):
 
 
 class HTUMAP(CustomGradientUMAP2):
-    def get_gradient_args(self):
-        class GradientArgs(NamedTuple):
-            a: float
-            b_div_a: float
-            a1a: float
-            ma: float
-            b2: float
-            mba2: float
+    """Heavy-Tailed UMAP implementation."""
 
+    def get_gradient_args(self):
         a = self._a
         b = self._b
 
-        return GradientArgs(
+        return HTUMAPGradientArgs(
             a=a,
             b_div_a=b / a,
             a1a=(a + 1.0) / a,
@@ -61,15 +72,31 @@ class HTUMAP(CustomGradientUMAP2):
 
 @dataclass
 class Htumap(drnb.embed.umap.Umap):
+    """Embedder for HT-UMAP."""
+
     use_precomputed_knn: bool = True
     drnb_init: str = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         params = self.update_params(x, params, ctx)
-        return run_embed(x, params, HTUMAP, "HT-UMAP")
+        return fit_transform_embed(x, params, HTUMAP, "HT-UMAP")
 
 
-def htnegumap_grad_coeff_attr(d2, grad_args):
+class HTNegUMAPGradientArgs(NamedTuple):
+    """Gradient arguments for Heavy-Tailed NegUMAP."""
+
+    a: float
+    b: float
+    b_div_a: float
+    ainv: float
+    a1a: float
+    gamma: float
+
+
+def htnegumap_grad_coeff_attr(d2: float, grad_args: HTNegUMAPGradientArgs) -> float:
+    """Gradient coefficient for the attractive cost function in Heavy-Tailed NegUMAP."""
     a = grad_args.a
     b = grad_args.b
     ba = grad_args.b_div_a
@@ -82,7 +109,8 @@ def htnegumap_grad_coeff_attr(d2, grad_args):
     return grad_coeff
 
 
-def htnegumap_grad_coeff_rep(d2, grad_args):
+def htnegumap_grad_coeff_rep(d2: float, grad_args: HTNegUMAPGradientArgs) -> float:
+    """Gradient coefficient for the repulsive cost function in Heavy-Tailed NegUMAP."""
     a = grad_args.a
     b = grad_args.b
     ba = grad_args.b_div_a
@@ -96,16 +124,10 @@ def htnegumap_grad_coeff_rep(d2, grad_args):
 
 
 class HTNegUMAP(CustomGradientUMAP2):
-    def get_gradient_args(self):
-        class GradientArgs(NamedTuple):
-            a: float
-            b: float
-            b_div_a: float
-            ainv: float
-            a1a: float
-            gamma: float
+    """Heavy-Tailed NegUMAP implementation."""
 
-        return GradientArgs(
+    def get_gradient_args(self):
+        return HTNegUMAPGradientArgs(
             a=self._a,
             b=self._b,
             b_div_a=self._b / self._a,
@@ -127,9 +149,13 @@ class HTNegUMAP(CustomGradientUMAP2):
 
 @dataclass
 class Htnegumap(drnb.embed.umap.Umap):
+    """Embedder for HT-NegUMAP."""
+
     use_precomputed_knn: bool = True
     drnb_init: str = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         params = self.update_params(x, params, ctx)
-        return run_embed(x, params, HTNegUMAP, "HT-NegUMAP")
+        return fit_transform_embed(x, params, HTNegUMAP, "HT-NegUMAP")

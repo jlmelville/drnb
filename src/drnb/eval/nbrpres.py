@@ -1,16 +1,28 @@
 from dataclasses import dataclass
+from pathlib import Path
+from typing import List, Tuple
 
 import numpy as np
 
-from drnb.eval import EvalResult
+from drnb.embed.context import EmbedContext
+from drnb.eval.base import EmbeddingEval, EvalResult
 from drnb.log import log
-from drnb.neighbors import calculate_neighbors, get_neighbors, read_neighbors
+from drnb.neighbors import (
+    NearestNeighbors,
+    calculate_neighbors,
+    get_neighbors,
+    read_neighbors,
+)
 from drnb.util import islisty
 
-from .base import EmbeddingEval
 
-
-def nn_accv(approx_indices, true_indices, normalize=True):
+def nn_accv(
+    approx_indices: np.ndarray, true_indices: np.ndarray, normalize: bool = True
+) -> np.ndarray:
+    """Calculate the nearest neighbor accuracy for each point in the dataset, the number
+    of neighbors that overlap between the true and approximate nearest neighbors.
+    Returns a 1D array of accuracies, one per item in the dataset. If normalize is True,
+    the accuracy is normalized by the number of neighbors."""
     result = np.zeros(approx_indices.shape[0])
     for i in range(approx_indices.shape[0]):
         n_correct = np.intersect1d(approx_indices[i], true_indices[i]).shape[0]
@@ -19,28 +31,40 @@ def nn_accv(approx_indices, true_indices, normalize=True):
     return result
 
 
-def nn_acc(approx_indices, true_indices):
+def nn_acc(approx_indices: np.ndarray, true_indices: np.ndarray) -> float:
+    """Calculate the mean nearest neighbor accuracy for the dataset."""
     return np.mean(nn_accv(approx_indices, true_indices))
 
 
 def get_xy_nbr_idxs(
-    X,
-    Y,
-    n_nbrs=15,
-    x_method="exact",
-    x_metric="euclidean",
-    x_method_kwds=None,
-    y_method="exact",
-    y_metric="euclidean",
-    y_method_kwds=None,
-    include_self=False,
-    verbose=False,
-    x_nbrs=None,
-    y_nbrs=None,
-    name=None,
-    drnb_home=None,
-    sub_dir="nn",
-):
+    X: np.ndarray,
+    Y: np.ndarray,
+    n_nbrs: int | List[int] = 15,
+    x_nbrs: NearestNeighbors | None = None,
+    y_nbrs: NearestNeighbors | None = None,
+    include_self: bool = False,
+    x_method: str = "exact",
+    x_metric: str = "euclidean",
+    x_method_kwds: dict | None = None,
+    y_method: str = "exact",
+    y_metric: str = "euclidean",
+    y_method_kwds: dict | None = None,
+    verbose: bool = False,
+    name: str | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str = "nn",
+    fail_on_recalc: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Get the nearest neighbor indices for X and Y, calculating them if necessary.
+    The returned indices will be of shape (n_items, max_n_nbrs) where max_n_nbrs is
+    large enough to accommodate the largest value in n_nbrs. If include_self is True,
+    the first column of the indices will be the index of the item itself. Note that in
+    this case the number of neighbors requested will be increased by 1, which could
+    trigger a recalculation of the neighbors. In the case of X-neighbors, this could be
+    both slow and surprising, so by default this will raise an error. Set
+    fail_on_recalc to False to allow the recalculation. It is expected that the Y
+    neighbors will be recalculated in this case, so no error will be raised.
+    """
     if isinstance(n_nbrs, int):
         n_nbrs = [n_nbrs]
 
@@ -84,6 +108,8 @@ def get_xy_nbr_idxs(
         calc_x_nbrs = max_n_nbrs > x_nbrs.idx.shape[1]
 
     if calc_x_nbrs:
+        if fail_on_recalc:
+            raise ValueError("Recalculation of X neighbors required")
         cache = name is not None
         x_nbrs = get_neighbors(
             data=X,
@@ -103,23 +129,38 @@ def get_xy_nbr_idxs(
 
 
 def nbr_pres(
-    X,
-    Y,
-    n_nbrs=15,
-    x_method="exact",
-    x_metric="euclidean",
-    x_method_kwds=None,
-    y_method="exact",
-    y_metric="euclidean",
-    y_method_kwds=None,
-    include_self=False,
-    verbose=False,
-    x_nbrs=None,
-    y_nbrs=None,
-    name=None,
-    drnb_home=None,
-    sub_dir="nn",
-):
+    X: np.ndarray,
+    Y: np.ndarray,
+    n_nbrs: int | List[int] = 15,
+    x_nbrs: NearestNeighbors | None = None,
+    y_nbrs: NearestNeighbors | None = None,
+    include_self: bool = False,
+    x_method: str = "exact",
+    x_metric: str = "euclidean",
+    x_method_kwds: dict | None = None,
+    y_method: str = "exact",
+    y_metric: str = "euclidean",
+    y_method_kwds: dict | None = None,
+    verbose: bool = False,
+    name: str | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str = "nn",
+) -> List[float]:
+    """Calculate the nearest neighbor preservation for the dataset: the mean overlap
+    of the nearest neighbors of X and those of Y. The number of neighbors to consider
+    can be a single integer or a list of integers. The accuracy is calculated for each
+    value in the list and the results are returned in a list.
+
+    If the number of neighbors requested is larger than the number of neighbors that
+    can be calculated, NaN is returned for that value.
+
+    If include_self is True, the first column of the indices will be the index of the
+    item itself: this is normal for the definition of nearest neighbor, but reduces
+    the useful range of the metric.
+
+    If there are no precomputed neighbors available, they will be calculated and saved.
+    """
+
     x_nbrs, y_nbrs = get_xy_nbr_idxs(
         X,
         Y,
@@ -145,7 +186,8 @@ def nbr_pres(
     max_n_nbrs = x_nbrs.shape[1]
 
     # contents of n_nbrs may still be larger than the number of neighbors that can be
-    # sensibly calculated so check and use NaN for those cases
+    # sensibly calculated so check and use NaN for those cases. This is not an error
+    # because we could have a mix of small and large datasets we are comparing.
     nn_accs = []
     for nbrs in n_nbrs:
         if nbrs <= max_n_nbrs:
@@ -161,24 +203,41 @@ def nbr_pres(
 
 
 def nbr_presv(
-    X,
-    Y,
-    n_nbrs=15,
-    x_method="exact",
-    x_metric="euclidean",
-    x_method_kwds=None,
-    y_method="exact",
-    y_metric="euclidean",
-    y_method_kwds=None,
-    include_self=False,
-    normalize=True,
-    verbose=False,
-    x_nbrs=None,
-    y_nbrs=None,
-    name=None,
-    drnb_home=None,
-    sub_dir="nn",
-):
+    X: np.ndarray,
+    Y: np.ndarray,
+    n_nbrs: int | List[int] = 15,
+    x_nbrs: NearestNeighbors | None = None,
+    y_nbrs: NearestNeighbors | None = None,
+    normalize: bool = True,
+    x_method: str = "exact",
+    x_metric: str = "euclidean",
+    x_method_kwds: dict | None = None,
+    y_method: str = "exact",
+    y_metric: str = "euclidean",
+    y_method_kwds: dict | None = None,
+    include_self: bool = False,
+    verbose: bool = False,
+    name: str | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str = "nn",
+) -> List[np.ndarray]:
+    """Calculate the per-item nearest neighbor preservation for the dataset: the
+    overlap of the nearest neighbors of X and those of Y. The number of neighbors to
+    consider can be a single integer or a list of integers. The accuracy is calculated
+    for each value in the list and the results are returned in a list.
+
+    If the number of neighbors requested is larger than the number of neighbors that
+    can be calculated, NaN is returned for that value.
+
+    If include_self is True, the first column of the indices will be the index of the
+    item itself: this is normal for the definition of nearest neighbor, but reduces the
+    useful range of the metric.
+
+    If normalize is True, the accuracy is normalized by the number of neighbors.
+
+    If there are no precomputed neighbors available, they will be calculated and saved.
+    """
+
     x_nbrs, y_nbrs = get_xy_nbr_idxs(
         X,
         Y,
@@ -218,6 +277,16 @@ def nbr_presv(
 
 @dataclass
 class NbrPreservationEval(EmbeddingEval):
+    """Evaluate the preservation of nearest neighbors in the embedding.
+
+    Attributes:
+    use_precomputed_neighbors: bool - use precomputed nearest neighbors if available
+    metric: str - metric to use for nearest neighbor calculation
+    n_neighbors: int | List[int] - number of neighbors to consider
+    include_self: bool - include the item itself in the nearest neighbors
+    verbose: bool - print verbose output
+    """
+
     use_precomputed_neighbors: bool = True
     # this translates to the x-metric in the nbr_pres
     metric: str = "euclidean"
@@ -225,25 +294,30 @@ class NbrPreservationEval(EmbeddingEval):
     include_self: bool = False
     verbose: bool = False
 
-    def listify_n_neighbors(self):
+    def _listify_n_neighbors(self):
+        """Ensure that n_neighbors is a list."""
         if not islisty(self.n_neighbors):
             self.n_neighbors = [self.n_neighbors]
 
-    def requires(self):
-        self.listify_n_neighbors()
-        return dict(
-            name="neighbors",
-            metric=self.metric,
-            n_neighbors=int(np.max(self.n_neighbors)),
-        )
+    def requires(self) -> dict:
+        self._listify_n_neighbors()
+        return {
+            "name": "neighbors",
+            "metric": self.metric,
+            "n_neighbors": int(np.max(self.n_neighbors)),
+        }
 
-    def _evaluate_setup(self, ctx=None):
-        self.listify_n_neighbors()
+    def _evaluate_setup(
+        self, ctx: EmbedContext | None = None
+    ) -> Tuple[NearestNeighbors | None, NearestNeighbors | None, dict]:
+        self._listify_n_neighbors()
 
         if ctx is not None:
-            nnp_kwargs = dict(
-                drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.dataset_name
-            )
+            nnp_kwargs = {
+                "drnb_home": ctx.drnb_home,
+                "sub_dir": ctx.nn_sub_dir,
+                "name": ctx.dataset_name,
+            }
         else:
             nnp_kwargs = {}
 
@@ -274,7 +348,11 @@ class NbrPreservationEval(EmbeddingEval):
 
         return x_nbrs, y_nbrs, nnp_kwargs
 
-    def evaluatev(self, X, coords, ctx=None):
+    def evaluatev(
+        self, X: np.ndarray, coords: np.ndarray, ctx: EmbedContext | None = None
+    ) -> List[np.ndarray]:
+        """Evaluate the per-item nearest neighbor preservation. Return a list of arrays
+        of accuracies, one per value of n_neighbors in the evaluation."""
         x_nbrs, y_nbrs, nnp_kwargs = self._evaluate_setup(ctx)
 
         return nbr_presv(
@@ -289,7 +367,9 @@ class NbrPreservationEval(EmbeddingEval):
             **nnp_kwargs,
         )
 
-    def evaluate(self, X, coords, ctx=None):
+    def evaluate(
+        self, X: np.ndarray, coords: np.ndarray, ctx: EmbedContext | None = None
+    ) -> EvalResult:
         x_nbrs, y_nbrs, nnp_kwargs = self._evaluate_setup(ctx)
 
         nnps = nbr_pres(
@@ -308,13 +388,15 @@ class NbrPreservationEval(EmbeddingEval):
             EvalResult(
                 eval_type="NNP",
                 label=self.to_str(n_nbrs),
-                info=dict(metric=self.metric, n_neighbors=n_nbrs),
+                info={"metric": self.metric, "n_neighbors": n_nbrs},
                 value=nnp,
             )
             for n_nbrs, nnp in zip(self.n_neighbors, nnps)
         ]
 
-    def to_str(self, n_neighbors):
+    def to_str(self, n_neighbors: int) -> str:
+        """Create a string representation of the evaluation for a given number of
+        neighbors."""
         include_self_str = "self" if self.include_self else "noself"
         return f"nnp-{n_neighbors}-{include_self_str}-{self.metric}"
 

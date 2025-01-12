@@ -1,13 +1,18 @@
 from dataclasses import dataclass
+from typing import Any, Dict, Tuple, cast
 
 import numpy as np
 import pynndescent
 import umap
+from scipy.sparse import coo_matrix
 
 import drnb.embed
+import drnb.embed.base
 import drnb.neighbors as nbrs
+from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.log import log
 from drnb.neighbors import n_connected_components
+from drnb.types import EmbedResult
 from drnb.util import get_method_and_args
 from drnb.yinit import (
     spca,
@@ -17,36 +22,41 @@ from drnb.yinit import (
 )
 
 
-# A subclass of NNDescent which exists purely to escape the scrutiny of a validation
-# type check in UMAP when using pre-computed knn.
 # https://github.com/lmcinnes/umap/issues/848
 class DummyNNDescent(pynndescent.NNDescent):
+    """A subclass of NNDescent which exists purely to escape the scrutiny of a
+    validation type check in UMAP when using pre-computed knn."""
+
     # pylint: disable=super-init-not-called
     def __init__(self):
         return
 
 
-def umap_knn(precomputed_knn):
+def umap_knn(
+    idx: np.ndarray, dist: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, pynndescent.NNDescent]:
+    """Construct a tuple of nearest neighbors for UMAP."""
     # we aren't going to transform new data so we don't need the search index
     # to actually work
     dummy_search_index = DummyNNDescent()
     return (
-        precomputed_knn.idx,
-        precomputed_knn.dist,
+        idx,
+        dist,
         dummy_search_index,
     )
 
 
 def umap_spectral_init(
-    x,
-    knn=None,
-    metric="euclidean",
-    n_neighbors=15,
-    random_state=42,
-    tsvdw=False,
-    tsvdw_tol=1e-5,
-    jitter=True,
-):
+    x: np.ndarray,
+    knn: Tuple[np.ndarray, np.ndarray] | nbrs.NearestNeighbors | None = None,
+    metric: str = "euclidean",
+    n_neighbors: int = 15,
+    random_state: int = 42,
+    tsvdw: bool = False,
+    tsvdw_tol: float = 1e-5,
+    jitter: bool = True,
+) -> np.ndarray:
+    """Initialize UMAP embedding using spectral initialization."""
     if knn is None:
         nbr_data = nbrs.calculate_neighbors(
             x,
@@ -54,7 +64,7 @@ def umap_spectral_init(
             metric=metric,
             method="pynndescent",
             return_distance=True,
-            method_kwds=dict(random_state=random_state),
+            method_kwds={"random_state": random_state},
         )
         knn = [nbr_data.idx, nbr_data.dist]
     knn_fss = umap_graph(knn)
@@ -66,8 +76,12 @@ def umap_spectral_init(
     return spectral_graph_embed(knn_fss, random_state, tsvdw, tsvdw_tol, jitter)
 
 
-def umap_graph(knn, x=None):
-    if isinstance(knn, drnb.neighbors.NearestNeighbors):
+def umap_graph(
+    knn: Tuple[np.ndarray, np.ndarray] | nbrs.NearestNeighbors, x: np.ndarray = None
+) -> coo_matrix:
+    """Construct the fuzzy simplicial set (symmetric affinity matrix) from a k-nearest
+    neighbors graph."""
+    if isinstance(knn, nbrs.NearestNeighbors):
         knn = [knn.idx, knn.dist]
     if x is None:
         x = np.empty((knn[0].shape[0], 0), dtype=np.int8)
@@ -78,17 +92,30 @@ def umap_graph(knn, x=None):
         n_neighbors=knn[0].shape[1],
         random_state=None,
         metric=None,
+        return_dists=None,
     )
     return knn_fss
 
 
 @dataclass
-class Umap(drnb.embed.Embedder):
-    use_precomputed_knn: bool = True
-    drnb_init: str = None
-    precomputed_init: np.ndarray = None
+class Umap(drnb.embed.base.Embedder):
+    """Embedder for UMAP.
 
-    def update_params(self, x, params, ctx=None):
+    Attributes:
+        use_precomputed_knn: Whether to use precomputed nearest neighbors.
+        drnb_init: Method for initializing UMAP.
+        precomputed_init: Precomputed initial coordinates for embedding.
+    """
+
+    use_precomputed_knn: bool = True
+    drnb_init: str | None = None
+    precomputed_init: np.ndarray | None = None
+
+    def update_params(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> dict:
+        """Update parameters for UMAP embedding, including initialization and
+        pre-computed nearest neighbors."""
         knn_params = {}
         if isinstance(self.use_precomputed_knn, dict):
             knn_params = dict(self.use_precomputed_knn)
@@ -99,11 +126,13 @@ class Umap(drnb.embed.Embedder):
         if self.use_precomputed_knn and ctx is not None:
             log.info("Using precomputed knn")
 
-            precomputed_knn = nbrs.get_neighbors_with_ctx(
+            precomputed_knn = get_neighbors_with_ctx(
                 x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
             )
 
-            params["precomputed_knn"] = umap_knn(precomputed_knn)
+            params["precomputed_knn"] = umap_knn(
+                precomputed_knn.idx, precomputed_knn.dist
+            )
             # also UMAP complains when a precomputed knn is used with a smaller dataset
             # unless this flag is set
             params["force_approximation_algorithm"] = True
@@ -113,6 +142,7 @@ class Umap(drnb.embed.Embedder):
             params["init"] = self.precomputed_init
         elif self.drnb_init is not None:
             drnb_init, init_params = get_method_and_args(self.drnb_init, {})
+            init_params = cast(Dict[str, Any], init_params)
             if drnb_init == "spca":
                 params["init"] = spca(x)
             elif drnb_init == "global_spectral":
@@ -150,23 +180,23 @@ class Umap(drnb.embed.Embedder):
 
         return params
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         params = self.update_params(x, params, ctx)
-        return embed_umap(x, params)
 
+        log.info("Running UMAP")
+        embedder = umap.UMAP(
+            **params,
+        )
+        embedded = embedder.fit_transform(x)
+        log.info("Embedding completed")
 
-def embed_umap(
-    x,
-    params,
-):
-    log.info("Running UMAP")
-    embedder = umap.UMAP(
-        **params,
-    )
-    embedded = embedder.fit_transform(x)
-    log.info("Embedding completed")
+        if params.get("densmap", False) and params.get("output_dens", False):
+            embedded = {
+                "coords": embedded,
+                "dens_ro": embedded[1],
+                "dens_re": embedded[2],
+            }
 
-    if params.get("densmap", False) and params.get("output_dens", False):
-        embedded = dict(coords=embedded[0], dens_ro=embedded[1], dens_re=embedded[2])
-
-    return embedded
+        return embedded

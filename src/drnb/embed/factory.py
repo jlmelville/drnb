@@ -1,4 +1,14 @@
-def create_embedder(method, embed_kwds=None):
+from typing import Callable
+
+import drnb.embed.base
+from drnb.types import ActionConfig
+
+
+def create_embedder(
+    method: ActionConfig | list | Callable, embed_kwds: dict | None = None
+) -> drnb.embed.base.Embedder:
+    """Create an embedder from an action configuration, a list of action configurations,
+    or a callable embedder factory/constructor."""
     if isinstance(method, list):
         return [create_embedder(m) for m in method]
 
@@ -9,7 +19,7 @@ def create_embedder(method, embed_kwds=None):
         method = method[0]
 
     if embed_kwds is None:
-        embed_kwds = dict(params={})
+        embed_kwds = {"params": {}}
 
     if "params" not in embed_kwds or embed_kwds["params"] is None:
         embed_kwds["params"] = {}
@@ -18,14 +28,14 @@ def create_embedder(method, embed_kwds=None):
     if callable(method):
         ctor = method
     else:
-        ctor = str_to_ctor(method)
+        ctor = _str_to_ctor(method)
 
     embedder = ctor(**embed_kwds)
     return embedder
 
 
 # pylint: disable=import-outside-toplevel,too-many-statements
-def str_to_ctor(method):
+def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
     method = method.lower()
     if method == "ncvis":
         from drnb.embed.ncvis import NCVis as ctor
@@ -91,6 +101,10 @@ def str_to_ctor(method):
         from drnb.embed.skmmds import Sikmmds as ctor
     elif method == "rsikmmds":
         from drnb.embed.skmmds import Rsikmmds as ctor
+    elif method == "mrsikmmds":
+        from drnb.embed.skmmds import Mrsikmmds as ctor
+    elif method == "lcmmds":
+        from drnb.embed.skmmds import Lcmmds as ctor
     else:
         raise ValueError(f"Unknown method {method}")
     return ctor

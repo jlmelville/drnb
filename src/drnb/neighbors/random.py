@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Tuple, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -8,7 +8,8 @@ from . import NearestNeighbors
 from .distances import neighbor_distances
 
 
-def sort_neighbors(idx, dist):
+def sort_neighbors(idx: np.ndarray, dist: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Sort the neighbors by distance."""
     # sort each row by ascending distance
     dist_ind = dist.argsort()
     dist = np.take_along_axis(dist, dist_ind, axis=1)
@@ -16,13 +17,20 @@ def sort_neighbors(idx, dist):
     return idx, dist
 
 
-def logn_neighbors(n_items):
+def logn_neighbors(n_items: int | NDArray) -> int:
+    """Compute the log number of neighbors based on the number of items."""
     if isinstance(n_items, np.ndarray):
         n_items = n_items.shape[0]
     return np.ceil(np.log(n_items)).astype(int)
 
 
-def random_neighbors(data, n_neighbors=None, distance="euclidean", random_state=42):
+def random_neighbors(
+    data: np.ndarray,
+    n_neighbors: int = None,
+    distance: str = "euclidean",
+    random_state: int = 42,
+) -> NearestNeighbors:
+    """Compute random neighbors for each data point."""
     n_items = data.shape[0]
     if n_neighbors is None:
         n_neighbors = logn_neighbors(n_items)
@@ -33,7 +41,8 @@ def random_neighbors(data, n_neighbors=None, distance="euclidean", random_state=
     return NearestNeighbors(idx=idx, dist=dist)
 
 
-def random_idx(n, n_neighbors, random_state=42):
+def random_idx(n: int, n_neighbors: int, random_state: int = 42) -> np.ndarray:
+    """Generate random indices for neighbors."""
     result = np.empty((n, n_neighbors), dtype=int)
     rng = np.random.default_rng(random_state)
     for i in range(n):
@@ -45,8 +54,16 @@ def random_idx(n, n_neighbors, random_state=42):
 
 
 def mid_near_neighbors(
-    data, n_neighbors=8, metric="euclidean", n_random=6, mid_index=1, random_state=42
-):
+    data: np.ndarray,
+    n_neighbors: int = 8,
+    metric: str = "euclidean",
+    n_random: int = 6,
+    mid_index: int = 1,
+    random_state: int = 42,
+) -> NearestNeighbors:
+    """Generate n_neighbors mid-near neighbors for each data point. To generate each
+    neighbor, n_random random neighbors are generated and after ordering by distance,
+    the mid_index-th neighbor is selected."""
     if mid_index > n_random - 1:
         raise ValueError(f"mid_index must be in range [0, {n_random-1}]")
     n = data.shape[0]

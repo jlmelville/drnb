@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List, Self
 
 import numpy as np
 from numba import jit, prange
@@ -7,12 +8,21 @@ from numba import jit, prange
 import drnb.io as nbio
 from drnb.distances import distance_function
 from drnb.log import log
+from drnb.types import DistanceFunc
 from drnb.util import FromDict, Jsonizable, islisty
 
 
 def calculate_triplets(
-    data, seed=None, n_triplets_per_point=5, return_distance=True, metric="euclidean"
-):
+    data: np.ndarray,
+    seed: int = None,
+    n_triplets_per_point: int = 5,
+    return_distance: bool = True,
+    metric: str = "euclidean",
+) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
+    """Generate triplets for a dataset X. Each row of X is a point in the dataset.
+    Returns a 3D array of indices into X, with shape (X.shape[0], n_triplets_per_point,
+    2). If return_distance is True, also returns a 3D array of distances with the same
+    shape as the idx array."""
     idx = get_triplets(X=data, seed=seed, n_triplets_per_point=n_triplets_per_point)
     if return_distance:
         dist_fun = distance_function(metric)
@@ -21,7 +31,13 @@ def calculate_triplets(
     return idx
 
 
-def get_triplets(X, seed=None, n_triplets_per_point=5):
+def get_triplets(
+    X: np.ndarray, seed: int = None, n_triplets_per_point: int = 5
+) -> np.ndarray:
+    """Generate triplets for a dataset X. Each row of X is a point in the dataset.
+    Returns a 3D array of indices into X, with shape (X.shape[0], n_triplets_per_point,
+    2).
+    """
     anchors = np.arange(X.shape[0])
     rng = np.random.default_rng(seed=seed)
     # for each row of X generate n_triplets_per_point pairs sampled from anchors
@@ -30,7 +46,12 @@ def get_triplets(X, seed=None, n_triplets_per_point=5):
 
 
 @jit(nopython=True, parallel=True)
-def calc_distances(X, idx, dist_fun):
+def calc_distances(
+    X: np.ndarray, idx: np.ndarray, dist_fun: DistanceFunc
+) -> np.ndarray:
+    """Calculate distances between triplets of points. idx is a 3D array of indices
+    into X, with shape (n_items, n_triplets_per_item, 2). The output is a 3D array
+    of distances with the same shape as the idx array."""
     n_items, n_triplets_per_item, n_others = idx.shape
     distances = np.empty(idx.shape, dtype=np.float32)
     # pylint: disable=not-an-iterable
@@ -43,22 +64,80 @@ def calc_distances(X, idx, dist_fun):
     return distances
 
 
-def validate_triplets(triplets, n_obs):
+def validate_triplets(triplets: np.ndarray, n_obs: int):
+    """Check that the triplets array has the correct shape."""
     if len(triplets.shape) != 3 or triplets.shape[2] != 2 or triplets.shape[0] != n_obs:
         raise ValueError(
             f"triplets should have shape ({n_obs}, n_triplets_per_point, 2)"
         )
 
 
+# e.g. mnist.5.42.idx.npy
+@dataclass
+class TripletInfo:
+    """Information about a set of triplets."""
+
+    name: str  # name of the dataset
+    n_triplets_per_point: int  # number of triplets per point
+    seed: int  # random seed that generated the triplets
+    idx_path: Path  # path to triplet file
+
+    @property
+    def idx_suffix(self) -> str:
+        """Return the suffix for the idx file."""
+        return self._suffix("idx")
+
+    def dist_suffix(self, metric) -> str:
+        """Return the suffix for the distance file."""
+        return self._suffix(metric)
+
+    def _suffix(self, triplet_kind: str) -> str:
+        """Return the suffix for the idx or distance file."""
+        return "." + ".".join(
+            [
+                str(self.n_triplets_per_point),
+                str(self.seed),
+                triplet_kind,
+            ]
+        )
+
+    def dist_path(self, metric: str = "l2") -> Path:
+        """Return the path to the distance file."""
+        components = self.idx_path.name.split(".")
+        components[3] = metric
+        return self.idx_path.parent / ".".join(components)
+
+    @classmethod
+    def from_path(
+        cls, triplet_path: Path, ignore_bad_path: bool = False
+    ) -> Self | None:
+        """Create a TripletInfo object from a triplet file path."""
+        items = triplet_path.stem.split(".")
+        if len(items) != 4:
+            msg = f"Unknown triplet file format: {triplet_path}"
+            if ignore_bad_path:
+                log.warning(msg)
+                return None
+            raise ValueError(msg)
+        name = items[0]
+        n_triplets_per_point = int(items[1])
+        seed = int(items[2])
+
+        return TripletInfo(name, n_triplets_per_point, seed, triplet_path)
+
+
 # pylint:disable=too-many-return-statements
 def find_triplet_files(
-    name,
-    n_triplets_per_point=5,
-    metric="l2",
-    drnb_home=None,
-    sub_dir="triplets",
-    seed=None,
-):
+    name: str,
+    n_triplets_per_point: int = 5,
+    metric: str = "l2",
+    drnb_home: Path | str | None = None,
+    sub_dir: str = "triplets",
+    seed: int = None,
+) -> List[TripletInfo]:
+    """Find triplet files for a dataset. Returns a list of TripletInfo objects.
+    If seed is not None, only returns files with that seed. If metric is not None,
+    only returns files with that metric. If no files are found, returns an empty list."""
     try:
         triplet_dir_path = nbio.get_path(drnb_home=drnb_home, sub_dir=sub_dir)
     except FileNotFoundError:
@@ -110,20 +189,22 @@ def find_triplet_files(
 # flattened = True means idx and dist have been turned into 1D arrays so they can
 # be exported as e.g. CSV
 def write_triplets(
-    idx,
-    name,
-    n_triplets_per_point,
-    seed,
-    drnb_home=None,
-    sub_dir="triplets",
-    create_sub_dir=True,
-    file_type="npy",
-    verbose=False,
-    dist=None,
-    metric="euclidean",
-    flattened=False,
-    suffix=None,
-):
+    idx: np.ndarray,
+    name: str,
+    n_triplets_per_point: int,
+    seed: int,
+    drnb_home: Path | str | None = None,
+    sub_dir: str = "triplets",
+    create_sub_dir: bool = True,
+    file_type: str | List[str] = "npy",
+    verbose: bool = False,
+    dist: np.ndarray | None = None,
+    metric: str = "euclidean",
+    flattened: bool = False,
+    suffix: str | List[str] | None = None,
+) -> tuple[List[Path], List[Path]]:
+    """Write triplet data to files. Returns a tuple of paths to the idx and dist files.
+    If dist is None, the second element of the tuple will be an empty list."""
     if not flattened and idx.shape[1] != n_triplets_per_point:
         raise ValueError(
             "triplet data should have "
@@ -164,7 +245,11 @@ def write_triplets(
     return idx_paths, dist_paths
 
 
-def read_triplets_from_info(triplet_info, metric="l2", verbose=False):
+def read_triplets_from_info(
+    triplet_info: TripletInfo, metric: str = "l2", verbose: bool = False
+) -> tuple[np.ndarray, np.ndarray | None]:
+    """Read triplets from a TripletInfo object. Returns a tuple of (idx, dist).
+    If no distance file is found, dist is None."""
     idx = nbio.read_data(
         dataset=triplet_info.name,
         suffix=triplet_info.idx_suffix,
@@ -187,12 +272,14 @@ def read_triplets_from_info(triplet_info, metric="l2", verbose=False):
 
 
 def find_precomputed_triplets(
-    dataset_name,
-    triplet_sub_dir,
-    n_triplets_per_point,
-    metric="euclidean",
-    drnb_home=None,
-):
+    dataset_name: str,
+    triplet_sub_dir: str,
+    n_triplets_per_point: int,
+    metric: str = "euclidean",
+    drnb_home: Path | str | None = None,
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    """Find precomputed triplets for a dataset. Returns a tuple of (idx, dist).
+    If no triplets are found, returns (None, None)."""
     log.info("Looking for precomputed triplets")
     triplet_infos = find_triplet_files(
         name=dataset_name,
@@ -213,75 +300,24 @@ def find_precomputed_triplets(
     return idx, dist
 
 
-def cache_triplets(idx, dist, ctx, n_triplets_per_point, metric, random_state):
-    log.info("Caching triplets")
-    write_triplets(
-        idx,
-        name=ctx.dataset_name,
-        n_triplets_per_point=n_triplets_per_point,
-        seed=random_state,
-        drnb_home=ctx.drnb_home,
-        sub_dir=ctx.triplet_sub_dir,
-        create_sub_dir=True,
-        verbose=True,
-        dist=dist,
-        metric=metric,
-    )
-
-
-# e.g. mnist.5.42.idx.npy
-@dataclass
-class TripletInfo:
-    name: str  # name of the dataset
-    n_triplets_per_point: int  # number of triplets per point
-    seed: int  # random seed that generated the triplets
-    idx_path: Path  # path to triplet file
-
-    @property
-    def idx_suffix(self):
-        return self.suffix("idx")
-
-    def dist_suffix(self, metric):
-        return self.suffix(metric)
-
-    def suffix(self, triplet_kind):
-        return "." + ".".join(
-            [
-                str(self.n_triplets_per_point),
-                str(self.seed),
-                triplet_kind,
-            ]
-        )
-
-    def dist_path(self, metric="l2"):
-        components = self.idx_path.name.split(".")
-        components[3] = metric
-        return self.idx_path.parent / ".".join(components)
-
-    @classmethod
-    def from_path(cls, triplet_path, ignore_bad_path=False):
-        items = triplet_path.stem.split(".")
-        if len(items) != 4:
-            msg = f"Unknown triplet file format: {triplet_path}"
-            if ignore_bad_path:
-                log.warning(msg)
-                return None
-            raise ValueError(msg)
-        name = items[0]
-        n_triplets_per_point = int(items[1])
-        seed = int(items[2])
-
-        return TripletInfo(name, n_triplets_per_point, seed, triplet_path)
-
-
 @dataclass
 class TripletsRequest(FromDict, Jsonizable):
+    """Request for creating triplets."""
+
     n_triplets_per_point: int = 5
     seed: int = 42
     file_types: list = field(default_factory=lambda: ["pkl"])
     metric: list = field(default_factory=lambda: ["euclidean"])
 
-    def create_triplets(self, data, dataset_name, triplet_dir, suffix=None):
+    def create_triplets(
+        self,
+        data: np.ndarray,
+        dataset_name: str,
+        triplet_dir: str,
+        suffix: str | List[str] | None = None,
+    ) -> List[Path]:
+        """Create triplets for a dataset. Returns a list of paths to the idx and dist
+        files."""
         if not islisty(self.metric):
             metrics = [self.metric]
         else:
@@ -337,7 +373,8 @@ class TripletsRequest(FromDict, Jsonizable):
 # triplets = (
 #   n_triplets_per_point=5,
 #   seed=42,
-def create_triplets_request(triplets_kwds):
+def create_triplets_request(triplets_kwds: dict | None) -> TripletsRequest | None:
+    """Create a TripletsRequest based on the provided keyword arguments."""
     if triplets_kwds is None:
         return None
     return TripletsRequest.new(**triplets_kwds)

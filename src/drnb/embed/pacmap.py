@@ -5,16 +5,39 @@ import pacmap
 import pandas as pd
 
 import drnb.embed
-import drnb.neighbors as knn
+import drnb.embed.base
+from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.log import log
+from drnb.types import EmbedResult
 
 
 @dataclass
-class Pacmap(drnb.embed.Embedder):
+class Pacmap(drnb.embed.base.Embedder):
+    """PaCMAP embedder.
+
+    Attributes:
+        use_precomputed_knn: Whether to use precomputed knn.
+        init: Initialization method, one of "pca", "random" or user-supplied.
+
+    Possible params:
+        distance="euclidean" (str): Distance metric.
+        n_neighbors=10 (int): Number of neighbors.
+        MN_ratio=0.5 (float): Ratio of mid near pairs to nearest neighbor pairs.
+        FP_ratio=2.0 (float): Ratio of further pairs to nearest neighbor pairs.
+        lr=1.0 (float): Learning rate of the Adam optimizer.
+        num_iters=450 (int): Number of iterations.
+        apply_pca=True (bool): Whether to apply PCA on the input data.
+        intermediate=False (bool): Whether to return intermediate snapshots.
+        intermediate_snapshots (list): Iterations at which snapshots are taken.
+        random_state=None (int): Random seed.
+    """
+
     use_precomputed_knn: bool = True
     init: str = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         knn_params = {}
         if isinstance(self.use_precomputed_knn, dict):
             knn_params = dict(self.use_precomputed_knn)
@@ -24,7 +47,7 @@ class Pacmap(drnb.embed.Embedder):
             log.info("Using precomputed knn")
             metric = params.get("distance", "euclidean")
             n_neighbors = params.get("n_neighbors", 10) + 1
-            precomputed_knn = knn.get_neighbors_with_ctx(
+            precomputed_knn = get_neighbors_with_ctx(
                 x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
             )
             pair_neighbors = (
@@ -55,7 +78,10 @@ class Pacmap(drnb.embed.Embedder):
 # intermediate_snapshots=[0, 10, 30, 60, 100, 120, 140, 170, 200, 250, 300, 350, 450]: the iterations at which snapshots are taken. Ignored unless intermediate=True.
 # random_state=None.
 # init: one of "pca", "random" or user-supplied
-def embed_pacmap(x, params, init=None):
+def embed_pacmap(
+    x: np.ndarray, params: dict, init: np.ndarray | str | None = None
+) -> np.ndarray | dict:
+    """Embed data using PaCMAP."""
     # if intermediate_snapshots is supplied, make sure the last value is `num_iters`
     # to avoid an exception
     if params.get("intermediate", False) and "intermediate_snapshots" in params:
@@ -71,7 +97,7 @@ def embed_pacmap(x, params, init=None):
     log.info("Embedding completed")
 
     if params.get("intermediate", False):
-        embedded = dict(coords=result[-1], snapshots={})
+        embedded = {"coords": result[-1], "snapshots": {}}
         for i in range(result.shape[0]):
             embedded["snapshots"][f"it_{embedder.intermediate_snapshots[i]}"] = result[
                 i

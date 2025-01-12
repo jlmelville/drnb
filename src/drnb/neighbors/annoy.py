@@ -2,13 +2,12 @@ import numpy as np
 from annoy import AnnoyIndex
 from sklearn.utils import check_random_state
 
-ANNOY_DEFAULTS = dict(
-    n_trees=50,
-    search_k=-1,
-    random_state=42,
-    n_jobs=-1,
-)
-
+ANNOY_DEFAULTS = {
+    "n_trees": 50,
+    "search_k": -1,
+    "random_state": 42,
+    "n_jobs": -1,
+}
 
 ANNOY_METRICS = {
     "dot": "dot",
@@ -17,17 +16,21 @@ ANNOY_METRICS = {
     "euclidean": "euclidean",
 }
 
+
 # also adapted from openTSNE
 def annoy_neighbors(
-    X,
-    n_neighbors=15,
-    metric="euclidean",
-    random_state=42,
-    n_trees=50,
-    search_k=-1,
-    n_jobs=-1,
-    return_distance=True,
-):
+    X: np.ndarray,
+    n_neighbors: int = 15,
+    metric: str = "euclidean",
+    random_state: int = 42,
+    n_trees: int = 50,
+    search_k: int = -1,
+    n_jobs: int = -1,
+    return_distance: bool = True,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+    """Compute the nearest neighbors using the Annoy library. If `return_distance` is
+    True, the function will return both the indices and the distances to the neighbors.
+    Otherwise, it will only return the indices."""
     N = X.shape[0]
     annoy_space = ANNOY_METRICS[metric]
 

@@ -1,37 +1,41 @@
 import ncvis
+import numpy as np
 
 import drnb.embed
-
-from drnb.log import log
-
-
-class NCVis(drnb.embed.Embedder):
-    def embed_impl(self, x, params, ctx=None):
-        return ncvis_embed(x, params)
+import drnb.embed.base
+from drnb.embed.context import EmbedContext
+from drnb.types import EmbedResult
 
 
-# * d=2
-# * n_threads=-1
-# * n_neighbors=15
-# * M=16
-# * ef_construction=200
-# * random_seed=42
-# * n_epochs=50
-# * n_init_epochs=20
-# * spread=1.0
-# * min_dist=0.4
-# * a=None
-# * b=None
-# * alpha=1.0,
-# * alpha_Q=1.0,
-# * n_noise=None
-# * distance="euclidean"
+class NCVis(drnb.embed.base.Embedder):
+    """NCVis embedder.
 
+    Possible params:
 
-def ncvis_embed(x, params):
-    log.info("Running NCVis")
-    embedder = ncvis.NCVis(**params)
-    embedded = embedder.fit_transform(x)
-    log.info("Embedding completed")
+    * d=2 (int): Number of dimensions.
+    * n_threads=-1 (int): Number of threads to use.
+    * n_neighbors=15 (int): Number of neighbors.
+    * M=16 (int): Number of landmarks.
+    * ef_construction=200 (int): Construction parameter.
+    * random_seed=42 (int): Random seed.
+    * n_epochs=50 (int): Number of epochs.
+    * n_init_epochs=20 (int): Number of initialization epochs.
+    * spread=1.0 (float): Spread.
+    * min_dist=0.4 (float): Minimum distance.
+    * a=None (float): A.
+    * b=None (float): B.
+    * alpha=1.0 (float): Alpha.
+    * alpha_Q=1.0 (float): Alpha Q.
+    * n_noise=None (int): Number of noise points.
+    * distance="euclidean" (str): Distance metric.
+    """
 
-    return embedded
+    def embed_impl(
+        self, x: np.ndarray, params: dict, _: EmbedContext | None = None
+    ) -> EmbedResult:
+        return drnb.embed.fit_transform_embed(
+            x,
+            params,
+            ncvis.NCVis,
+            "Sparse Random Projection",
+        )

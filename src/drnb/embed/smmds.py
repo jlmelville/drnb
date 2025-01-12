@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Literal
 
 import numba
 import numpy as np
@@ -7,32 +7,63 @@ from numpy.typing import NDArray
 from umap.utils import tau_rand_int
 
 import drnb.embed
+import drnb.embed.base
 from drnb.distances import distance_function
+from drnb.embed.context import EmbedContext
 from drnb.embed.umap.utils import euclidean
 from drnb.log import log
 from drnb.optim import create_opt
 from drnb.preprocess import pca as pca_reduce
 from drnb.rng import setup_rngn
 from drnb.sampling import create_sample_plan
+from drnb.types import DistanceFunc, EmbedResult
 from drnb.yinit import pca as pca_init
 from drnb.yinit import scale_coords, umap_random_init
 
 
+def mmds_init(
+    init: np.ndarray | Literal["pca", "pcaw", "rand"],
+    nobs: int,
+    X: np.ndarray = None,
+    init_scale: float | None = None,
+    random_state: int = 42,
+) -> NDArray[np.float32]:
+    """Initialize the embedding for Metric Multidimensional Scaling (MMDS) methods."""
+    if isinstance(init, np.ndarray):
+        if init.shape != (nobs, 2):
+            raise ValueError("Initialization array has incorrect shape")
+        log.info("Using pre-supplied initialization coordinates")
+        Y = init
+    elif init == "pca":
+        Y = pca_init(X)
+    elif init == "pcaw":
+        Y = pca_init(X, whiten=True)
+    elif init == "rand":
+        Y = umap_random_init(nobs, random_state)
+    else:
+        raise ValueError(f"Unknown init option '{init}'")
+    Y = Y.astype(np.float32, order="C")
+    if init_scale is not None:
+        Y = scale_coords(Y, max_coord=init_scale)
+    return Y
+
+
 def smmds(
-    X,
-    metric="euclidean",
-    n_epochs=200,
-    init="pca",
-    n_samples=3,
-    sample_strategy=None,
-    random_state=42,
-    learning_rate=None,
-    opt="adam",
-    optargs=None,
-    eps=1e-10,
-    pca=None,
-    init_scale=None,
+    X: np.ndarray,
+    metric: str = "euclidean",
+    n_epochs: int = 200,
+    init: np.ndarray | Literal["pca", "pcaw", "rand"] = "pca",
+    n_samples: int = 3,
+    sample_strategy: Literal["unif", "inc", "dec"] | None = None,
+    random_state: int = 42,
+    learning_rate: float | None = None,
+    opt: str = "adam",
+    optargs: dict | None = None,
+    eps: float = 1e-10,
+    pca: int | None = None,
+    init_scale: float | None = None,
 ):
+    """Run the Stochastic Metric Multidimensional Scaling (SMMDS) embedding algorithm."""
     if optargs is None:
         optargs = {"decay_alpha": True}
     # specifying learning_rate takes precedence over any value of alpha set in opt args
@@ -57,7 +88,16 @@ def smmds(
     return Y
 
 
-def _smmds(X, Y, n_epochs, eps, xdfun, opt, samples, rng_state):
+def _smmds(
+    X: np.ndarray,
+    Y: np.ndarray,
+    n_epochs: int,
+    eps: float,
+    xdfun: DistanceFunc,
+    opt: drnb.optim.OptimizerProtocol,
+    samples: np.ndarray,
+    rng_state: np.ndarray,
+) -> np.ndarray:
     nobs, ndim = Y.shape
 
     for n in range(n_epochs):
@@ -82,15 +122,15 @@ def _smmds(X, Y, n_epochs, eps, xdfun, opt, samples, rng_state):
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
 def _smmds_epoch(
-    X,
-    Y,
-    eps,
-    xdfun,
-    rng_state,
-    n_samples,
-    nobs,
-    ndim,
-):
+    X: np.ndarray,
+    Y: np.ndarray,
+    eps: float,
+    xdfun: DistanceFunc,
+    rng_state: np.ndarray,
+    n_samples: int,
+    nobs: int,
+    ndim: int,
+) -> np.ndarray:
     grads = np.zeros((nobs, ndim), dtype=np.float32)
     # pylint:disable=not-an-iterable
     for i in numba.prange(nobs):
@@ -109,65 +149,48 @@ def _smmds_epoch(
     return grads
 
 
-def mmds_init(
-    init, nobs, X=None, init_scale=None, random_state=42
-) -> NDArray[np.float32]:
-    if isinstance(init, np.ndarray):
-        if init.shape != (nobs, 2):
-            raise ValueError("Initialization array has incorrect shape")
-        log.info("Using pre-supplied initialization coordinates")
-        Y = init
-    elif init == "pca":
-        Y = pca_init(X)
-    elif init == "pcaw":
-        Y = pca_init(X, whiten=True)
-    elif init == "rand":
-        Y = umap_random_init(nobs, random_state)
-    else:
-        raise ValueError(f"Unknown init option '{init}'")
-    Y = Y.astype(np.float32, order="C")
-    if init_scale is not None:
-        Y = scale_coords(Y, max_coord=init_scale)
-    return Y
-
-
 @dataclass
-class Smmds(drnb.embed.Embedder):
-    precomputed_init: Optional[np.ndarray] = None
+class Smmds(drnb.embed.base.Embedder):
+    """Stochastic Metric MDS (SMMDS) embedding implementation.
 
-    def embed_impl(self, x, params, ctx=None):
+    Attributes:
+        precomputed_init (numpy.ndarray | None): Optional precomputed initial
+        coordinates
+    """
+
+    precomputed_init: np.ndarray | None = None
+
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         if self.precomputed_init is not None:
             log.info("Using precomputed initial coordinates")
             params["init"] = self.precomputed_init
-        return embed_smmds(x, params)
 
+        log.info("Running SMMDS")
+        params["X"] = x
+        embedded = smmds(**params)
+        log.info("Embedding completed")
 
-def embed_smmds(
-    x,
-    params,
-):
-    log.info("Running SMMDS")
-    params["X"] = x
-    embedded = smmds(**params)
-    log.info("Embedding completed")
-
-    return embedded
+        return embedded
 
 
 def snmds(
-    X,
-    metric="euclidean",
-    n_epochs=200,
-    init="pca",
-    n_samples=3,
-    random_state=42,
-    learning_rate=None,
-    opt="adam",
-    optargs=None,
-    eps=1e-10,
-    init_scale=None,
-    pca=None,
-):
+    X: np.ndarray,
+    metric: str = "euclidean",
+    n_epochs: int = 200,
+    init: np.ndarray | Literal["pca", "pcaw", "rand"] = "pca",
+    n_samples: int = 3,
+    random_state: int = 42,
+    learning_rate: float | None = None,
+    opt: str = "adam",
+    optargs: dict | None = None,
+    eps: float = 1e-10,
+    pca: int | None = None,
+    init_scale: float | None = None,
+) -> np.ndarray:
+    """Run the Stochastic Normalized Multidimensional Scaling (SNMDS) embedding
+    algorithm."""
     # specifying learning_rate takes precedence over any value of alpha set in opt args
     if learning_rate is not None:
         if optargs is None:
@@ -188,7 +211,16 @@ def snmds(
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=False)
-def _snmds(X, Y, n_epochs, eps, xdfun, opt, n_samples, rng_state):
+def _snmds(
+    X: np.ndarray,
+    Y: np.ndarray,
+    n_epochs: int,
+    eps: float,
+    xdfun: DistanceFunc,
+    opt: drnb.optim.OptimizerProtocol,
+    n_samples: int,
+    rng_state: np.ndarray,
+) -> np.ndarray:
     nobs, ndim = Y.shape
     js = np.empty(n_samples, dtype=np.int32)
     pq = np.empty(n_samples, dtype=np.float32)
@@ -207,7 +239,20 @@ def _snmds(X, Y, n_epochs, eps, xdfun, opt, n_samples, rng_state):
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=False)
-def _snmds_epoch(X, Y, eps, xdfun, n_samples, nobs, ndim, rng_state, js, pq, rs, ds):
+def _snmds_epoch(
+    X: np.ndarray,
+    Y: np.ndarray,
+    eps: float,
+    xdfun: DistanceFunc,
+    n_samples: int,
+    nobs: int,
+    ndim: int,
+    rng_state: np.ndarray,
+    js: np.ndarray,
+    pq: np.ndarray,
+    rs: np.ndarray,
+    ds: np.ndarray,
+) -> np.ndarray:
     grads = np.zeros((nobs, ndim), dtype=np.float32)
 
     # pylint:disable=not-an-iterable
@@ -257,40 +302,44 @@ def _snmds_epoch(X, Y, eps, xdfun, n_samples, nobs, ndim, rng_state, js, pq, rs,
 
 
 @dataclass
-class Snmds(drnb.embed.Embedder):
-    precomputed_init: Optional[np.ndarray] = None
+class Snmds(drnb.embed.base.Embedder):
+    """Stochastic Normalized MDS (SMMDS) embedding implementation.
 
-    def embed_impl(self, x, params, ctx=None):
+    Attributes:
+        precomputed_init (numpy.ndarray | None): Optional precomputed initial
+        coordinates
+    """
+
+    precomputed_init: np.ndarray | None = None
+
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         if self.precomputed_init is not None:
             log.info("Using precomputed initial coordinates")
             params["init"] = self.precomputed_init
-        return embed_snmds(x, params)
 
+        log.info("Running SMMDS")
+        params["X"] = x
+        embedded = snmds(**params)
+        log.info("Embedding completed")
 
-def embed_snmds(
-    x,
-    params,
-):
-    log.info("Running SMMDS")
-    params["X"] = x
-    embedded = snmds(**params)
-    log.info("Embedding completed")
-
-    return embedded
+        return embedded
 
 
 def mmds(
-    X,
-    metric="euclidean",
-    n_epochs=200,
-    init="pca",
-    random_state=42,
-    learning_rate=None,
-    opt="adam",
-    optargs=None,
-    eps=1e-10,
-    init_scale=None,
+    X: np.ndarray,
+    metric: str = "euclidean",
+    n_epochs: int = 200,
+    init: np.ndarray | Literal["pca", "pcaw", "rand"] = "pca",
+    random_state: int = 42,
+    learning_rate: float | None = None,
+    opt: str = "adam",
+    optargs: dict | None = None,
+    eps: float = 1e-10,
+    init_scale: float | None = None,
 ):
+    """Run the Metric Multidimensional Scaling (MMDS) embedding algorithm."""
     # specifying learning_rate takes precedence over any value of alpha set in opt args
     if learning_rate is not None:
         if optargs is None:
@@ -309,7 +358,15 @@ def mmds(
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=False)
-def _mmds(X, Y, n_epochs, eps, xdfun, ydfun, opt):
+def _mmds(
+    X: np.ndarray,
+    Y: np.ndarray,
+    n_epochs: int,
+    eps: float,
+    xdfun: DistanceFunc,
+    ydfun: DistanceFunc,
+    opt: drnb.optim.OptimizerProtocol,
+) -> np.ndarray:
     nobs, ndim = Y.shape
 
     for n in range(n_epochs):
@@ -320,7 +377,15 @@ def _mmds(X, Y, n_epochs, eps, xdfun, ydfun, opt):
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
-def _mmds_epoch(X, Y, eps, xdfun, ydfun, nobs, ndim):
+def _mmds_epoch(
+    X: np.ndarray,
+    Y: np.ndarray,
+    eps: float,
+    xdfun: DistanceFunc,
+    ydfun: DistanceFunc,
+    nobs: int,
+    ndim: int,
+) -> np.ndarray:
     grads = np.zeros((nobs, ndim), dtype=np.float32)
     # pylint:disable=not-an-iterable
     for i in numba.prange(nobs):
@@ -339,23 +404,20 @@ def _mmds_epoch(X, Y, eps, xdfun, ydfun, nobs, ndim):
 
 
 @dataclass
-class Mmds(drnb.embed.Embedder):
-    precomputed_init: Optional[np.ndarray] = None
+class Mmds(drnb.embed.base.Embedder):
+    """Metric Multidimensional Scaling (MMDS) embedding using numba."""
 
-    def embed_impl(self, x, params, ctx=None):
+    precomputed_init: np.ndarray | None = None
+
+    def embed_impl(
+        self, x: np.ndarray, params: dict, _: EmbedContext | None = None
+    ) -> EmbedResult:
         if self.precomputed_init is not None:
             log.info("Using precomputed initial coordinates")
             params["init"] = self.precomputed_init
-        return embed_mmds(x, params)
+        log.info("Running MMDS")
+        params["X"] = x
+        embedded = mmds(**params)
+        log.info("Embedding completed")
 
-
-def embed_mmds(
-    x,
-    params,
-):
-    log.info("Running MMDS")
-    params["X"] = x
-    embedded = mmds(**params)
-    log.info("Embedding completed")
-
-    return embedded
+        return embedded

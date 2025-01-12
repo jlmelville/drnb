@@ -1,24 +1,27 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Literal
 
 import numba
 import numpy as np
 from umap.utils import tau_rand_int
 
 import drnb.embed
-import drnb.neighbors as nbrs
-from drnb.distances import distance_function
+import drnb.embed.base
+import drnb.optim
+from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.embed.umap.utils import euclidean
-from drnb.log import log
+from drnb.log import is_progress_report_iter, log
 from drnb.neighbors.hubness import nn_to_sparse
 from drnb.optim import create_opt
 from drnb.rng import setup_rngn
 from drnb.sampling import create_sample_plan
+from drnb.types import EmbedResult
 from drnb.yinit import standard_neighbor_init
 
 
 @numba.njit()
-def clip(val, max_val=4.0, min_val=-4.0):
+def clip(val: float, max_val: float = 4.0, min_val: float = -4.0) -> float:
+    """Clip a value to a range between min_val and max_val."""
     if val > max_val:
         return max_val
     if val < min_val:
@@ -27,24 +30,25 @@ def clip(val, max_val=4.0, min_val=-4.0):
 
 
 def ivhd(
-    knn_idx,
-    n_random=1,
-    n_epochs=200,
-    near_dist=0.0,
-    far_dist=1.0,
-    far_weight=0.01,
-    init="pca",
-    learning_rate=None,
-    opt="adam",
-    optargs: Optional[dict] = None,
-    sample_strategy="unif",
-    symmetrize: Optional[str] = "or",
-    eps=1e-5,
-    random_state=42,
-    X=None,
-    init_scale=None,
-    clip_grad=4.0,
-):
+    knn_idx: np.ndarray,
+    n_random: int = 1,
+    n_epochs: int = 200,
+    near_dist: float = 0.0,
+    far_dist: float = 1.0,
+    far_weight: float = 0.01,
+    init: np.ndarray | Literal["pca", "rand", "spectral", "gspectral"] = "pca",
+    learning_rate: float | None = None,
+    opt: str = "adam",
+    optargs: dict | None = None,
+    sample_strategy: str = "unif",
+    symmetrize: Literal["or", "and", "mean"] | None = "or",
+    eps: float = 1e-5,
+    random_state: int = 42,
+    X: np.ndarray | None = None,
+    init_scale: float = None,
+    clip_grad: float = 4.0,
+) -> np.ndarray:
+    """Embed data using IVHD."""
     if optargs is None:
         optargs = {}
     # specifying learning_rate takes precedence over any value of alpha set in opt args
@@ -67,7 +71,6 @@ def ivhd(
     dmat = nn_to_sparse(knn_idx, symmetrize=symmetrize)
     dmat.eliminate_zeros()
 
-    knn_i = dmat.row
     knn_j = dmat.col
     ptr = dmat.tocsr().indptr
 
@@ -81,7 +84,6 @@ def ivhd(
         optim,
         samples,
         rng_state,
-        knn_i,
         knn_j,
         ptr,
         near_dist,
@@ -96,35 +98,31 @@ def ivhd(
 
 @numba.jit(nopython=True, fastmath=True)
 def _ivhd(
-    Y,
-    n_epochs,
-    opt,
-    samples,
-    rng_state,
-    knn_i,
-    knn_j,
-    ptr,
-    near_dist,
-    far_dist,
-    far_weight,
-    eps,
-    clip_grad,
-):
+    Y: np.ndarray,
+    n_epochs: int,
+    opt: drnb.optim.OptimizerProtocol,
+    samples: np.ndarray,
+    rng_state: np.ndarray,
+    knn_j: np.ndarray,
+    ptr: np.ndarray,
+    near_dist: float,
+    far_dist: float,
+    far_weight: float,
+    eps: float,
+    clip_grad: float,
+) -> np.ndarray:
     nobs, ndim = Y.shape
-    degrees = np.zeros((nobs,), dtype=np.int32)
-    for i in knn_i:
-        degrees[i] = degrees[i] + 1
 
     for n in range(n_epochs):
         grads = np.zeros((nobs, ndim), dtype=np.float32)
         # neighbors
-        _ivhd_nbrs(Y, knn_i, knn_j, ptr, near_dist, eps, grads, clip_grad)
+        _ivhd_nbrs(Y, knn_j, ptr, near_dist, eps, grads, clip_grad)
 
         # non-neighbors
         _ivhd_inner_nnbr(
             Y,
             samples[n],
-            degrees,
+            ptr,
             rng_state,
             far_dist,
             far_weight,
@@ -143,14 +141,20 @@ def _ivhd(
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
-def _ivhd_nbrs(Y, knn_i, knn_j, ptr, near_dist, eps, grads, clip_grad):
+def _ivhd_nbrs(
+    Y: np.ndarray,
+    knn_j: np.ndarray,
+    ptr: np.ndarray,
+    near_dist: float,
+    eps: float,
+    grads: np.ndarray,
+    clip_grad: float,
+):
     ndim = Y.shape[1]
     # pylint:disable=not-an-iterable
-    for p in numba.prange(len(ptr) - 1):
-        for edge in range(ptr[p], ptr[p + 1]):
-            i = knn_i[edge]
-            Yi = Y[i]
-
+    for i in numba.prange(len(ptr) - 1):
+        Yi = Y[i]
+        for edge in range(ptr[i], ptr[i + 1]):
             j = knn_j[edge]
             dij = euclidean(Yi, Y[j])
 
@@ -165,13 +169,22 @@ def _ivhd_nbrs(Y, knn_i, knn_j, ptr, near_dist, eps, grads, clip_grad):
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
 def _ivhd_inner_nnbr(
-    Y, nsamples, degrees, rng_state, far_dist, far_weight, eps, grads, clip_grad
+    Y: np.ndarray,
+    n_samples: int,
+    ptr: np.ndarray,
+    rng_state: np.ndarray,
+    far_dist: float,
+    far_weight: float,
+    eps: float,
+    grads: np.ndarray,
+    clip_grad: float,
 ):
     nobs, ndim = Y.shape
     # pylint:disable=not-an-iterable
     for i in numba.prange(nobs):
         Yi = Y[i]
-        for _ in range(degrees[i] * nsamples):
+        # number of edges in i is ptr[i + 1] - ptr[i]
+        for _ in range((ptr[i + 1] - ptr[i]) * n_samples):
             j = tau_rand_int(rng_state[i]) % nobs
             if i == j:
                 continue
@@ -187,10 +200,20 @@ def _ivhd_inner_nnbr(
 
 
 @dataclass
-class Ivhd(drnb.embed.Embedder):
-    precomputed_init: Optional[np.ndarray] = None
+class Ivhd(drnb.embed.base.Embedder):
+    """
+    The IVHD Embedder
 
-    def embed_impl(self, x, params, ctx=None):
+    Attributes:
+        precomputed_init: Optional array of initial coordinates for embedding. If None,
+            random initialization is used.
+    """
+
+    precomputed_init: np.ndarray | None = None
+
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         if self.precomputed_init is not None:
             log.info("Using precomputed initial coordinates")
             params["init"] = self.precomputed_init
@@ -201,7 +224,7 @@ class Ivhd(drnb.embed.Embedder):
         else:
             n_neighbors = 2
 
-        precomputed_knn = nbrs.get_neighbors_with_ctx(
+        precomputed_knn = get_neighbors_with_ctx(
             x,
             params.get("metric", "euclidean"),
             n_neighbors + 1,
@@ -209,45 +232,40 @@ class Ivhd(drnb.embed.Embedder):
             ctx=ctx,
         )
         params["knn_idx"] = precomputed_knn.idx[:, 1:]
-        return embed_ivhd(x, params)
 
+        log.info("Running IVHD")
+        params["X"] = x
+        embedded = ivhd(**params)
+        log.info("Embedding completed")
 
-def embed_ivhd(
-    x,
-    params,
-):
-    log.info("Running IVHD")
-    params["X"] = x
-    embedded = ivhd(**params)
-    log.info("Embedding completed")
-
-    return embedded
+        return embedded
 
 
 def xvhd(
-    knn_idx,
-    n_random=1,
-    n_epochs=200,
-    near_dist=0.0,
-    far_dist=1.0,
-    far_weight=0.01,
-    power=1.0,
-    init="pca",
-    learning_rate=None,
-    opt="adam",
-    optargs=None,
-    sample_strategy="unif",
-    symmetrize=None,
-    eps=1e-5,
-    random_state=42,
-    X=None,
-    init_scale=None,
-):
+    knn_idx: np.ndarray,
+    n_random: int = 1,
+    n_epochs: int = 200,
+    near_dist: float = 0.0,
+    far_weight: float = 0.01,
+    init: np.ndarray | Literal["pca", "rand", "spectral", "gspectral"] = "pca",
+    learning_rate: float | None = None,
+    opt: str = "adam",
+    optargs: dict | None = None,
+    sample_strategy: str = "unif",
+    symmetrize: Literal["or", "and", "mean"] | None = "or",
+    eps: float = 1e-5,
+    random_state: int = 42,
+    X: np.ndarray | None = None,
+    init_scale: float = None,
+    clip_grad: float = 4.0,
+) -> np.ndarray:
+    """Embed data using XVHD."""
+    if optargs is None:
+        optargs = {}
     # specifying learning_rate takes precedence over any value of alpha set in opt args
     if learning_rate is not None:
-        if optargs is None:
-            optargs = {}
         optargs["alpha"] = learning_rate
+
     nobs = knn_idx.shape[0]
     optim = create_opt(nobs, opt, optargs)
     rng_state = setup_rngn(nobs, random_state)
@@ -261,12 +279,11 @@ def xvhd(
         init_scale=init_scale,
     )
 
-    ydfun = distance_function("euclidean")
-
     dmat = nn_to_sparse(knn_idx, symmetrize=symmetrize)
     dmat.eliminate_zeros()
-    knn_i = dmat.row
+
     knn_j = dmat.col
+    ptr = dmat.tocsr().indptr
 
     samples = create_sample_plan(
         n_samples=n_random, n_epochs=n_epochs, strategy=sample_strategy
@@ -275,123 +292,140 @@ def xvhd(
     Y = _xvhd(
         Y,
         n_epochs,
-        ydfun,
         optim,
         samples,
         rng_state,
-        knn_i,
         knn_j,
+        ptr,
         near_dist,
-        far_dist,
         far_weight,
-        power,
         eps,
+        clip_grad,
     )
 
     return Y
 
 
-@numba.jit(nopython=True, fastmath=True)
-def _xvhd_inner_nbr(
-    Y, ydfun, knn_i, knn_j, near_dist, eps, nedges, grads, radii, power, counts
-):
-    # neighbors
-    for edge in range(nedges):
-        i = knn_i[edge]
-        j = knn_j[edge]
-        dij = ydfun(Y[i], Y[j])
-        pdij = pow(dij, power)
-        radii[i] = radii[i] + pdij
-        radii[j] = radii[j] + pdij
-        grad_coeff = (dij - near_dist) / (dij + eps) * (Y[i] - Y[j])
-        grads[i] = grads[i] + grad_coeff
-        grads[j] = grads[j] - grad_coeff
-
-    p1 = 1.0 / power
-    for i in range(radii.shape[0]):
-        radii[i] = pow(radii[i] / counts[i], p1)
-    return grads
-
-
-@numba.jit(nopython=True, fastmath=True, parallel=False)
-def _xvhd_inner_nnbr(
-    Y,
-    ydfun,
-    rng_state,
-    nsamples,
-    far_dist,
-    far_weight,
-    eps,
-    nobs,
-    grads,
-    radii,
-):
-    # non-neighbors
-    # pylint:disable=not-an-iterable
-    for i in numba.prange(nobs):
-        for _ in range(nsamples):
-            j = tau_rand_int(rng_state[i]) % nobs
-            if i == j:
-                continue
-            dij = ydfun(Y[i], Y[j])
-
-            rij = radii[i] + radii[j]
-            if dij < rij:
-                grad_coeff = far_weight * (dij - rij * far_dist) / (dij + eps)
-                # grads[i] = grads[i] + grad_coeff * (Y[i] - Y[j])
-                grads[j] = grads[j] - grad_coeff * (Y[i] - Y[j])
-    return grads
-
-
-@numba.jit(nopython=True, fastmath=True)
 def _xvhd(
-    Y,
-    n_epochs,
-    ydfun,
-    opt,
-    samples,
-    rng_state,
-    knn_i,
-    knn_j,
-    near_dist,
-    far_dist,
-    far_weight,
-    power,
-    eps,
-):
+    Y: np.ndarray,
+    n_epochs: int,
+    opt: drnb.optim.OptimizerProtocol,
+    samples: np.ndarray,
+    rng_state: np.ndarray,
+    knn_j: np.ndarray,
+    ptr: np.ndarray,
+    near_dist: float,
+    far_weight: float,
+    eps: float,
+    clip_grad: float,
+) -> np.ndarray:
     nobs, ndim = Y.shape
-    nedges = len(knn_i)
-    radii = np.zeros(nobs, dtype=np.float32)
-
-    counts = np.zeros(radii.shape[0], dtype=np.float32)
-    for edge in range(nedges):
-        i = knn_i[edge]
-        j = knn_j[edge]
-        counts[i] = counts[i] + 1
-        counts[j] = counts[j] + 1
 
     for n in range(n_epochs):
+        radii = np.zeros((nobs,), dtype=np.float32)
         grads = np.zeros((nobs, ndim), dtype=np.float32)
-        nsamples = samples[n]
+
         # neighbors
-        grads = _xvhd_inner_nbr(
-            Y, ydfun, knn_i, knn_j, near_dist, eps, nedges, grads, radii, power, counts
-        )
+        _xvhd_nbrs(Y, knn_j, ptr, near_dist, eps, clip_grad, grads, radii)
 
         # non-neighbors
-        grads = _xvhd_inner_nnbr(
-            Y, ydfun, rng_state, nsamples, far_dist, far_weight, eps, nobs, grads, radii
+        _xvhd_non_nbrs(
+            Y,
+            radii,
+            samples[n],
+            ptr,
+            rng_state,
+            far_weight,
+            eps,
+            clip_grad,
+            grads,
         )
-
+        if is_progress_report_iter(n, n_epochs, 10):
+            log.info("epoch %d %f", n + 1, radii[0])
         Y = opt.opt(Y, grads, n, n_epochs)
+
     for d in range(ndim):
-        Y[:, d] -= np.mean(Y[:, d])
+        Yd = Y[:, d]
+        Y[:, d] = Yd - np.mean(Yd)
+
     return Y
 
 
+@numba.jit(nopython=True, fastmath=True, parallel=True)
+def _xvhd_nbrs(
+    Y: np.ndarray,
+    knn_j: np.ndarray,
+    ptr: np.ndarray,
+    near_dist: float,
+    eps: float,
+    clip_grad: float,
+    grads: np.ndarray,
+    radii: np.ndarray,
+):
+    ndim = Y.shape[1]
+    # pylint:disable=not-an-iterable
+    for i in numba.prange(len(ptr) - 1):
+        Yi = Y[i]
+        for edge in range(ptr[i], ptr[i + 1]):
+            j = knn_j[edge]
+            dij = euclidean(Yi, Y[j])
+            if dij > radii[i]:
+                radii[i] = dij
+            grad_coeff = (dij - near_dist) / (dij + eps)
+            for d in range(ndim):
+                grads[i, d] = grads[i, d] + clip(
+                    grad_coeff * (Yi[d] - Y[j, d]),
+                    max_val=clip_grad,
+                    min_val=-clip_grad,
+                )
+
+
+@numba.jit(nopython=True, fastmath=True, parallel=True)
+def _xvhd_non_nbrs(
+    Y: np.ndarray,
+    radii: np.ndarray,
+    n_samples: int,
+    ptr: np.ndarray,
+    rng_state: np.ndarray,
+    far_weight: float,
+    eps: float,
+    clip_grad: float,
+    grads: np.ndarray,
+):
+    nobs, ndim = Y.shape
+    # pylint:disable=not-an-iterable
+    for i in numba.prange(nobs):
+        Yi = Y[i]
+        # number of edges in i is ptr[i + 1] - ptr[i]
+        for _ in range((ptr[i + 1] - ptr[i]) * n_samples):
+            j = tau_rand_int(rng_state[i]) % nobs
+            if i == j:
+                continue
+            dij = euclidean(Yi, Y[j])
+            rad = radii[i]
+            if radii[j] > rad:
+                rad = radii[j]
+            if dij < rad:
+                grad_coeff = far_weight * (dij - 2.0 * rad) / (dij + eps)
+                for d in range(ndim):
+                    grads[i, d] = grads[i, d] + clip(
+                        grad_coeff * (Yi[d] - Y[j, d]),
+                        max_val=clip_grad,
+                        min_val=-clip_grad,
+                    )
+
+
 @dataclass
-class Xvhd(drnb.embed.Embedder):
-    precomputed_init: Optional[np.ndarray] = None
+class Xvhd(drnb.embed.base.Embedder):
+    """
+    The XVHD Embedder
+
+    Attributes:
+        precomputed_init: Optional array of initial coordinates for embedding. If None,
+            random initialization is used.
+    """
+
+    precomputed_init: np.ndarray | None = None
 
     def embed_impl(self, x, params, ctx=None):
         if self.precomputed_init is not None:
@@ -404,7 +438,7 @@ class Xvhd(drnb.embed.Embedder):
         else:
             n_neighbors = 2
 
-        precomputed_knn = nbrs.get_neighbors_with_ctx(
+        precomputed_knn = get_neighbors_with_ctx(
             x,
             params.get("metric", "euclidean"),
             n_neighbors + 1,
@@ -412,16 +446,10 @@ class Xvhd(drnb.embed.Embedder):
             ctx=ctx,
         )
         params["knn_idx"] = precomputed_knn.idx[:, 1:]
-        return embed_xvhd(x, params)
 
+        log.info("Running XVHD")
+        params["X"] = x
+        embedded = xvhd(**params)
+        log.info("Embedding completed")
 
-def embed_xvhd(
-    x,
-    params,
-):
-    log.info("Running XVHD")
-    params["X"] = x
-    embedded = xvhd(**params)
-    log.info("Embedding completed")
-
-    return embedded
+        return embedded

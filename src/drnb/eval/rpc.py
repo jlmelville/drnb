@@ -1,9 +1,12 @@
 from dataclasses import dataclass
+from typing import List
 
+import numpy as np
 import scipy.stats
 
 from drnb.distances import distance_function
-from drnb.eval import EvalResult
+from drnb.embed.context import EmbedContext
+from drnb.eval.base import EmbeddingEval, EvalResult
 from drnb.log import log
 
 from ..triplets import (
@@ -12,19 +15,18 @@ from ..triplets import (
     get_triplets,
     validate_triplets,
 )
-from .base import EmbeddingEval
 
 
 def _random_pair_setup(
-    X,
-    X_new,
-    triplets=None,
-    random_state=None,
-    n_triplets_per_point=5,
-    X_dist=None,
-    metric="euclidean",
-    Xnew_dist=None,
-):
+    X: np.ndarray,
+    X_new: np.ndarray,
+    triplets: np.ndarray | None = None,
+    random_state: int | None = None,
+    n_triplets_per_point: int = 5,
+    X_dist: np.ndarray | None = None,
+    metric: str = "euclidean",
+    Xnew_dist: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     dist_fun = distance_function(metric)
 
     n_obs = X.shape[0]
@@ -54,16 +56,20 @@ def _random_pair_setup(
 
 
 def random_pair_correl_eval(
-    X,
-    X_new,
-    triplets=None,
-    random_state=None,
-    n_triplets_per_point=5,
-    return_triplets=False,
-    X_dist=None,
-    metric="euclidean",
-    Xnew_dist=None,
-):
+    X: np.ndarray,
+    X_new: np.ndarray,
+    triplets: np.ndarray | None = None,
+    random_state: int | None = None,
+    n_triplets_per_point: int = 5,
+    return_triplets: bool = False,
+    X_dist: np.ndarray | None = None,
+    metric: str = "euclidean",
+    Xnew_dist: np.ndarray | None = None,
+) -> float | tuple[float, np.ndarray, np.ndarray]:
+    """Evaluate the correlation between distances in the original and new embeddings
+    using random triplets. Return the Pearson correlation coefficient. If
+    return_triplets is True, also return the triplets and the distances in the original
+    embedding."""
     X_dist, Xnew_dist, triplets = _random_pair_setup(
         X,
         X_new,
@@ -82,15 +88,17 @@ def random_pair_correl_eval(
 
 
 def random_pairv(
-    X,
-    X_new,
-    triplets=None,
-    random_state=None,
-    n_triplets_per_point=5,
-    X_dist=None,
-    metric="euclidean",
-    Xnew_dist=None,
-):
+    X: np.ndarray,
+    X_new: np.ndarray,
+    triplets: np.ndarray | None = None,
+    random_state: int | None = None,
+    n_triplets_per_point: int = 5,
+    X_dist: np.ndarray | None = None,
+    metric: str = "euclidean",
+    Xnew_dist: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculate the distances in the original and new embeddings using random triplets.
+    Return the distances in the original and new embeddings."""
     X_dist, Xnew_dist, triplets = _random_pair_setup(
         X,
         X_new,
@@ -107,18 +115,28 @@ def random_pairv(
 
 @dataclass
 class RandomPairCorrelEval(EmbeddingEval):
+    """Evaluate the embedding using random triplets. Return the Pearson correlation
+    coefficient between the distances in the original and new embeddings.
+
+    Attributes:
+    random_state: int - random seed
+    n_triplets_per_point: int - number of triplets per point
+    use_precomputed_triplets: bool - whether to use precomputed triplets
+    metric: str - distance metric
+    """
+
     random_state: int = None
     n_triplets_per_point: int = 5
     use_precomputed_triplets: bool = True
     metric: str = "euclidean"
 
     def requires(self):
-        return dict(
-            name="triplets",
-            n_triplets_per_point=self.n_triplets_per_point,
-            metric=self.metric,
-            random_state=self.random_state,
-        )
+        return {
+            "name": "triplets",
+            "n_triplets_per_point": self.n_triplets_per_point,
+            "metric": self.metric,
+            "random_state": self.random_state,
+        }
 
     def _evaluate_setup(self, ctx):
         idx = None
@@ -145,7 +163,9 @@ class RandomPairCorrelEval(EmbeddingEval):
 
         return idx, X_dist, Xnew_dist
 
-    def evaluate(self, X, coords, ctx=None):
+    def evaluate(
+        self, X: np.ndarray, coords: np.ndarray, ctx: EmbedContext | None = None
+    ) -> EvalResult:
         idx, X_dist, Xnew_dist = self._evaluate_setup(ctx=ctx)
 
         rpc_result = random_pair_correl_eval(
@@ -162,11 +182,15 @@ class RandomPairCorrelEval(EmbeddingEval):
         return EvalResult(
             eval_type="RPC",
             label=str(self),
-            info=dict(metric=self.metric, ntpp=self.n_triplets_per_point),
+            info={"metric": self.metric, "ntpp": self.n_triplets_per_point},
             value=rpc_result,
         )
 
-    def evaluatev(self, X, coords, ctx=None):
+    def evaluatev(
+        self, X: np.ndarray, coords: np.ndarray, ctx: EmbedContext | None = None
+    ) -> List[np.ndarray]:
+        """Evaluate the embedding using random triplets. Return the distances in the
+        original and new embeddings."""
         idx, X_dist, Xnew_dist = self._evaluate_setup(ctx=ctx)
 
         return random_pairv(

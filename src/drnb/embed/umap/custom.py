@@ -1,8 +1,13 @@
+from typing import List, Literal, Tuple
+
 import numba
 import numpy as np
 import scipy.sparse
 import umap
 import umap.distances
+
+# pylint: disable=no-name-in-module
+from numpy.random import RandomState
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.neighbors import KDTree
 from tqdm.auto import tqdm
@@ -12,8 +17,15 @@ from umap.umap_ import INT32_MAX, INT32_MIN, make_epochs_per_sample
 
 
 def initialize_coords(
-    data, graph, n_components, init, random_state, metric, metric_kwds
-):
+    data: np.ndarray | scipy.sparse.coo_matrix | scipy.sparse.csr_matrix,
+    graph: scipy.sparse.coo_matrix,
+    n_components: int,
+    init: Literal["random", "pca", "spectral"] | np.ndarray,
+    random_state: int | RandomState | None,
+    metric: str,
+    metric_kwds: dict | None,
+) -> np.ndarray:
+    """Initialize the embedding: random, PCA, spectral or use a given array."""
     if isinstance(init, str) and init == "random":
         embedding = random_state.uniform(
             low=-10.0, high=10.0, size=(graph.shape[0], n_components)
@@ -43,6 +55,7 @@ def initialize_coords(
     else:
         init_data = np.array(init)
         if len(init_data.shape) == 2:
+            # 2D only: calculate nearest neighbors to find a good jitter scale
             if np.unique(init_data, axis=0).shape[0] < init_data.shape[0]:
                 tree = KDTree(init_data)
                 dist, _ = tree.query(init_data, k=2)
@@ -60,41 +73,18 @@ def initialize_coords(
     return embedding
 
 
-def noisy_scale_coords(coords, random_state, max_coord=10.0, noise=0.0001):
+def noisy_scale_coords(
+    coords: np.ndarray,
+    random_state: RandomState,
+    max_coord: float = 10.0,
+    noise: float = 0.0001,
+) -> np.ndarray:
+    """Scale the coordinates to be between -max_coord and max_coord, and add noise."""
     expansion = max_coord / np.abs(coords).max()
     coords = (coords * expansion).astype(np.float32)
     return coords + random_state.normal(scale=noise, size=coords.shape).astype(
         np.float32
     )
-
-
-class CustomGradientUMAP(umap.UMAP):
-    def __init__(self, custom_epoch_func, anneal_lr=True, **kwargs):
-        super().__init__(**kwargs)
-        self.custom_epoch_func = custom_epoch_func
-        self.anneal_lr = anneal_lr
-
-    def _fit_embed_data(self, X, n_epochs, init, random_state):
-        return simplicial_set_embedding(
-            X,
-            self.graph_,
-            self.n_components,
-            self._initial_alpha,
-            self._a,
-            self._b,
-            self.repulsion_strength,
-            self.negative_sample_rate,
-            n_epochs,
-            init,
-            random_state,
-            self._input_distance_func,
-            self._metric_kwds,
-            self.random_state is None,
-            self.verbose,
-            self.tqdm_kwds,
-            self.custom_epoch_func,
-            self.anneal_lr,
-        )
 
 
 def simplicial_set_embedding(
@@ -116,7 +106,8 @@ def simplicial_set_embedding(
     tqdm_kwds=None,
     custom_epoch_func=_optimize_layout_euclidean_single_epoch,
     anneal_lr=True,
-):
+) -> Tuple[np.ndarray, dict]:
+    """Embed the UMAP graph into n_components dimensions using the UMAP algorithm."""
     graph = graph.tocoo()
     graph.sum_duplicates()
     n_vertices = graph.shape[1]
@@ -202,7 +193,9 @@ def optimize_layout(
     move_other=False,
     custom_epoch_func=_optimize_layout_euclidean_single_epoch,
     anneal_lr=True,
-):
+) -> np.ndarray | List[np.ndarray]:
+    """Optimize the low dimensional embedding using the given epochs and optimization
+    function."""
     dim = head_embedding.shape[1]
     alpha = initial_alpha
 
@@ -259,3 +252,36 @@ def optimize_layout(
         embedding_list.append(head_embedding.copy())
 
     return head_embedding if epochs_list is None else embedding_list
+
+
+class CustomGradientUMAP(umap.UMAP):
+    """Custom UMAP class that allows for custom gradient functions."""
+
+    def __init__(self, custom_epoch_func, anneal_lr=True, **kwargs):
+        super().__init__(**kwargs)
+        self.custom_epoch_func = custom_epoch_func
+        self.anneal_lr = anneal_lr
+
+    def _fit_embed_data(
+        self, X, n_epochs, init, random_state, **_
+    ) -> Tuple[np.ndarray, dict]:
+        return simplicial_set_embedding(
+            X,
+            self.graph_,
+            self.n_components,
+            self._initial_alpha,
+            self._a,
+            self._b,
+            self.repulsion_strength,
+            self.negative_sample_rate,
+            n_epochs,
+            init,
+            random_state,
+            self._input_distance_func,
+            self._metric_kwds,
+            self.random_state is None,
+            self.verbose,
+            self.tqdm_kwds,
+            self.custom_epoch_func,
+            self.anneal_lr,
+        )

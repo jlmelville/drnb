@@ -1,5 +1,6 @@
 import pickle
-from typing import cast
+from pathlib import Path
+from typing import List, Literal, Tuple, cast
 
 import numpy as np
 import pandas as pd
@@ -15,7 +16,9 @@ from drnb.neighbors import NearestNeighbors, read_neighbors
 from drnb.util import islisty
 
 
-def k_occurrences(idx, n_neighbors=None):
+def k_occurrences(idx: np.ndarray, n_neighbors: int | None = None) -> np.ndarray:
+    """Count occurrences of items in the k-nearest neighbors of all items (i.e. the
+    size of the reverse nearest neighbors list)."""
     if n_neighbors is None:
         n_neighbors = idx.shape[1]
     if n_neighbors > idx.shape[1]:
@@ -25,7 +28,7 @@ def k_occurrences(idx, n_neighbors=None):
 
 
 @jit(nopython=True)
-def _k_occurrences(idx, n_neighbors):
+def _k_occurrences(idx: np.ndarray, n_neighbors: int) -> np.ndarray:
     n_items = idx.shape[0]
     result = np.zeros(dtype=np.int32, shape=n_items)
 
@@ -36,7 +39,9 @@ def _k_occurrences(idx, n_neighbors):
     return result
 
 
-def s_occurrences(idx, n_neighbors=None):
+def s_occurrences(idx: np.ndarray, n_neighbors: int | None = None) -> np.ndarray:
+    """Count occurrences of shared neighbors of all items (i.e. the size of the mutual
+    nearest neighbor lists)."""
     if n_neighbors is None:
         n_neighbors = idx.shape[1]
     if n_neighbors > idx.shape[1]:
@@ -47,7 +52,7 @@ def s_occurrences(idx, n_neighbors=None):
 
 
 @jit(nopython=True, parallel=True)
-def _s_occurrences(idx):
+def _s_occurrences(idx: np.ndarray) -> np.ndarray:
     n_items = idx.shape[0]
     n_neighbors = idx.shape[1]
     result = np.zeros(dtype=np.int32, shape=n_items)
@@ -63,7 +68,10 @@ def _s_occurrences(idx):
     return result
 
 
-def n_components(nbrs):
+def n_components(
+    nbrs: np.ndarray | Tuple | NearestNeighbors,
+) -> int:
+    """Calculate the number of connected components in the nearest neighbor graph."""
     wadj_graph = nn_to_sparse(nbrs)
     return connected_components(csgraph=wadj_graph, directed=True, return_labels=False)
 
@@ -111,7 +119,14 @@ def _nn_to_sparse_binary(idx):
 # symmetrize operation to carry out on matrix and its transpose:
 # "and" to carry out AND operation (mutual nearest neighbors only)
 # "or" to carry out OR operation (undirected nearest neighbors)
-def nn_to_sparse(nbrs, symmetrize=None) -> scipy.sparse.coo_matrix:
+# "mean" to carry out mean operation (average of matrix and its transpose)
+def nn_to_sparse(
+    nbrs: np.ndarray | Tuple | NearestNeighbors,
+    symmetrize: Literal["or", "and", "mean"] | None = None,
+) -> scipy.sparse.coo_matrix:
+    """Convert nearest neighbors to a sparse matrix. Optionally symmetrize the matrix.
+    Symmetrization can be "or" (undirected), "and" (mutual), or "mean" (average).
+    """
     if isinstance(nbrs, np.ndarray):
         idx = nbrs
         dist = None
@@ -141,17 +156,42 @@ def nn_to_sparse(nbrs, symmetrize=None) -> scipy.sparse.coo_matrix:
             # use mutual neighbors (i needs to be a neighbor of j AND vice versa)
             dmat = dmat.minimum(dmat.transpose()).tocoo()
         elif symmetrize == "mean":
-            dmat_csr = dmat.tocsr()
-            dmat_csr = cast(dmat_csr.dtype, dmat_csr)
-            # Calculate the average of the matrix and its transpose
-            dmat = ((dmat_csr + dmat_csr.transpose()) / 2).tocoo()
+            rows, cols = dmat.row, dmat.col
+            values = dmat.data
+
+            # Concatenating the (row, col, value) with (col, row, value)
+            all_rows = np.concatenate([rows, cols])
+            all_cols = np.concatenate([cols, rows])
+            all_values = np.concatenate([values, values])
+
+            # Create a coordinate matrix for all these values
+            new_coo = scipy.sparse.coo_matrix(
+                (all_values, (all_rows, all_cols)), shape=dmat.shape
+            )
+
+            # Find duplicates and average the values
+            rows, cols = np.unique(
+                np.vstack([new_coo.row, new_coo.col]), axis=1, return_inverse=True
+            )
+            split_cols = np.split(cols, 2)
+            rows = split_cols[0]
+            cols = split_cols[1]
+            sum_values = np.bincount(rows * dmat.shape[1] + cols, weights=new_coo.data)
+            count_values = np.bincount(rows * dmat.shape[1] + cols)
+            mean_values = sum_values / count_values
+
+            # Create the new symmetrized COO matrix
+            dmat = scipy.sparse.coo_matrix(
+                (mean_values, (rows, cols)), shape=dmat.shape
+            )
         else:
             raise ValueError(f"Unknown symmetrization '{symmetrize}'")
     return dmat
 
 
 # https://stackoverflow.com/a/38547818/4096483
-def describe(df, count_zeros=True):
+def describe(df: pd.Series | np.ndarray, count_zeros=True) -> pd.Series:
+    """Describe a pandas Series or numpy array, including skewness and count of zeros."""
     if isinstance(df, np.ndarray):
         df = pd.Series(df)
     d = df.describe()
@@ -163,7 +203,11 @@ def describe(df, count_zeros=True):
     return pd.concat(aggs)
 
 
-def get_nbrs(name, n_neighbors, metric="euclidean") -> NearestNeighbors:
+def get_nbrs(
+    name: str, n_neighbors: int, metric: str = "euclidean"
+) -> NearestNeighbors:
+    """Get exact neighbors for a dataset, with a given number of neighbors and
+    metric."""
     nbrs = read_neighbors(
         name,
         n_neighbors=n_neighbors + 1,
@@ -184,7 +228,9 @@ def get_nbrs(name, n_neighbors, metric="euclidean") -> NearestNeighbors:
     return nbrs
 
 
-def nbr_stats(name, n_neighbors, metric="euclidean"):
+def calculate_nbr_stats(name: str, n_neighbors: int, metric: str = "euclidean") -> dict:
+    """Calculate neighbor statistics for a dataset with a given number of neighbors and
+    metric."""
     nbrs = get_nbrs(name, n_neighbors, metric=metric)
     ko_desc, ko = ko_data(nbrs)
     so_desc, so = so_data(nbrs)
@@ -197,22 +243,26 @@ def nbr_stats(name, n_neighbors, metric="euclidean"):
     else:
         idx_path = None
 
-    return dict(
-        name=name,
-        n_dim=data_info["n_dim"],
-        n_items=data_info["n_items"],
-        idx_path=idx_path,
-        n_components=nc,
-        dint=mle_dint,
-        n_neighbors=n_neighbors,
-        ko_desc=ko_desc,
-        so_desc=so_desc,
-        ko=ko,
-        so=so,
-    )
+    return {
+        "name": name,
+        "n_dim": data_info["n_dim"],
+        "n_items": data_info["n_items"],
+        "idx_path": idx_path,
+        "n_components": nc,
+        "dint": mle_dint,
+        "n_neighbors": n_neighbors,
+        "ko_desc": ko_desc,
+        "so_desc": so_desc,
+        "ko": ko,
+        "so": so,
+    }
 
 
-def ko_data(nbrs, n_neighbors=None):
+def ko_data(
+    nbrs: np.ndarray | Tuple | NearestNeighbors, n_neighbors: int | None = None
+) -> Tuple[pd.Series, np.ndarray]:
+    """Get k-occurrences data for a dataset. Returns a pandas Series with the
+    statistics and a numpy array with the actual data."""
     if n_neighbors is None:
         n_neighbors = nbrs.idx.shape[1]
     ko = k_occurrences(nbrs.idx, n_neighbors=n_neighbors)
@@ -221,7 +271,11 @@ def ko_data(nbrs, n_neighbors=None):
     return ko_desc, ko
 
 
-def so_data(nbrs, n_neighbors=None):
+def so_data(
+    nbrs: np.ndarray | Tuple | NearestNeighbors, n_neighbors: int | None = None
+) -> Tuple[pd.Series, np.ndarray]:
+    """Get s-occurrences data for a dataset. Returns a pandas Series with the
+    statistics and a numpy array with the actual data."""
     if n_neighbors is None:
         n_neighbors = nbrs.idx.shape[1]
     so = s_occurrences(nbrs.idx, n_neighbors=n_neighbors)
@@ -230,21 +284,25 @@ def so_data(nbrs, n_neighbors=None):
     return so_desc, so
 
 
-def idx_to_stats_path(name, idx_path):
+def idx_to_stats_path(name: str, idx_path: Path) -> Path:
+    """Get the path to the neighbor stats file for a dataset, given the name and the
+    path to the index file."""
     return idx_path.parent / "".join(
         [name] + idx_path.suffixes[:-2] + [".stats", ".npy"]
     )
 
 
-def write_nbr_stats(nstats):
-    idx_path = nstats["idx_path"]
-    stats_path = idx_to_stats_path(nstats["name"], idx_path)
+def write_nbr_stats(nbr_stats: dict):
+    """Write neighbor statistics to a file."""
+    idx_path = nbr_stats["idx_path"]
+    stats_path = idx_to_stats_path(nbr_stats["name"], idx_path)
     log.info("Writing pkl format to %s", data_relative_path(stats_path))
     with open(stats_path, "wb") as f:
-        pickle.dump(nstats, f, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(nbr_stats, f, pickle.HIGHEST_PROTOCOL)
 
 
-def read_nbr_stats(name, n_neighbors, metric="euclidean"):
+def read_nbr_stats(name: str, n_neighbors: int, metric: str = "euclidean") -> dict:
+    """Read neighbor statistics from a file."""
     nbrs = get_nbrs(name, n_neighbors, metric=metric)
     if nbrs.info is None:
         raise ValueError("Neighborhood data has no file info")
@@ -258,25 +316,36 @@ def read_nbr_stats(name, n_neighbors, metric="euclidean"):
 
 
 def format_df(
-    df,
-    stats,
-    drop_cols=None,
-    rename_cols=None,
-    n_neighbors_norm_cols=None,
-    n_items_pct_cols=None,
-    int_cols=None,
-    float_cols=None,
-):
+    df: pd.DataFrame,
+    nbr_stats: dict,
+    drop_cols: List[str] | None = None,
+    rename_cols: List[str] | None = None,
+    n_neighbors_norm_cols: List[str] | None = None,
+    n_items_pct_cols: List[str] | None = None,
+    int_cols: List[str] | None = None,
+    float_cols: List[str] | None = None,
+) -> pd.DataFrame:
+    """Format and normalized a DataFrame containing neighbor statistics
+
+    - drop_cols: columns to drop
+    - rename_cols: columns to rename
+    - n_neighbors_norm_cols: columns to normalize by n_neighbors
+    - n_items_pct_cols: columns to normalize by n_items
+    - int_cols: columns to convert to int32
+    - float_cols: columns to format as float with 2 decimal places
+    """
     if drop_cols is not None:
         df = df.drop(columns=drop_cols)
     if rename_cols is not None:
         df = df.rename(columns=rename_cols)
     if n_neighbors_norm_cols is not None:
         for col_to_norm in n_neighbors_norm_cols:
-            df[f"n{col_to_norm}"] = df[col_to_norm].astype(float) / stats["n_neighbors"]
+            df[f"n{col_to_norm}"] = (
+                df[col_to_norm].astype(float) / nbr_stats["n_neighbors"]
+            )
     if n_items_pct_cols is not None:
         for col_to_norm in n_items_pct_cols:
-            df[f"{col_to_norm}%"] = 100.0 * df[col_to_norm] / stats["n_items"]
+            df[f"{col_to_norm}%"] = 100.0 * df[col_to_norm] / nbr_stats["n_items"]
 
     df[int_cols] = df[int_cols].astype(np.int32)
     # pylint: disable=consider-using-f-string
@@ -284,21 +353,33 @@ def format_df(
     return df
 
 
-def fetch_nbr_stats(name, n_neighbors, metric="euclidean", cache=True):
+def fetch_nbr_stats(
+    name: str, n_neighbors: int, metric: str = "euclidean", cache: bool = True
+) -> dict:
+    """Fetch neighbor statistics for a dataset, with a given number of neighbors and
+    metric. If the statistics are not cached, they are calculated and cached if
+    requested."""
     try:
         return read_nbr_stats(name, n_neighbors, metric=metric)
     except FileNotFoundError:
         log.info(
             "Calculating neighbor stats for %s n_neighbors = %d", name, n_neighbors
         )
-        stats = nbr_stats(name, n_neighbors, metric=metric)
+        stats = calculate_nbr_stats(name, n_neighbors, metric=metric)
         if cache:
             log.info("Caching neighbor stats")
             write_nbr_stats(stats)
         return stats
 
 
-def nbr_stats_summary(n_neighbors, names=None, metric="euclidean", cache=True):
+def nbr_stats_summary(
+    n_neighbors: int,
+    names: List[str] | str | None = None,
+    metric: str = "euclidean",
+    cache: bool = True,
+) -> pd.DataFrame:
+    """Summarize neighbor statistics for a list of datasets, with a given number of
+    neighbors and metric."""
     if names is None:
         names = list_available_datasets()
     if not islisty(names):
@@ -313,7 +394,9 @@ def nbr_stats_summary(n_neighbors, names=None, metric="euclidean", cache=True):
     return pd.concat(summaries)
 
 
-def _nbr_stats_summary(name, n_neighbors, metric="euclidean", cache=True):
+def _nbr_stats_summary(
+    name: str, n_neighbors: int, metric: str = "euclidean", cache: bool = True
+) -> pd.DataFrame:
     try:
         stats = fetch_nbr_stats(name, n_neighbors, metric=metric, cache=cache)
     except ValueError:

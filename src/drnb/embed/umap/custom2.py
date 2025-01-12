@@ -1,78 +1,20 @@
 import abc
 from dataclasses import dataclass
-from typing import NamedTuple
+from typing import Any, List, NamedTuple, Tuple
 
 import numba
 import numpy as np
-import scipy.sparse
 import umap
 import umap.distances
-from sklearn.decomposition import PCA, TruncatedSVD
-from sklearn.neighbors import KDTree
 from tqdm.auto import tqdm
 from umap.layouts import clip, rdist, tau_rand_int
-from umap.spectral import spectral_layout
 from umap.umap_ import INT32_MAX, INT32_MIN, make_epochs_per_sample
 
 import drnb.embed.umap
-from drnb.embed import run_embed
-
-
-def initialize_coords(
-    data, graph, n_components, init, random_state, metric, metric_kwds
-):
-    if isinstance(init, str) and init == "random":
-        embedding = random_state.uniform(
-            low=-10.0, high=10.0, size=(graph.shape[0], n_components)
-        ).astype(np.float32)
-    elif isinstance(init, str) and init == "pca":
-        if scipy.sparse.issparse(data):
-            pca = TruncatedSVD(n_components=n_components, random_state=random_state)
-        else:
-            pca = PCA(n_components=n_components, random_state=random_state)
-        embedding = pca.fit_transform(data).astype(np.float32)
-        embedding = noisy_scale_coords(
-            embedding, random_state, max_coord=10, noise=0.0001
-        )
-    elif isinstance(init, str) and init == "spectral":
-        embedding = spectral_layout(
-            data,
-            graph,
-            n_components,
-            random_state,
-            metric=metric,
-            metric_kwds=metric_kwds,
-        )
-        # We add a little noise to avoid local minima for optimization to come
-        embedding = noisy_scale_coords(
-            embedding, random_state, max_coord=10, noise=0.0001
-        )
-    else:
-        init_data = np.array(init)
-        if len(init_data.shape) == 2:
-            if np.unique(init_data, axis=0).shape[0] < init_data.shape[0]:
-                tree = KDTree(init_data)
-                dist, _ = tree.query(init_data, k=2)
-                nndist = np.mean(dist[:, 1])
-                embedding = init_data + random_state.normal(
-                    scale=0.001 * nndist, size=init_data.shape
-                ).astype(np.float32)
-            else:
-                embedding = init_data
-    embedding = (
-        10.0
-        * (embedding - np.min(embedding, 0))
-        / (np.max(embedding, 0) - np.min(embedding, 0))
-    ).astype(np.float32, order="C")
-    return embedding
-
-
-def noisy_scale_coords(coords, random_state, max_coord=10.0, noise=0.0001):
-    expansion = max_coord / np.abs(coords).max()
-    coords = (coords * expansion).astype(np.float32)
-    return coords + random_state.normal(scale=noise, size=coords.shape).astype(
-        np.float32
-    )
+from drnb.embed import fit_transform_embed
+from drnb.embed.context import EmbedContext
+from drnb.embed.umap.custom import initialize_coords
+from drnb.types import EmbedResult
 
 
 def simplicial_set_embedding(
@@ -90,11 +32,12 @@ def simplicial_set_embedding(
     custom_grad_coeff_attr,
     custom_grad_coeff_rep,
     grad_args,
-    parallel=False,
-    verbose=False,
-    tqdm_kwds=None,
-    anneal_lr=True,
-):
+    parallel: bool = False,
+    verbose: bool = False,
+    tqdm_kwds: dict = None,
+    anneal_lr: bool = True,
+) -> Tuple[np.ndarray, dict]:
+    """Embed data using a custom gradient function."""
     graph = graph.tocoo()
     graph.sum_duplicates()
     n_vertices = graph.shape[1]
@@ -180,7 +123,10 @@ def optimize_layout_euclidean(
     custom_grad_coeff_attr,
     custom_grad_coeff_rep,
     grad_args,
-):
+) -> np.ndarray | List[np.ndarray]:
+    """Optimize the low dimensional embedding using a stochastic gradient descent
+    method and the custom gradient functions."""
+
     dim = head_embedding.shape[1]
     alpha = initial_alpha
 
@@ -260,6 +206,7 @@ def epoch_func(
     grad_coeff_rep,
     grad_args,
 ):
+    """Perform a single epoch of optimization using the custom gradient functions."""
     # pylint: disable=not-an-iterable
     for i in numba.prange(epochs_per_sample.shape[0]):
         if epoch_of_next_sample[i] > n:
@@ -316,6 +263,16 @@ def epoch_func(
 
 
 class CustomGradientUMAP2(umap.UMAP, abc.ABC):
+    """Custom UMAP class that allows for custom gradient functions.
+
+    Because this class extends `umap.UMAP`, implementing classes have access to all the
+    attributes of `umap.UMAP`. Implementing classes must implement the
+    `get_gradient_args` method, which should return a custom class (usually a NamedTuple)
+    that contains the parameters needed for the custom gradient functions. Implementing
+    classes must also implement the `custom_epoch_func`, `custom_attr_func`, and
+    `custom_rep_func` methods, which should contain the custom gradient functions.
+    """
+
     def __init__(
         self,
         custom_epoch_func,
@@ -331,10 +288,11 @@ class CustomGradientUMAP2(umap.UMAP, abc.ABC):
         self.anneal_lr = anneal_lr
 
     @abc.abstractmethod
-    def get_gradient_args(self):
-        pass
+    def get_gradient_args(self) -> Any:
+        """Return a custom class (usually a NamedTuple) that contains the parameters
+        needed for the custom gradient functions."""
 
-    def _fit_embed_data(self, X, n_epochs, init, random_state):
+    def _fit_embed_data(self, X, n_epochs, init, random_state, **_):
         grad_args = self.get_gradient_args()
         return simplicial_set_embedding(
             X,
@@ -359,7 +317,17 @@ class CustomGradientUMAP2(umap.UMAP, abc.ABC):
 
 
 # Test implementation of UMAP
-def umap_grad_coeff_attr(dist_squared, grad_args):
+class UmapGradientArgs(NamedTuple):
+    """Parameters for the custom UMAP gradient functions. This is a test implementation
+    that replicates the default UMAP behavior."""
+
+    a: float
+    b: float
+    gamma: float
+
+
+def umap_grad_coeff_attr(dist_squared: float, grad_args: UmapGradientArgs) -> float:
+    """Compute the gradient coefficient for the attractive force in UMAP."""
     a = grad_args.a
     b = grad_args.b
     grad_coeff = -2.0 * a * b * pow(dist_squared, b - 1.0)
@@ -367,7 +335,8 @@ def umap_grad_coeff_attr(dist_squared, grad_args):
     return grad_coeff
 
 
-def umap_grad_coeff_rep(dist_squared, grad_args):
+def umap_grad_coeff_rep(dist_squared: float, grad_args: UmapGradientArgs) -> float:
+    """Compute the gradient coefficient for the repulsive force in UMAP."""
     a = grad_args.a
     b = grad_args.b
     gamma = grad_args.gamma
@@ -377,12 +346,9 @@ def umap_grad_coeff_rep(dist_squared, grad_args):
 
 
 class UMAP2(CustomGradientUMAP2):
-    def get_gradient_args(self):
-        class UmapGradientArgs(NamedTuple):
-            a: float
-            b: float
-            gamma: float
+    """Custom UMAP class that replicate the default UMAP behavior."""
 
+    def get_gradient_args(self):
         return UmapGradientArgs(a=self._a, b=self._b, gamma=self.repulsion_strength)
 
     def __init__(self, **kwargs):
@@ -397,18 +363,48 @@ class UMAP2(CustomGradientUMAP2):
 
 
 @dataclass
-class CustomUmap2(drnb.embed.umap.Umap):
-    ctor: drnb.embed.umap.Umap = None
-    embedder_name: str = "CustomUmap2"
+class Umap2(drnb.embed.umap.Umap):
+    """Embedder that implements default UMAP behavior via the CustomUmap2 class
+
+    Attributes:
+        use_precomputed_knn: bool - whether to use precomputed nearest neighbors
+        drnb_init: str - method for initializing UMAP
+    """
+
     use_precomputed_knn: bool = True
     drnb_init: str = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         params = self.update_params(x, params, ctx)
-        return run_embed(x, params, self.ctor, self.embedder_name)
+        return fit_transform_embed(x, params, UMAP2, "UMAP2")
 
 
-def custom_umap(ctor, embedder_name):
+@dataclass
+class CustomUmap2(drnb.embed.umap.Umap):
+    """Embedding method that uses a custom UMAP class.
+
+    Attributes:
+        ctor: CustomGradientUMAP2 - custom UMAP class
+        embedder_name: str - name of the custom UMAP class
+        use_precomputed_knn: bool - whether to use precomputed nearest neighbors
+        drnb_init: str - method for initializing UMAP
+    """
+
+    ctor: drnb.embed.umap.Umap | None = None
+    embedder_name: str = "CustomUmap2"
+    use_precomputed_knn: bool = True
+    drnb_init: str | None = None
+
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
+        params = self.update_params(x, params, ctx)
+        return fit_transform_embed(x, params, self.ctor, self.embedder_name)
+
+
+def custom_umap(ctor: Any, embedder_name: str) -> CustomUmap2:
     """Adapts custom umap classes without having to add them to `embed.factory`.
     Pass `method=custom_umap(HTUMAP, "HT-UMAP")` instead of `method="htumap"` in
     e.g. `drnb.embed.pipeline.standard_eval`"""
@@ -417,13 +413,3 @@ def custom_umap(ctor, embedder_name):
         return CustomUmap2(ctor=ctor, embedder_name=embedder_name, **kwargs)
 
     return factory
-
-
-@dataclass
-class Umap2(drnb.embed.umap.Umap):
-    use_precomputed_knn: bool = True
-    drnb_init: str = None
-
-    def embed_impl(self, x, params, ctx=None):
-        params = self.update_params(x, params, ctx)
-        return run_embed(x, params, UMAP2, "UMAP2")

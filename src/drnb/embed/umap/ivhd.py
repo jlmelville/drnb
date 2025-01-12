@@ -2,17 +2,36 @@ import math
 from dataclasses import dataclass
 from typing import NamedTuple
 
+import numpy as np
+
 import drnb.embed.umap
-from drnb.embed import run_embed
+from drnb.embed import fit_transform_embed
+from drnb.embed.context import EmbedContext
 from drnb.embed.umap.custom2 import CustomGradientUMAP2, epoch_func
+from drnb.types import EmbedResult
 
 
-# pylint: disable=unused-argument
-def ivhd_grad_coeff_attr(d2, grad_args):
+class IvhdGradientArgs(NamedTuple):
+    """Gradient arguments for IVHD.
+
+    Attributes:
+        gamma: float: The repulsion strength.
+        near_dist: float: The near distance to use for near neighbor pairs.
+        far_dist: float: The far distance to use for far pairs.
+    """
+
+    gamma: float = 0.01
+    near_dist: float = 0.0
+    far_dist: float = 1.0
+
+
+def ivhd_grad_coeff_attr(_, __) -> float:
+    """Gradient coefficient for the attractive cost function in IVHD."""
     return -2.0
 
 
-def ivhd_grad_coeff_rep(d2, grad_args):
+def ivhd_grad_coeff_rep(d2: float, grad_args: IvhdGradientArgs) -> float:
+    """Gradient coefficient for the repulsive cost function in IVHD."""
     gamma = grad_args.gamma
     r = grad_args.far_dist
     d = math.sqrt(d2)
@@ -23,12 +42,9 @@ def ivhd_grad_coeff_rep(d2, grad_args):
 
 
 class IVHD(CustomGradientUMAP2):
-    def get_gradient_args(self):
-        class IvhdGradientArgs(NamedTuple):
-            gamma: float = 0.01
-            near_dist: float = 0.0
-            far_dist: float = 1.0
+    """IVHD implementation."""
 
+    def get_gradient_args(self):
         return IvhdGradientArgs(
             gamma=self.repulsion_strength,
             near_dist=self.near_dist,
@@ -52,9 +68,13 @@ class IVHD(CustomGradientUMAP2):
 
 @dataclass
 class Ivhd(drnb.embed.umap.Umap):
+    """Embedder for IVHD."""
+
     use_precomputed_knn: bool = True
     drnb_init: str = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         params = self.update_params(x, params, ctx)
-        return run_embed(x, params, IVHD, "ivhd")
+        return fit_transform_embed(x, params, IVHD, "ivhd")

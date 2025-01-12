@@ -1,7 +1,8 @@
-from typing import List, Optional, Tuple, Union, cast
+from typing import List, Literal, Tuple, cast
 
 import numpy as np
 import openTSNE.initialization
+import scipy.sparse
 import scipy.sparse.csgraph
 import scipy.sparse.linalg
 import sklearn.decomposition
@@ -18,23 +19,38 @@ from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.neighbors.random import logn_neighbors
 
 
-def scale_coords(coords: NDArray[np.float32], max_coord=10.0) -> NDArray[np.float32]:
+def scale_coords(
+    coords: NDArray[np.float32], max_coord: float = 10.0
+) -> NDArray[np.float32]:
+    """Ensure that the maximum absolute value of the coordinates is `max_coord`."""
     expansion = max_coord / np.abs(coords).max()
     return (coords * expansion).astype(np.float32)
 
 
-def noisy_scale_coords(coords, max_coord=10.0, noise=0.0001, seed=None):
+def noisy_scale_coords(
+    coords: NDArray[np.float32],
+    max_coord: float = 10.0,
+    noise: float = 0.0001,
+    seed=None,
+) -> NDArray[np.float32]:
+    """Scale the coordinates so that the maximum absolute value is `max_coord`
+    and add noise."""
     return scale_coords(coords, max_coord=max_coord) + add_noise(
         coords, noise=noise, seed=seed
     )
 
 
-def add_noise(coords, noise=0.0001, seed=None):
+def add_noise(
+    coords: NDArray[np.float32], noise: float = 0.0001, seed: int | None = None
+) -> NDArray[np.float32]:
+    """Add Gaussian noise to the coordinates."""
     rng = np.random.default_rng(seed=seed)
     return coords + rng.normal(scale=noise, size=coords.shape).astype(np.float32)
 
 
-def spca(data, stdev=None):
+def spca(data: NDArray[np.float32], stdev: float = None) -> NDArray[np.float32]:
+    """Initialize the embedding using PCA, scaling the coordinates by `stdev` divided by
+    1e-4. If `stdev` is None, the coordinates are not scaled after PCA."""
     log.info("Initializing via openTSNE (scaled) PCA")
     coords = openTSNE.initialization.pca(data)
     if stdev is not None:
@@ -42,12 +58,15 @@ def spca(data, stdev=None):
     return coords
 
 
-def pca(data, whiten=False):
+def pca(data: NDArray[np.float32], whiten: bool = False) -> NDArray[np.float32]:
+    """Initialize the embedding using PCA. If `whiten` is True, the data is whitened."""
     log.info("Initializing via (unscaled) PCA")
     return sklearn.decomposition.PCA(n_components=2, whiten=whiten).fit_transform(data)
 
 
-def umap_random_init(n, random_state=42, max_coord=10.0):
+def umap_random_init(n: int, random_state: int = 42, max_coord: float = 10.0):
+    """Initialize the embedding with random coordinates in the range [-`max_coord`,
+    `max_coord`]."""
     log.info("Initializing via UMAP-style uniform random")
     return (
         check_random_state(random_state)
@@ -57,19 +76,26 @@ def umap_random_init(n, random_state=42, max_coord=10.0):
 
 
 def umap_graph_spectral_init(
-    x: Optional[np.ndarray] = None,
+    x: np.ndarray | None = None,
     knn: List[np.ndarray] | Tuple[np.ndarray] | NearestNeighbors | None = None,
-    metric="euclidean",
-    n_neighbors=15,
-    global_neighbors=None,
-    n_global_neighbors=None,
-    op="intersection",
-    global_weight=0.1,
-    random_state=42,
-    tsvdw=False,
-    tsvdw_tol=1e-5,
-    jitter=True,
-):
+    metric: str = "euclidean",
+    n_neighbors: int = 15,
+    global_neighbors: Literal["random", "mid"] | None = None,
+    n_global_neighbors: int | None = None,
+    op: Literal["intersection", "union", "difference", "linear"]
+    | None = "intersection",
+    global_weight: float = 0.1,
+    random_state: int = 42,
+    tsvdw: bool = False,
+    tsvdw_tol: float = 1e-5,
+    jitter: bool = True,
+) -> np.ndarray:
+    """Initialize the embedding using UMAP with a spectral layout. The graph is
+    constructed using the kNN graph and optionally a global graph. The global graph is
+    constructed using either random or mid-nearest neighbors. The global graph is then
+    combined with the kNN graph using one of the following operations: intersection,
+    union, difference, or linear combination. The resulting graph is then embedded using
+    a spectral layout."""
     if x is None and knn is None:
         raise ValueError("One of x or knn must be provided")
     if x is None and global_neighbors is not None:
@@ -81,7 +107,7 @@ def umap_graph_spectral_init(
             metric=metric,
             method="pynndescent",
             return_distance=True,
-            method_kwds=dict(random_state=random_state),
+            method_kwds={"random_state": random_state},
         )
     if isinstance(knn, NearestNeighbors):
         knn.dist = cast(np.ndarray, knn.dist)
@@ -168,18 +194,23 @@ def umap_graph_spectral_init(
 
 
 def binary_graph_spectral_init(
-    x=None,
-    knn=None,
-    metric="euclidean",
-    n_neighbors=15,
-    global_neighbors=None,
-    n_global_neighbors=None,
-    global_weight=0.1,
-    random_state=42,
-    tsvdw=False,
-    tsvdw_tol=1e-5,
-    jitter=True,
-):
+    x: np.ndarray | None = None,
+    knn: List[np.ndarray] | Tuple[np.ndarray] | NearestNeighbors | None = None,
+    metric: str = "euclidean",
+    n_neighbors: int = 15,
+    global_neighbors: Literal["random", "mid"] | None = None,
+    n_global_neighbors: int | None = None,
+    global_weight: float = 0.1,
+    random_state: int = 42,
+    tsvdw: bool = False,
+    tsvdw_tol: float = 1e-5,
+    jitter: bool = True,
+) -> np.ndarray:
+    """Initialize the embedding using a binary graph with a spectral layout. The graph
+    is constructed using the kNN graph and optionally a global graph with binary (0/1)
+    edges. The global graph is constructed using either random or mid-nearest neighbors.
+    The global graph is then combined with the kNN graph using a linear combination.
+    The resulting graph is then embedded using a spectral layout."""
     if x is None and knn is None:
         raise ValueError("One of x or knn must be provided")
     if x is None and global_neighbors is not None:
@@ -191,7 +222,7 @@ def binary_graph_spectral_init(
             metric=metric,
             method="pynndescent",
             return_distance=True,
-            method_kwds=dict(random_state=random_state),
+            method_kwds={"random_state": random_state},
         )
         knn = [nbr_data.idx, nbr_data.dist]
     knn_graph = umap_graph_binary(knn)
@@ -232,8 +263,14 @@ def binary_graph_spectral_init(
 
 
 def spectral_graph_embed(
-    graph, random_state=42, tsvdw=False, tsvdw_tol=1e-5, jitter=True
-):
+    graph: scipy.sparse.coo_matrix,
+    random_state: int = 42,
+    tsvdw: bool = False,
+    tsvdw_tol: float = 1e-5,
+    jitter: bool = True,
+) -> np.ndarray:
+    """Embed the graph using a spectral layout. If `tsvdw` is True, the embedding is
+    computed using a truncated SVD warm start."""
     random_state = check_random_state(random_state)
     if tsvdw:
         log.info("Using tsvdw solver")
@@ -257,17 +294,20 @@ def spectral_graph_embed(
     return init
 
 
-def scale1(x):
+def scale1(x: np.ndarray) -> np.ndarray:
+    """Scale the input vector to have an L2 norm of 1."""
     return x / np.linalg.norm(x)
 
 
 def tsvd_warm_spectral(
-    graph,
-    dim=2,
-    random_state: Union[int, np.random.RandomState] = 42,
-    tol=1e-5,
-    jitter=True,
-):
+    graph: scipy.sparse.coo_matrix,
+    dim: int = 2,
+    random_state: int = 42,
+    tol: float = 1e-5,
+    jitter: bool = True,
+) -> np.ndarray:
+    """Embed the graph using a spectral layout with a truncated SVD warm start. If
+    `jitter` is True, the coordinates are jittered."""
     n_components, _ = scipy.sparse.csgraph.connected_components(graph)
     if n_components > 1:
         raise ValueError("Multiple components detected")
@@ -306,8 +346,15 @@ def tsvd_warm_spectral(
 
 
 def standard_neighbor_init(
-    init, nobs, random_state=42, knn_idx=None, X=None, init_scale=None
+    init: Literal["pca", "rand", "spectral", "gspectral"] | np.ndarray,
+    nobs: int,
+    random_state: int = 42,
+    knn_idx: List[np.ndarray] | Tuple[np.ndarray] | NearestNeighbors | None = None,
+    X: NDArray[np.float32] | None = None,
+    init_scale: float | None = None,
 ):
+    """Initialize the embedding using a standard method based on the `init` parameter.
+    The initialization is scaled to have a maximum absolute value of `init_scale`."""
     # basic init options that can work for any with anything with access to the knn
     if isinstance(init, np.ndarray):
         if init.shape != (nobs, 2):
@@ -324,6 +371,10 @@ def standard_neighbor_init(
         if knn_idx is None:
             raise ValueError("Must provide knn_idx if init='spectral'")
         Y = binary_graph_spectral_init(knn=knn_idx)
+    elif init == "gspectral":
+        if knn_idx is None:
+            raise ValueError("Must provide knn_idx if init='gspectral'")
+        Y = binary_graph_spectral_init(knn=knn_idx, global_neighbors="random", x=X)
     else:
         raise ValueError(f"Unknown init option '{init}'")
     if init_scale is not None:

@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import Optional, cast
+from typing import Literal
 
 import numba
 import numpy as np
@@ -8,35 +8,77 @@ import sklearn.preprocessing
 from umap.utils import tau_rand_int
 
 import drnb.embed
-import drnb.neighbors as nbrs
+import drnb.embed.base
+from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.embed.umap.utils import clip, rdist
 from drnb.log import log
 from drnb.neighbors.hubness import nn_to_sparse
 from drnb.optim import create_opt
 from drnb.rng import setup_rngn
 from drnb.sampling import create_sample_plan
+from drnb.types import EmbedResult
 from drnb.yinit import standard_neighbor_init
 
 
 def leopold(
-    X,
-    knn_idx,
-    knn_dist,
-    n_epochs=500,
-    init="spectral",
-    n_samples=5,
-    sample_strategy=None,
-    random_state=42,
-    learning_rate=1.0,
-    opt="adam",
-    optargs: Optional[dict] = None,
-    symmetrize="or",
-    init_scale=10.0,
-    dens_scale=0.0,
-    dof=1.0,
-    anneal_dens=0,
-    anneal_dof=0,
+    X: np.ndarray,
+    knn_idx: np.ndarray,
+    knn_dist: np.ndarray,
+    n_epochs: int = 500,
+    init: np.ndarray | Literal["pca", "rand", "spectral", "gspectral"] = "spectral",
+    n_samples: int = 5,
+    sample_strategy: str | None = None,
+    random_state: int = 42,
+    learning_rate: float | None = 1.0,
+    opt: str = "adam",
+    optargs: dict | None = None,
+    symmetrize: Literal["or", "and", "mean"] | None = "or",
+    init_scale: float = 10.0,
+    dens_scale: float = 0.0,
+    dof: float = 1.0,
+    anneal_dens: int = 0,
+    anneal_dof: int = 0,
 ):
+    """Run the LEOPOLD (Lightweight Estimate Of Preservation Of Local Density)
+    embedding algorithm.
+
+    Parameters
+    ----------
+    X : np.ndarray
+        The input data to embed.
+    knn_idx : np.ndarray
+        The nearest neighbors indices.
+    knn_dist : np.ndarray
+        The nearest neighbors distances.
+    n_epochs : int, optional
+        The number of epochs to run, by default 500.
+    init : np.ndarray or str, optional
+        The initial embedding, by default "spectral".
+    n_samples : int, optional
+        The number of samples to take per non-neighbor, by default 5.
+    sample_strategy : str, optional
+        The sampling strategy to use, by default None.
+    random_state : int, optional
+        The random state, by default 42.
+    learning_rate : float, optional
+        The learning rate, by default 1.0.
+    opt : str, optional
+        The optimizer to use, by default "adam".
+    optargs : dict, optional
+        The optimizer arguments, by default None.
+    symmetrize : str, optional
+        The symmetrization strategy to use, by default "or".
+    init_scale : float, optional
+        The initial scale, by default 10.0.
+    dens_scale : float, optional
+        The density scale, by default 0.0.
+    dof : float, optional
+        The degrees of freedom, by default 1.0.
+    anneal_dens : int, optional
+        The number of epochs to anneal the density, by default 0.
+    anneal_dof : int, optional
+        The number of epochs to anneal the degrees of freedom, by default 0.
+    """
     if anneal_dens > n_epochs:
         raise ValueError("anneal_dens must be <= n_epochs")
     if anneal_dof > n_epochs:
@@ -68,7 +110,8 @@ def leopold(
     mean_d[mean_d < min_scale_d] = min_scale_d
     beta_unscaled = 1.0 / mean_d
     beta_scaled = sklearn.preprocessing.minmax_scale(
-        beta_unscaled, feature_range=(min_scale_d, max_scale_d)  # type: ignore
+        beta_unscaled,
+        feature_range=(min_scale_d, max_scale_d),  # type: ignore
     )
 
     dmat = nn_to_sparse(knn_idx, symmetrize=symmetrize)
@@ -99,18 +142,18 @@ def leopold(
 
 @numba.jit(nopython=True, fastmath=True, parallel=False)
 def _leopold(
-    Y,
-    n_epochs,
-    opt,
-    samples,
-    rng_state,
-    knn_j,
-    ptr,
-    prec,
-    dens_scale,
-    dof,
-    anneal_dens,
-    anneal_dof,
+    Y: np.ndarray,
+    n_epochs: int,
+    opt: drnb.optim.OptimizerProtocol,
+    samples: np.ndarray,
+    rng_state: np.ndarray,
+    knn_j: np.ndarray,
+    ptr: np.ndarray,
+    prec: float,
+    dens_scale: float,
+    dof: float,
+    anneal_dens: int,
+    anneal_dof: int,
 ):
     nobs, ndim = Y.shape
 
@@ -142,7 +185,14 @@ def _leopold(
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
-def _leopold_nbrs(Y, knn_j, ptr, prec, dof, grads):
+def _leopold_nbrs(
+    Y: np.ndarray,
+    knn_j: np.ndarray,
+    ptr: np.ndarray,
+    prec: np.ndarray,
+    dof,
+    grads: np.ndarray,
+):
     ndim = Y.shape[1]
     # pylint:disable=not-an-iterable
     for i in numba.prange(len(ptr) - 1):
@@ -159,7 +209,15 @@ def _leopold_nbrs(Y, knn_j, ptr, prec, dof, grads):
 
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
-def _leopold_non_nbrs(Y, n_samples, ptr, rng_state, prec, dof, grads):
+def _leopold_non_nbrs(
+    Y: np.ndarray,
+    n_samples: int,
+    ptr: np.ndarray,
+    rng_state: np.ndarray,
+    prec: np.ndarray,
+    dof: float,
+    grads: np.ndarray,
+):
     nobs, ndim = Y.shape
     # pylint:disable=not-an-iterable
     for i in numba.prange(nobs):
@@ -180,10 +238,21 @@ def _leopold_non_nbrs(Y, n_samples, ptr, rng_state, prec, dof, grads):
 
 
 @dataclass
-class Leopold(drnb.embed.Embedder):
-    precomputed_init: Optional[np.ndarray] = None
+class Leopold(drnb.embed.base.Embedder):
+    """
+    The Leopold embedder uses the LEOPOLD technique for dimensionality reduction of
+    high-dimensional data. If precomputed_init is provided, those coordinates are used
+    as the initial embedding.
 
-    def embed_impl(self, x, params, ctx=None):
+    Attributes:
+        precomputed_init: Optional array of initial coordinates for embedding.
+    """
+
+    precomputed_init: np.ndarray | None = None
+
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         if self.precomputed_init is not None:
             log.info("Using precomputed initial coordinates")
             params["init"] = self.precomputed_init
@@ -194,22 +263,15 @@ class Leopold(drnb.embed.Embedder):
         else:
             n_neighbors = 15
 
-        precomputed_knn = nbrs.get_neighbors_with_ctx(
+        precomputed_knn = get_neighbors_with_ctx(
             x, params.get("metric", "euclidean"), n_neighbors + 1, ctx=ctx
         )
         params["knn_idx"] = precomputed_knn.idx[:, 1:]
-        precomputed_knn.dist = cast(np.ndarray, precomputed_knn.dist)
         params["knn_dist"] = precomputed_knn.dist[:, 1:]
-        return embed_leopold(x, params)
 
+        log.info("Running LEOPOLD")
+        params["X"] = x
+        embedded = leopold(**params)
+        log.info("Embedding completed")
 
-def embed_leopold(
-    x,
-    params,
-):
-    log.info("Running LEOPOLD")
-    params["X"] = x
-    embedded = leopold(**params)
-    log.info("Embedding completed")
-
-    return embedded
+        return embedded

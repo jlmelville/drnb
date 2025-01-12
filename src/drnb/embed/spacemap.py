@@ -1,38 +1,42 @@
 import math
 from dataclasses import dataclass
+from typing import Literal
 
 import numba
 import numpy as np
 from umap.utils import tau_rand_int
 
 import drnb.embed
-import drnb.neighbors as nbrs
+import drnb.embed.base
 from drnb.dimension import mle_global
+from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.embed.umap.utils import clip, rdist
 from drnb.log import log
 from drnb.neighbors.hubness import nn_to_sparse
 from drnb.optim import create_opt
 from drnb.rng import setup_rngn
 from drnb.sampling import create_sample_plan
+from drnb.types import EmbedResult
 from drnb.yinit import binary_graph_spectral_init, pca, scale_coords, umap_random_init
 
 
 def spacemap(
-    X,
-    knn_idx,
-    knn_dist,
-    n_epochs=500,
-    init="spectral",
-    n_samples=5,
-    sample_strategy=None,
-    random_state=42,
-    learning_rate=1.0,
-    opt="adam",
-    optargs=None,
-    symmetrize="or",
-    init_scale=10.0,
-    dglobal="auto",
-):
+    X: np.ndarray,
+    knn_idx: np.ndarray,
+    knn_dist: np.ndarray,
+    n_epochs: int = 500,
+    init: np.ndarray | Literal["pca", "rand", "spectral", "gspectral"] = "spectral",
+    n_samples: int = 5,
+    sample_strategy: str | None = None,
+    random_state: int = 42,
+    learning_rate: float | None = 1.0,
+    opt: str = "adam",
+    optargs: dict | None = None,
+    symmetrize: Literal["or", "and", "mean"] | None = "or",
+    init_scale: float = 10.0,
+    dglobal: str = "auto",
+) -> np.ndarray:
+    """Run the SpaceMAP embedding algorithm."""
     if optargs is None:
         optargs = {"decay_alpha": True}
     # specifying learning_rate takes precedence over any value of alpha set in opt args
@@ -92,16 +96,16 @@ def spacemap(
 
 @numba.jit(nopython=True, fastmath=True, parallel=False)
 def _spacemap(
-    Y,
-    n_epochs,
-    opt,
-    samples,
-    rng_state,
-    ptr,
-    knn_i,
-    knn_j,
-    dof,
-):
+    Y: np.ndarray,
+    n_epochs: int,
+    opt: drnb.optim.OptimizerProtocol,
+    samples: np.ndarray,
+    rng_state: np.ndarray,
+    ptr: np.ndarray,
+    knn_i: np.ndarray,
+    knn_j: np.ndarray,
+    dof: float,
+) -> np.ndarray:
     nobs, ndim = Y.shape
 
     degrees = np.zeros((nobs,), dtype=np.int32)
@@ -137,12 +141,12 @@ def _spacemap(
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
 def _spacemap_nbrs(
-    Y,
-    knn_i,
-    knn_j,
-    ptr,
-    dof,
-    grads,
+    Y: np.ndarray,
+    knn_i: np.ndarray,
+    knn_j: np.ndarray,
+    ptr: np.ndarray,
+    dof: np.ndarray,
+    grads: np.ndarray,
 ):
     ndim = Y.shape[1]
     twoddof = 2.0 / dof
@@ -164,12 +168,12 @@ def _spacemap_nbrs(
 
 @numba.jit(nopython=True, fastmath=True, parallel=True)
 def _spacemap_non_nbrs(
-    Y,
-    n_samples,
-    degrees,
-    rng_state,
-    dof,
-    grads,
+    Y: np.ndarray,
+    n_samples: int,
+    degrees: np.ndarray,
+    rng_state: np.ndarray,
+    dof: float,
+    grads: np.ndarray,
 ):
     nobs, ndim = Y.shape
     twoddof = 2.0 / dof
@@ -191,10 +195,19 @@ def _spacemap_non_nbrs(
 
 
 @dataclass
-class Spacemap(drnb.embed.Embedder):
+class Spacemap(drnb.embed.base.Embedder):
+    """Spacemap embedding implementation.
+
+    Attributes:
+        precomputed_init (numpy.ndarray | None): Optional precomputed initial
+        coordinates
+    """
+
     precomputed_init: np.ndarray = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         if self.precomputed_init is not None:
             log.info("Using precomputed initial coordinates")
             params["init"] = self.precomputed_init
@@ -205,21 +218,15 @@ class Spacemap(drnb.embed.Embedder):
         else:
             n_neighbors = 70
 
-        precomputed_knn = nbrs.get_neighbors_with_ctx(
+        precomputed_knn = get_neighbors_with_ctx(
             x, params.get("metric", "euclidean"), n_neighbors + 1, ctx=ctx
         )
         params["knn_idx"] = precomputed_knn.idx[:, 1:]
         params["knn_dist"] = precomputed_knn.dist[:, 1:]
-        return embed_spacemap(x, params)
 
+        log.info("Running SpaceMAP")
+        params["X"] = x
+        embedded = spacemap(**params)
+        log.info("Embedding completed")
 
-def embed_spacemap(
-    x,
-    params,
-):
-    log.info("Running SpaceMAP")
-    params["X"] = x
-    embedded = spacemap(**params)
-    log.info("Embedding completed")
-
-    return embedded
+        return embedded

@@ -1,13 +1,15 @@
 import numpy as np
+
+# pylint: disable=no-name-in-module
 from hnswlib import Index as HnswIndex
 from sklearn.utils import check_random_state
 
-HNSW_DEFAULTS = dict(
-    M=16,
-    ef_construction=200,
-    random_state=42,
-    n_jobs=-1,
-)
+HNSW_DEFAULTS = {
+    "M": 16,
+    "ef_construction": 200,
+    "random_state": 42,
+    "n_jobs": -1,
+}
 
 # adapted from openTSNE
 # basically l2 or ip
@@ -21,15 +23,18 @@ HNSW_METRICS = {
 
 
 def hnsw_neighbors(
-    X,
-    n_neighbors=15,
-    metric="euclidean",
-    M=16,
-    ef_construction=200,
-    random_state=42,
-    n_jobs=-1,
-    return_distance=True,
-):
+    X: np.ndarray,
+    n_neighbors: int = 15,
+    metric: str = "euclidean",
+    M: int = 16,
+    ef_construction: int = 200,
+    random_state: int = 42,
+    n_jobs: int = -1,
+    return_distance: bool = True,
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+    """Compute the nearest neighbors using the HNSW library. If `return_distance` is
+    True, the function will return both the indices and the distances to the neighbors.
+    Otherwise, it will only return the indices."""
     hnsw_space = HNSW_METRICS[metric]
 
     random_state = check_random_state(random_state)

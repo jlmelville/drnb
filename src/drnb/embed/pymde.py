@@ -10,18 +10,31 @@ from pymde.preprocess.graph import Graph
 from pymde.recipes import _remove_anchor_anchor_edges
 
 import drnb.embed
-import drnb.neighbors as knn
+import drnb.embed.base
+from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.log import log
+from drnb.neighbors import NearestNeighbors
+from drnb.types import EmbedResult
 from drnb.yinit import spca
 
 
 @dataclass
-class Pymde(drnb.embed.Embedder):
+class Pymde(drnb.embed.base.Embedder):
+    """PyMDE embedder.
+
+    Attributes:
+        use_precomputed_knn: Whether to use precomputed knn.
+        drnb_init: DRNB initialization method, one of "spca" or None.
+        seed: Random seed.
+    """
+
     use_precomputed_knn: bool = True
     drnb_init: str = None
     seed: int = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         knn_params = {}
         if isinstance(self.use_precomputed_knn, dict):
             knn_params = dict(self.use_precomputed_knn)
@@ -33,7 +46,7 @@ class Pymde(drnb.embed.Embedder):
             default_n_neighbors = pymde_n_neighbors(x.shape[0])
             n_neighbors = params.get("n_neighbors", default_n_neighbors) + 1
             log.info("Using precomputed knn with n_neighbors = %d", n_neighbors)
-            precomputed_knn = knn.get_neighbors_with_ctx(
+            precomputed_knn = get_neighbors_with_ctx(
                 x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
             )
             graph = nn_to_graph(precomputed_knn)
@@ -50,12 +63,16 @@ class Pymde(drnb.embed.Embedder):
 
 
 # from preserve_neighbors
-def pymde_n_neighbors(n):
+def pymde_n_neighbors(n: int) -> int:
+    """Calculate the default number of neighbors for PyMDE (between 5 and 15)."""
     n_choose_2 = n * (n - 1) / 2
     return int(max(min(15, n_choose_2 * 0.01 / n), 5))
 
 
-def embed_pymde_nbrs(x, seed, params, graph=None):
+def embed_pymde_nbrs(
+    x: np.ndarray, seed: int, params: dict, graph: Graph | None = None
+) -> np.ndarray:
+    """Embed using PyMDE with nearest neighbors."""
     x = torch.from_numpy(x)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -64,7 +81,7 @@ def embed_pymde_nbrs(x, seed, params, graph=None):
 
     if graph is not None:
         log.info("Running preserve neighbors with knn")
-        embedder = preserve_neighbors_knn(
+        embedder = _preserve_neighbors_knn(
             graph, device=device, embedding_dim=2, **params
         )
     else:
@@ -77,7 +94,7 @@ def embed_pymde_nbrs(x, seed, params, graph=None):
 
 
 # this code has been stitched together from various parts of pymde.preprocess
-def idx_to_edgelist(idx, canonicalize_edges=True):
+def _idx_to_edgelist(idx: np.ndarray, canonicalize_edges: bool = True) -> np.ndarray:
     n = idx.shape[0]
     n_neighbors = idx.shape[1]
     items = np.arange(n)
@@ -92,7 +109,7 @@ def idx_to_edgelist(idx, canonicalize_edges=True):
     return edges
 
 
-def edgelist_to_sparse(edgelist):
+def _edgelist_to_sparse(edgelist: np.ndarray) -> sp.csr_matrix:
     n_items = edgelist.max() + 1
     rows = edgelist[:, 0]
     cols = edgelist[:, 1]
@@ -102,23 +119,17 @@ def edgelist_to_sparse(edgelist):
     return graph.tocsr()
 
 
-def idx_to_sparse(idx):
-    edgelist = idx_to_edgelist(idx)
-    return edgelist_to_sparse(edgelist)
-
-
-def idx_to_graph(idx):
-    csr = idx_to_sparse(idx)
+def nn_to_graph(nn: NearestNeighbors) -> Graph:
+    """Convert NearestNeighbors to Graph."""
+    # ignore self neighbor
+    idx = nn.idx[:, 1:]
+    edgelist = _idx_to_edgelist(idx)
+    csr = _edgelist_to_sparse(edgelist)
     return Graph(csr)
 
 
-def nn_to_graph(nn):
-    # ignore self neighbor
-    return idx_to_graph(nn.idx[:, 1:])
-
-
 # hacked version of pymde.preserve_neighbors to allow a pre-calculated Graph
-def preserve_neighbors_knn(
+def _preserve_neighbors_knn(
     knn_graph,
     embedding_dim=2,
     attractive_penalty=penalties.Log1p,

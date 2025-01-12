@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 import openTSNE
@@ -6,18 +7,21 @@ import openTSNE.nearest_neighbors as tsnenn
 from openTSNE import initialization as initialization_scheme
 
 import drnb.embed
-import drnb.neighbors as knn
+import drnb.embed.base
+from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.log import log
+from drnb.types import EmbedResult
 
 
 def tsne_init(
-    data,
-    affinities,
-    initialization="pca",
-    n_components=2,
-    random_state=42,
-    verbose=False,
-):
+    data: np.ndarray,
+    affinities: openTSNE.affinity.Affinities,
+    initialization: Literal["pca", "random", "spectral"] | np.ndarray | None = "pca",
+    n_components: int = 2,
+    random_state: int = 42,
+    verbose: bool = False,
+) -> np.ndarray:
+    """t-SNE initialization using typical methods."""
     if initialization is None:
         initialization = "pca"
 
@@ -61,18 +65,20 @@ def tsne_init(
 
 # https://github.com/berenslab/pubmed-landscape/blob/eb963c42627da7439dffe1e962a404f76bc905ad/scripts/BERT-based-embeddings/05-rgm-pipeline-TFIDF-1M.ipynb#L31
 def tsne_annealed_exaggeration(
-    data,
-    affinities,
-    random_state=42,
-    n_exaggeration_iter=125,
-    early_exaggeration=12,
-    initial_momentum=0.5,
-    n_anneal_steps=125,
-    anneal_momentum=0.8,
-    n_iter=500,
-    final_momentum=0.8,
-    initialization="pca",
-):
+    data: np.ndarray,
+    affinities: openTSNE.affinity.Affinities,
+    random_state: int = 42,
+    n_exaggeration_iter: int = 125,
+    early_exaggeration: float = 12.0,
+    initial_momentum: float = 0.5,
+    n_anneal_steps: int = 125,
+    anneal_momentum: float = 0.8,
+    n_iter: int = 500,
+    final_momentum: float = 0.8,
+    initialization: Literal["pca", "random", "spectral"] | np.ndarray | None = "pca",
+) -> np.ndarray:
+    """t-SNE with annealed exaggeration: after early exaggeration, slowly reduce
+    the exaggeration factor to 1.0."""
     # initialization
     init = tsne_init(data, affinities, initialization, random_state=random_state)
 
@@ -115,7 +121,8 @@ def tsne_annealed_exaggeration(
     return np.array(E)
 
 
-def get_n_neighbors_for_perplexity(perplexity, x):
+def get_n_neighbors_for_perplexity(perplexity: float, x: np.ndarray) -> int:
+    """Calculate the number of neighbors for a given perplexity."""
     n_samples = x.shape[0]
     k_neighbors = min(n_samples - 1, int(3 * perplexity))
     if k_neighbors < 3 * perplexity:
@@ -135,14 +142,15 @@ def get_n_neighbors_for_perplexity(perplexity, x):
 
 
 def get_tsne_affinities(
-    affinity_type,
-    perplexity=30,
-    n_neighbors=None,
-    x=None,
-    knn_params=None,
-    metric="euclidean",
-    ctx=None,
-):
+    affinity_type: Literal["perplexity", "uniform"],
+    perplexity: float = 30.0,
+    n_neighbors: int | None = None,
+    x: np.ndarray | None = None,
+    knn_params: dict | None = None,
+    metric: str = "euclidean",
+    ctx: EmbedContext | None = None,
+) -> openTSNE.affinity.Affinities:
+    """Get t-SNE affinities, using either perplexity-based or uniform affinities."""
     if knn_params is None:
         knn_params = {}
     if affinity_type == "perplexity":
@@ -158,7 +166,7 @@ def get_tsne_affinities(
     else:
         raise ValueError(f"Unknown affinity type '{affinity_type}'")
     # openTSNE does not use self index so ask for one more
-    precomputed_knn = knn.get_neighbors_with_ctx(
+    precomputed_knn = get_neighbors_with_ctx(
         x, metric, n_neighbors + 1, knn_params=knn_params, ctx=ctx
     )
     tsne_knn = tsnenn.PrecomputedNeighbors(
@@ -174,15 +182,28 @@ def get_tsne_affinities(
 
 
 @dataclass
-class Tsne(drnb.embed.Embedder):
+class Tsne(drnb.embed.base.Embedder):
+    """Embed data using t-SNE.
+
+    Attributes:
+        use_precomputed_knn: Whether to use precomputed k-NN for affinities.
+        initialization: Initialization method for t-SNE.
+        n_neighbors: Number of neighbors for perplexity-based affinities.
+        affinity: Affinity type for t-SNE (perplexity or uniform).
+        precomputed_init: Precomputed initial coordinates for embedding.
+        anneal_exaggeration: Whether to use annealed exaggeration.
+    """
+
     use_precomputed_knn: bool = True
-    initialization: str = None
-    n_neighbors: int = None
-    affinity: str = "perplexity"
-    precomputed_init: np.ndarray = None
+    initialization: str | None = None
+    n_neighbors: int | None = None
+    affinity: Literal["perplexity", "uniform"] = "perplexity"
+    precomputed_init: np.ndarray | None = None
     anneal_exaggeration: bool = False
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         knn_params = {}
         if isinstance(self.use_precomputed_knn, dict):
             knn_params = dict(self.use_precomputed_knn)
@@ -219,7 +240,14 @@ class Tsne(drnb.embed.Embedder):
         )
 
 
-def embed_tsne(x, params, affinities=None, initialization=None, anneal_exagg=False):
+def embed_tsne(
+    x: np.ndarray,
+    params: dict,
+    affinities: openTSNE.affinity.Affinities | None = None,
+    initialization: Literal["pca", "random", "spectral"] | np.ndarray | None = None,
+    anneal_exagg: bool = False,
+):
+    """Embed data using t-SNE."""
     log.info("Running t-SNE")
 
     if anneal_exagg:

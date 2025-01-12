@@ -1,12 +1,31 @@
 from dataclasses import dataclass
 from typing import NamedTuple
 
+import numpy as np
+
 import drnb.embed.umap
-from drnb.embed import run_embed
+from drnb.embed import fit_transform_embed
+from drnb.embed.context import EmbedContext
 from drnb.embed.umap.custom2 import CustomGradientUMAP2, epoch_func
+from drnb.types import EmbedResult
 
 
-def pacumap_grad_coeff_attr(d2, grad_args):
+class PacUMAPGradientArgs(NamedTuple):
+    """Gradient arguments for PacUMAP.
+
+    Cost function for attraction is a / (1 + bw) where (w = 1 / (1 + d2)).
+
+    Attributes:
+        a: float: The a parameter in the attractive cost function.
+        b: float: The b parameter in the attractive cost function.
+    """
+
+    a: float
+    b: float
+
+
+def pacumap_grad_coeff_attr(d2: float, grad_args: PacUMAPGradientArgs) -> float:
+    """Gradient coefficient for the attractive cost function in PacUMAP."""
     a = grad_args.a
     b = grad_args.b
 
@@ -17,8 +36,8 @@ def pacumap_grad_coeff_attr(d2, grad_args):
     return grad_coeff
 
 
-# pylint: disable=unused-argument
-def pacumap_grad_coeff_rep(d2, grad_args):
+def pacumap_grad_coeff_rep(d2: float, _) -> float:
+    """Gradient coefficient for the repulsive cost function in PacUMAP."""
     w = 1 / (1 + d2)
     w1 = 1 + w
     grad_coeff = 2.0 * w * w
@@ -27,12 +46,10 @@ def pacumap_grad_coeff_rep(d2, grad_args):
 
 
 class PacUMAP(CustomGradientUMAP2):
-    def get_gradient_args(self):
-        class GradientArgs(NamedTuple):
-            a: float
-            b: float
+    """PacUMAP implementation."""
 
-        return GradientArgs(a=self._a, b=self._b)
+    def get_gradient_args(self):
+        return PacUMAPGradientArgs(a=self._a, b=self._b)
 
     def __init__(self, **kwargs):
         if "anneal_lr" not in kwargs:
@@ -51,9 +68,13 @@ class PacUMAP(CustomGradientUMAP2):
 
 @dataclass
 class Pacumap(drnb.embed.umap.Umap):
+    """Embedder for PacUMAP."""
+
     use_precomputed_knn: bool = True
     drnb_init: str = None
 
-    def embed_impl(self, x, params, ctx=None):
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
         params = self.update_params(x, params, ctx)
-        return run_embed(x, params, PacUMAP, "PacUMAP")
+        return fit_transform_embed(x, params, PacUMAP, "PacUMAP")

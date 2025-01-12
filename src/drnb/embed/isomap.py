@@ -1,24 +1,20 @@
 from dataclasses import dataclass
 
+import numpy as np
 import sklearn.manifold
 
-import drnb.embed
-from drnb.log import log
+import drnb.embed.base
+from drnb.embed.context import EmbedContext
+from drnb.types import EmbedResult
 
 
 @dataclass
-class Isomap(drnb.embed.Embedder):
-    def embed_impl(self, x, params, ctx=None):
-        return embed_isomap(x, params)
+class Isomap(drnb.embed.base.Embedder):
+    """Embed the data using Isomap."""
 
-
-def embed_isomap(
-    x,
-    params,
-):
-    log.info("Running Isomap")
-    embedder = sklearn.manifold.Isomap(n_components=2, **params)
-    embedded = embedder.fit_transform(x)
-    log.info("Embedding completed")
-
-    return embedded
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
+        return drnb.embed.fit_transform_embed(
+            x, params, sklearn.manifold.Isomap, "Isomap", n_components=2
+        )

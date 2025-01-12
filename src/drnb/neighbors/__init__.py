@@ -2,9 +2,10 @@ import itertools
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, cast
+from typing import Callable, Dict, List, Optional, Tuple, cast
 
 import numpy as np
+import scipy.sparse
 import scipy.sparse.csgraph
 import sklearn.metrics
 
@@ -13,17 +14,20 @@ from drnb.io import data_relative_path, get_path, read_data, write_data
 from drnb.log import log
 from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.preprocess import numpyfy
+from drnb.types import DataSet
 from drnb.util import FromDict, Jsonizable, islisty
 
 from . import annoy, faiss, hnsw, pynndescent
 from .nbrinfo import NbrInfo
 
 
-def n_connected_components(graph):
+def n_connected_components(graph: scipy.sparse.coo_matrix) -> int:
+    """Return the number of connected components in a graph."""
     return scipy.sparse.csgraph.connected_components(graph)[0]
 
 
-def create_nn_func(method):
+def create_nn_func(method: str) -> Tuple[Callable, Dict]:
+    """Create a nearest neighbor function and default keyword arguments."""
     if method == "sklearn":
         nn_func = sknbrs.sklearn_neighbors
         default_method_kwds = sknbrs.SKLEARN_DEFAULTS
@@ -49,16 +53,19 @@ def create_nn_func(method):
 
 
 def calculate_neighbors(
-    data,
-    n_neighbors=15,
-    metric="euclidean",
-    method="approximate",
-    return_distance=True,
-    include_self=True,
-    verbose=False,
-    method_kwds=None,
+    data: np.ndarray,
+    n_neighbors: int = 15,
+    metric: str = "euclidean",
+    method: str = "approximate",
+    return_distance: bool = True,
+    include_self: bool = True,
+    verbose: bool = False,
+    method_kwds: dict | None = None,
     name: str = "",
-):
+) -> NearestNeighbors:
+    """Calculate nearest neighbors for a given data set, using a specified method.
+    By default, approximate nearest neighbors are found. For exact nearest neighbors,
+    use method='exact'."""
     n_neighbors = int(n_neighbors)
     if not include_self:
         eff_n_neighbors = n_neighbors + 1
@@ -76,9 +83,9 @@ def calculate_neighbors(
 
     if method in ("exact", "approximate"):
         if method == "exact":
-            method = find_exact_method(metric)
+            method = _find_exact_method(metric)
         else:
-            method = find_fast_method(metric)
+            method = _find_fast_method(metric)
         if verbose:
             log.info("Using '%s' to find nearest neighbors", method)
     if verbose and method != "faiss" and (n_items > 10000 or data.shape[1] > 10000):
@@ -136,7 +143,7 @@ def calculate_neighbors(
         n_nbrs=n_neighbors,
         method=method,
         metric=metric,
-        exact=is_exact_method(method),
+        exact=_is_exact_method(method),
         has_distances=return_distance,
         idx_path=None,
         dist_path=None,
@@ -146,50 +153,51 @@ def calculate_neighbors(
     return NearestNeighbors(idx=nn, dist=None, info=nn_info)
 
 
-def dmat(x):
+def dmat(x: DataSet | np.ndarray) -> np.ndarray:
+    """Calculate the pairwise distance matrix for a given data set."""
     if isinstance(x, tuple) and len(x) == 2:
         x = x[0]
     x = numpyfy(x)
     return sklearn.metrics.pairwise_distances(x)
 
 
-def zip_algs(metrics, method_name):
+def _zip_algs(metrics, method_name):
     return list(zip(metrics, itertools.cycle((method_name,))))
 
 
-def is_exact_method(method):
+def _is_exact_method(method):
     return method in ("faiss", "sklearn")
 
 
-def find_exact_method(metric):
-    return preferred_exact_methods()[metric][0]
+def _find_exact_method(metric):
+    return _preferred_exact_methods()[metric][0]
 
 
-def find_fast_method(metric):
-    return preferred_fast_methods()[metric][0]
+def _find_fast_method(metric):
+    return _preferred_fast_methods()[metric][0]
 
 
 # For a given metric, return the suggested method for approximate nearest neighbors
 # FAISS is included because it's fast
-def preferred_fast_methods():
+def _preferred_fast_methods():
     metric_algs = defaultdict(list)
     for metric, method in (
-        zip_algs(faiss.faiss_metrics(), "faiss")
-        + zip_algs(pynndescent.PYNNDESCENT_METRICS.keys(), "pynndescent")
-        + zip_algs(hnsw.HNSW_METRICS.keys(), "hnsw")
-        + zip_algs(annoy.ANNOY_METRICS.keys(), "annoy")
+        _zip_algs(faiss.faiss_metrics(), "faiss")
+        + _zip_algs(pynndescent.PYNNDESCENT_METRICS.keys(), "pynndescent")
+        + _zip_algs(hnsw.HNSW_METRICS.keys(), "hnsw")
+        + _zip_algs(annoy.ANNOY_METRICS.keys(), "annoy")
     ):
         metric_algs[metric].append(method)
 
     return metric_algs
 
 
-def preferred_exact_methods():
+def _preferred_exact_methods():
     metric_algs = defaultdict(list)
     for metric, method in (
-        zip_algs(faiss.faiss_metrics(), "faiss")
-        + zip_algs(sknbrs.SKLEARN_METRICS.keys(), "sklearn")
-        + zip_algs(pynndescent.PYNNDESCENT_METRICS.keys(), "pynndescentbf")
+        _zip_algs(faiss.faiss_metrics(), "faiss")
+        + _zip_algs(sknbrs.SKLEARN_METRICS.keys(), "sklearn")
+        + _zip_algs(pynndescent.PYNNDESCENT_METRICS.keys(), "pynndescentbf")
     ):
         metric_algs[metric].append(method)
 
@@ -198,15 +206,22 @@ def preferred_exact_methods():
 
 # pylint: disable=too-many-return-statements
 def find_candidate_neighbors_info(
-    name,
-    drnb_home=None,
-    sub_dir="nn",
-    n_neighbors=1,
-    metric="euclidean",
-    method: Optional[str] = None,
-    exact: Optional[bool] = None,
-    return_distance=True,
-):
+    name: str | None = None,
+    drnb_home: Path | str | None = None,
+    sub_dir: str = "nn",
+    n_neighbors: int = 1,
+    metric: str = "euclidean",
+    method: str | None = None,
+    exact: bool | None = None,
+    return_distance: bool = True,
+) -> NbrInfo | None:
+    """Find the nearest neighbors info for a given dataset. If no suitable neighbors
+    are found, return None. The method will return the smallest file that has at least
+    `n_neighbors` neighbors. If `exact` is True, only exact neighbors are considered.
+    If `exact` is False, only approximate neighbors are considered. If `exact` is None,
+    both exact and approximate neighbors are considered. If `method` is not None, only
+    neighbors calculated with that method are considered. If `return_distance` is True,
+    only neighbors with distances are considered."""
     if name is None:
         return None
 
@@ -273,16 +288,22 @@ def find_candidate_neighbors_info(
 
 
 def read_neighbors(
-    name,
-    n_neighbors=15,
-    metric="euclidean",
-    method=None,
-    exact: Optional[bool] = False,
-    drnb_home=None,
-    sub_dir="nn",
-    return_distance=True,
-    verbose=False,
-):
+    name: str,
+    n_neighbors: int = 15,
+    metric: str = "euclidean",
+    method: str = None,
+    exact: bool | None = False,
+    drnb_home: Path | str | None = None,
+    sub_dir: str = "nn",
+    return_distance: bool = True,
+    verbose: bool = False,
+) -> NearestNeighbors | None:
+    """Read pre-calculated nearest neighbors from disk. If no suitable neighbors are
+    found, return None. If `exact` is True, only exact neighbors are considered. If
+    `exact` is False, only approximate neighbors are considered. If `exact` is None,
+    both exact and approximate neighbors are considered. If `method` is not None, only
+    neighbors calculated with that method are considered. If `return_distance` is True,
+    only neighbors with distances are considered."""
     candidate_info = find_candidate_neighbors_info(
         name,
         n_neighbors=n_neighbors,
@@ -327,17 +348,24 @@ def read_neighbors(
 
 
 def get_exact_neighbors(
-    name,
-    n_neighbors=15,
-    metric="euclidean",
-    return_distance=True,
-    verbose=False,
-    drnb_home=None,
-    sub_dir="nn",
-    cache=True,
-    data=None,
-    method_kwds=None,
+    name: str | None = None,
+    n_neighbors: int = 15,
+    metric: str = "euclidean",
+    return_distance: bool = True,
+    verbose: bool = False,
+    drnb_home: Path | str | None = None,
+    sub_dir: str = "nn",
+    cache: bool = True,
+    data: np.ndarray | None = None,
+    method_kwds: dict | None = None,
 ) -> NearestNeighbors:
+    """Get exact nearest neighbors for a given dataset by reading pre-calculated results
+    or calculating directly. One or both of `name` and `data` must be provided,
+    depending on the desired behavior. If `name` is provided, try to read the
+    pre-calculated neighbors. Otherwise, calculate them using `data`. If `cache` is True,
+    save the calculated neighbors to disk using `name`. If `return_distance` is True,
+    return both the indices and the distances to the neighbors. Otherwise, return only
+    the indices."""
     if name is None or not name:
         cache = False
 
@@ -357,15 +385,16 @@ def get_exact_neighbors(
 
 
 def calculate_exact_neighbors(
-    data,
-    n_neighbors=15,
-    metric="euclidean",
+    data: np.ndarray | None = None,
+    n_neighbors: int = 15,
+    metric: str = "euclidean",
     return_distance: bool = True,
     include_self: bool = True,
     verbose: bool = False,
     method_kwds: Optional[dict] = None,
     name: str = "",
 ) -> NearestNeighbors:
+    """Calculate exact nearest neighbors for a given dataset."""
     return calculate_neighbors(
         data,
         n_neighbors=n_neighbors,
@@ -380,20 +409,27 @@ def calculate_exact_neighbors(
 
 
 def get_neighbors(
-    name,
-    n_neighbors=15,
-    metric="euclidean",
-    method="approximate",
-    return_distance=True,
-    verbose=False,
-    # used only by read
-    drnb_home=None,
-    sub_dir="nn",
-    cache=True,
+    name: str | None = None,
+    n_neighbors: int = 15,
+    metric: str = "euclidean",
+    method: str = "approximate",
+    return_distance: bool = True,
+    verbose: bool = False,
+    # used by read/cache
+    drnb_home: Path | str | None = None,
+    sub_dir: str = "nn",
+    cache: bool = True,
     # used only by calc
-    data=None,
-    method_kwds=None,
+    data: np.ndarray | None = None,
+    method_kwds: dict | None = None,
 ) -> NearestNeighbors:
+    """Get nearest neighbors for a given dataset by reading pre-calculated results or
+    calculating directly. One or both of `name` and `data` must be provided, depending
+    on the desired behavior. If `name` is provided, try to read the pre-calculated
+    neighbors. Otherwise, calculate them using `data`. If `cache` is True, save the
+    calculated neighbors to disk using `name`. If `return_distance` is True, return
+    both the indices and the distances to the neighbors. Otherwise, return only the
+    indices."""
     if method is not None:
         if method == "exact":
             read_exact = True
@@ -450,13 +486,14 @@ def get_neighbors(
 
 
 def write_neighbors(
-    neighbor_data,
-    drnb_home: Optional[Path] = None,
+    neighbor_data: NearestNeighbors,
+    drnb_home: Path | str | None = None,
     sub_dir: str = "nn",
     create_sub_dir: bool = True,
     file_type: str | List[str] = "npy",
     verbose: bool = False,
 ) -> Tuple[List[Path], List[Path]]:
+    """Write nearest neighbors data to disk."""
     # e.g. mnist.150.euclidean.exact.faiss.dist.npy
     if neighbor_data.info.name is None:
         raise ValueError("No neighbor data info name")
@@ -486,38 +523,8 @@ def write_neighbors(
     return idx_paths, dist_paths
 
 
-# Used in a pipeline
-def get_neighbors_with_ctx(
-    data, metric, n_neighbors, knn_params=None, ctx=None, return_distance=True
-):
-    if knn_params is None:
-        knn_params = {}
-    knn_defaults = dict(method="exact", cache=False, verbose=True, name=None)
-    if ctx is not None:
-        knn_defaults.update(
-            dict(drnb_home=ctx.drnb_home, sub_dir=ctx.nn_sub_dir, name=ctx.dataset_name)
-        )
-    full_knn_params = knn_defaults | knn_params
-
-    # only turn on caching request if there is an actual name in the context
-    name = knn_defaults.get("name")
-    knn_defaults["cache"] = name is not None and name
-
-    result = get_neighbors(
-        data=data,
-        n_neighbors=n_neighbors,
-        metric=metric,
-        return_distance=return_distance,
-        **full_knn_params,
-    )
-    # let's just make sure we get the dist member
-    if return_distance and result.dist is None:
-        raise ValueError("return_distance was True but no distance data was returned")
-    return result
-
-
 # this should only be used for creating reduced neighbor data for writing
-def slice_neighbors(neighbors_data, n_neighbors):
+def _slice_neighbors(neighbors_data, n_neighbors):
     if neighbors_data.info.n_nbrs < n_neighbors:
         raise ValueError("Not enough neighbors")
     idx = neighbors_data.idx[:, :n_neighbors]
@@ -531,6 +538,17 @@ def slice_neighbors(neighbors_data, n_neighbors):
 
 @dataclass
 class NeighborsRequest(FromDict, Jsonizable):
+    """Request for creating neighbors.
+
+    Attributes:
+        n_neighbors: Number of neighbors to calculate.
+        method: Method to use for calculating neighbors.
+        metric: Metric to use for calculating neighbors.
+        file_types: File types to save neighbors as.
+        params: Additional parameters for calculating neighbors.
+        verbose: Whether to output verbose logging
+    """
+
     n_neighbors: List[int] = field(default_factory=lambda: [15])
     method: str = "exact"
     metric: str | List[str] = field(default_factory=lambda: ["euclidean"])
@@ -539,8 +557,13 @@ class NeighborsRequest(FromDict, Jsonizable):
     verbose: bool = False
 
     def create_neighbors(
-        self, data, dataset_name: str, nbr_dir: str = "nn", suffix: Optional[str] = None
+        self,
+        data: np.ndarray,
+        dataset_name: str,
+        nbr_dir: str = "nn",
+        suffix: str | None = None,
     ) -> List[Path]:
+        """Create neighbors for a given dataset."""
         if not self.n_neighbors:
             log.info("Neighbor request but no n_neighbors specified")
             return []
@@ -567,7 +590,7 @@ class NeighborsRequest(FromDict, Jsonizable):
 
             for n_neighbors in self.n_neighbors:
                 try:
-                    sliced_neighbors = slice_neighbors(neighbors_data, n_neighbors)
+                    sliced_neighbors = _slice_neighbors(neighbors_data, n_neighbors)
                     idx_paths, dist_paths = write_neighbors(
                         neighbor_data=sliced_neighbors,
                         sub_dir=nbr_dir,
@@ -587,7 +610,8 @@ class NeighborsRequest(FromDict, Jsonizable):
 #   # for method = "exact" or "approximate" we can't know what algo we will get
 #   # so need to nest the names inside?
 #   method_kwds = dict("annoy"=dict(), hnsw=dict() ... )
-def create_neighbors_request(neighbors_kwds):
+def create_neighbors_request(neighbors_kwds: dict | None) -> NeighborsRequest | None:
+    """Create a neighbors request from a dictionary of keyword arguments."""
     if neighbors_kwds is None:
         return None
     for key in ["metric", "n_neighbors"]:

@@ -1,25 +1,21 @@
 from dataclasses import dataclass
 
+import numpy as np
 import sklearn.decomposition
 
 import drnb.embed
-
-from drnb.log import log
+import drnb.embed.base
+from drnb.embed.context import EmbedContext
+from drnb.types import EmbedResult
 
 
 @dataclass
-class Pca(drnb.embed.Embedder):
-    def embed_impl(self, x, params, ctx=None):
-        return embed_pca(x, params)
+class Pca(drnb.embed.base.Embedder):
+    """PCA embedder."""
 
-
-def embed_pca(
-    x,
-    params,
-):
-    log.info("Running PCA")
-    embedder = sklearn.decomposition.PCA(n_components=2, **params)
-    embedded = embedder.fit_transform(x)
-    log.info("Embedding completed")
-
-    return embedded
+    def embed_impl(
+        self, x: np.ndarray, params: dict, _: EmbedContext | None = None
+    ) -> EmbedResult:
+        return drnb.embed.fit_transform_embed(
+            x, params, sklearn.decomposition.PCA, "PCA", n_components=2
+        )

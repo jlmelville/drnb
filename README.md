@@ -14,59 +14,31 @@ various datasets and that might be of interest to others.
 
 ## Installing
 
-This should work with Python 3.10 and 3.11 (although see the section on faiss below for why you
-may want to stick with 3.10).
-
-I tried stepping into the modern age with [poetry](https://python-poetry.org/) but had trouble with
-[llvmite](https://pypi.org/project/llvmlite/) and [ncvis](https://pypi.org/project/ncvis/). So
-pip it is: (of course a virtual env is highly recommended):
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -U pip setuptools wheel
-```
-
-then from the base directory:
-
-```bash
-pip install -e .
-```
-
-or
-
-```zsh
-pip install -e '.[dev]'
-```
+*January 11 2025* Now using Python 3.12 and [uv](https://docs.astral.sh/uv/). Trying to use too
+many dependencies makes things way too brittle, so fewer embedding methods are supported.
 
 The `dev` extra identifier just installs some linting tools for use when developing `drnb` . If you
-are using VSCode then the `.vscode/settings.json` sets those tools up with the configuration in
-`setup.cfg` . That all assumes you are using the virtual environment in `venv`. Otherwise the usual
-`pip install -e .` will do fine.
+are using VSCode then the `.vscode/settings.json` sets those tools up. I am trying to see how far
+I can get with just [ruff](https://docs.astral.sh/ruff/).
+
+```bash
+uv pip install -e .
+uv export --only-group=dev | uv pip install --requirements=-
+```
+
+The second line is for installing the 'dev' dependency group (see
+<https://github.com/astral-sh/uv/issues/8590>).
 
 ### Optional packages
 
-#### ncvis
-
-The [ncvis](https://github.com/stat-ml/ncvis) method hasn't been updated for a while and I couldn't
-make it build on an ARM-based Mac. It also has some problems with installation order with `numpy`
-and `cython`, so if you want to try your luck installing this, just `pip install ncvis` after
-installing drnb.
+I will be deprecating packages that are giving trouble.
 
 #### Faiss
 
-If you have an CUDA-compatible GPU, I strongly recommend installing
-[faiss-gpu](https://pypi.org/project/faiss-gpu/) for calculating exact nearest neighbors with the
-euclidean or cosine metric. That said, the PyPI version is an [unofficially built wheel](https://github.com/facebookresearch/faiss/issues/1101)
-and is currently stuck on version 1.7.2 due to [the wheel size being too large](https://github.com/kyamagu/faiss-wheels/issues/57).
-Right now there is a `pip install -e .[faiss-gpu]` identifier in this repo, but it doesn't do 
-anything more than `pip install faiss-gpu`.
-
-**Note**: as of June 2023, `faiss-gpu` does not currently support Python 3.11, so you will either
-have to stick with Python 3.10 or attempt to build Faiss yourself. With a recent CUDA update to
+With a recent CUDA update to
 12.2, I have finally successfully [built Faiss with GPU support on WSL2 with Ubuntu](https://gist.github.com/jlmelville/9b4f0d91ede13bff18d26759140709f9)
-and a Pascal-era card (GTX 1080) -- at least it *seems* to work for what I want it to do. But I
-wouldn't blame you for sticking with Python 3.10 for now.
+and a Pascal-era card (GTX 1080). Unfortunately, generating nearest neighbors is a lot slower
+without it.
 
 ## Data setup
 
@@ -86,22 +58,7 @@ pre-calculated.
 
 ## Embedding
 
-See the notebooks in `notebooks/embed-pipeline` .
-
-### Notebook use
-
-Code is all in the `drnb` module. Probably the following is a good chunk to stick at the top of
-most notebooks (you can find it in `notebooks/template.ipynb` )
-
-```python
-%load_ext lab_black
-import pandas as pd
-import numpy as np
-import drnb as nb
-```
-
-`lab_black` is an extension that runs the [black](https://black.readthedocs.io/en/stable/)
-code formatter on notebook code on submit.
+See the notebooks in `notebooks/embed-pipeline`.
 
 ### Using plotly
 
