@@ -436,7 +436,7 @@ def create_default_pipeline(
         data_export=data_export,
         target_export=target_export,
         neighbors={
-            "n_neighbors": 15,
+            "n_neighbors": [15, 50, 150],
             "method": "exact",
             "metric": metric,
             "file_types": neighbor_file_types,
