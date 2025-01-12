@@ -7,25 +7,27 @@
     },
     "[python]": {
         "editor.codeActionsOnSave": {
-            "source.organizeImports": "always"
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
         },
-        "editor.defaultFormatter": "ms-python.black-formatter",
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnSave": true,
         "editor.rulers": [
             88
-        ],
+        ]
     },
     "editor.bracketPairColorization.enabled": true,
     "files.watcherExclude": {
         "**/venv/**": true
     },
-    "flake8.args": [
-        "--config=${workspaceFolder}/setup.cfg"
-    ],
-    "isort.args": [
-        "--settings-file",
-        "${workspaceFolder}/setup.cfg"
-    ],
+    "git.blame.editorDecoration.enabled": true,
+    "git.blame.statusBarItem.enabled": true,
+    "notebook.cellExecutionTimeVerbosity": "verbose",
+    "notebook.codeActionsOnSave": {
+        "notebook.source.fixAll": "explicit",
+        "notebook.source.organizeImports": "explicit"
+    },
+    "notebook.formatOnSave.enabled": true,
     "pylint.severity": {
         "convention": "Information",
         "error": "Error",
@@ -39,5 +41,6 @@
     "python.testing.pytestArgs": [],
     "python.testing.pytestEnabled": true,
     "python.testing.pytestPath": "${workspaceFolder}/venv/bin/pytest",
-    "python.testing.unittestEnabled": false
+    "python.testing.unittestEnabled": false,
+    "workbench.tree.indent": 16
 }
