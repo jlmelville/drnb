@@ -1,5 +1,17 @@
-venv
-.ipynb_checkpoints
-__pycache__
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
 src/*.egg-info
-**DONTCHECKMEIN*
+
+.ipynb_checkpoints
+
+# Virtual environments
+.venv
+
+.pytest_cache/
+.ruff_cache/
+
+DONTCHECKMEIN/
