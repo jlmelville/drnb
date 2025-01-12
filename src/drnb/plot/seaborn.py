@@ -8,6 +8,7 @@ import pandas as pd
 import seaborn as sns
 import sklearn.decomposition
 from matplotlib.axes import Axes
+from matplotlib.ticker import AutoLocator
 
 from drnb.embed import get_coords
 from drnb.embed.context import EmbedContext, read_dataset_from_ctx
@@ -30,6 +31,7 @@ def sns_embed_plot(
     pc_axes: bool = False,
     flipx: bool = False,
     flipy: bool = False,
+    show_axes: bool = True,
     ax: Axes | None = None,
 ) -> Axes:
     """Create a Seaborn scatter plot of the embedded data.
@@ -83,9 +85,11 @@ def sns_embed_plot(
 
     # At this point color_col should be one of: a range, a numpy array, a pandas series
     palette = palettize(color_col, palette)
+
     if palette is not None:
         scatter_kwargs["palette"] = palette
-
+    else:
+        scatter_kwargs["palette"] = "viridis"
     if ax is not None:
         scatter_kwargs["ax"] = ax
         legend = False
@@ -129,6 +133,17 @@ def sns_embed_plot(
         **scatter_kwargs,
     )
     plot.set_title(title)
+
+    # Configure axes, axis labels, and frame
+    if not show_axes:
+        plot.set_axis_off()
+        plot.set_xticks([])
+        plot.set_yticks([])
+        for spine in plot.spines.values():
+            spine.set_visible(False)
+    else:
+        plot.xaxis.set_major_locator(AutoLocator())
+        plot.yaxis.set_major_locator(AutoLocator())
 
     if legend and (nlegcol == 1 or force_legend):
         leg_title = None
