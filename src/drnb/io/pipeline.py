@@ -243,6 +243,12 @@ class DatasetPipeline(Jsonizable):
         log.info("Processing target with initial shape %s", target.shape)
         target = target.loc[dropna_index]
         target = filter_columns(target, target_cols)
+
+        # feather format does not support integer column names
+        target.columns = [str(c) for c in target.columns]
+        # and also does not serialize an index, so we need to "promote" it to a column
+        target = target.reset_index()
+
         target_shape = target.shape
         if self.target_exporters is None or not self.target_exporters:
             log.warning("Target supplied but no target exporters defined")
