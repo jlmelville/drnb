@@ -156,6 +156,10 @@ def plotly_embed_plot(
             showlegend=legend,
             coloraxis_showscale=legend,
             plot_bgcolor="rgba(0, 0, 0, 0)",
+            # praise be Anton Björk for this partial workaround to marker size in the
+            # legend being tied to the scatterplot marker size
+            # https://community.plotly.com/t/modify-marker-size-in-legend/5338/13
+            legend={"itemsizing": "constant"},
         )
         .update_xaxes(
             showline=show_axes,
