@@ -70,8 +70,11 @@ def sns_embed_plot(
     # as categorical when created to be treated as such during plotting:
     # this simplifies the dataset interface (target data is always a pandas dataframe)
     # and plain integers are treated as a basic index
-    # if isinstance(color_col, pd.Series) and pd.api.types.is_integer_dtype(color_col):
-    #     color_col = color_col.astype("category")
+    # Add hue_order if categorical
+    if isinstance(color_col, pd.Series) and pd.api.types.is_categorical_dtype(
+        color_col
+    ):
+        scatter_kwargs["hue_order"] = color_col.cat.categories
 
     # If the column contains manually-set hex codes, use them directly, no palette or
     # legend possible though
