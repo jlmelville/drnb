@@ -121,14 +121,15 @@ def plotly_embed_plot(
             "y": coords[:, 1],
             "color": color_col,
             "idx": pd.Series(list(range(coords.shape[0])), name="idx"),
-            "index": hover.index,
         }
     )
 
     # idx MUST BE the first element of the custom data for clickability
-    hover_data = ["idx", "index"]
+    hover_data = ["idx"]
     if hover is not None:
-        hover_data += list(hover.columns)
+        df["index"] = hover.index
+        hover_data.append("index")
+        hover_data.extend(list(hover.columns))
         df = pd.concat(
             [
                 df,
@@ -136,7 +137,7 @@ def plotly_embed_plot(
             ],
             axis=1,
         )
-    scatter_kwargs["hover_data"] = hover_data
+        scatter_kwargs["hover_data"] = hover_data
 
     # pylint:disable=no-member
     plot = (
