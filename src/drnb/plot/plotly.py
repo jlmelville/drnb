@@ -296,7 +296,12 @@ class PlotlyPlotter:
             estimated_cex = 10.0 ** (
                 0.4591008 - 0.3722813 * math.log10(coords.shape[0])
             )
-            alpha_scale = np.clip(estimated_cex * 2.0, 0.05, 0.8)
+            # if you are displaying the legend then presumably you would like it have
+            # identifiable points, so make them more opaque: you can always zoom and
+            # toggle points. If the legend is off we don't need to be as constrained
+            alpha_lower = 0.8 if self.legend else 0.05
+            alpha_upper = 1.0 if self.legend else 0.8
+            alpha_scale = np.clip(estimated_cex * 2.0, alpha_lower, alpha_upper)
         else:
             alpha_scale = self.alpha_scale
 
