@@ -151,13 +151,23 @@ def sns_embed_plot(
             leg_title = color_col.name
         if leg_title == "V1":
             leg_title = None
+        handles, labels = plot.get_legend_handles_labels()
+        for handle in handles:
+            handle.set_alpha(1.0)
+            if hasattr(handle, "set_sizes"):
+                handle.set_sizes([100])
+            else:
+                handle.set_markersize(10)
         plt.legend(
+            handles,
+            labels,
             bbox_to_anchor=(1.02, 1),
             loc="upper left",
             borderaxespad=0,
             ncol=nlegcol,
             title=leg_title,
         )
+
     return plot
 
 
