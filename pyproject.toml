@@ -13,6 +13,7 @@ dependencies = [
     "hnswlib>=0.8.0",
     "httpx>=0.28.1",
     "ipykernel>=6.29.5",
+    "nbformat>=5.10.4",
     # dependency of numba 0.6.0 leaves us little room to manoeuvre with numpy
     "numpy>=1.22,<2.1",
     "opentsne>=1.0.2",
