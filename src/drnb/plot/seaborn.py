@@ -31,7 +31,7 @@ def sns_embed_plot(
     pc_axes: bool = False,
     flipx: bool = False,
     flipy: bool = False,
-    show_axes: bool = True,
+    show_axes: bool = False,
     ax: Axes | None = None,
 ) -> Axes:
     """Create a Seaborn scatter plot of the embedded data.
@@ -179,6 +179,7 @@ class SeabornPlotter:
         pc_axes: Whether to use principal component axes (default False).
         flipx: Whether to flip the x-axis (default False).
         flipy: Whether to flip the y-axis (default False).
+        show_axes: Whether to show the axes (default False).
     """
 
     cex: int | None = None
@@ -193,6 +194,7 @@ class SeabornPlotter:
     pc_axes: bool = False
     flipx: bool = False
     flipy: bool = False
+    show_axes: bool = False
 
     @classmethod
     def new(cls, **kwargs) -> Self:
@@ -266,6 +268,7 @@ class SeabornPlotter:
             flipx=self.flipx,
             flipy=self.flipy,
             ax=ax,
+            show_axes=self.show_axes,
         )
         if ax is None:
             plt.show()

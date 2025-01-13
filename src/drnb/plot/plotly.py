@@ -35,6 +35,7 @@ def plotly_embed_plot(
     flipx: bool = False,
     flipy: bool = False,
     hover: pd.DataFrame | None = None,
+    show_axes: bool = False,
 ) -> go.Figure:
     """Create a Plotly scatter plot of the embedded data.
 
@@ -51,6 +52,7 @@ def plotly_embed_plot(
         flipx: Whether to flip the x-axis.
         flipy: Whether to flip the y-axis.
         hover: The hover data for the plot.
+        show_axes: Whether to show the axes.
     """
     scatter_kwargs = {}
 
@@ -154,8 +156,22 @@ def plotly_embed_plot(
             coloraxis_showscale=legend,
             plot_bgcolor="rgba(0, 0, 0, 0)",
         )
-        .update_xaxes(showline=True, linecolor="black", mirror=True)
-        .update_yaxes(showline=True, linecolor="black", mirror=True)
+        .update_xaxes(
+            showline=show_axes,
+            linecolor="black",
+            mirror=True,
+            showticklabels=show_axes,
+            showgrid=show_axes,
+            title={"text": ""},
+        )
+        .update_yaxes(
+            showline=show_axes,
+            linecolor="black",
+            mirror=True,
+            showticklabels=show_axes,
+            showgrid=show_axes,
+            title={"text": ""},
+        )
     )
 
     return plot
@@ -201,6 +217,7 @@ class PlotlyPlotter:
     flipx: bool = False
     flipy: bool = False
     hover: List[str] | None = None
+    show_axes: bool = False
     renderer: str = "jupyterlab"
     clickable: bool = False
     clickable_n_neighbors: int = 15
@@ -297,6 +314,7 @@ class PlotlyPlotter:
             flipx=self.flipx,
             flipy=self.flipy,
             hover=hover,
+            show_axes=self.show_axes,
         )
 
         if self.clickable:
