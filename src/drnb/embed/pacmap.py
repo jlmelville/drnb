@@ -11,6 +11,27 @@ from drnb.log import log
 from drnb.types import EmbedResult
 
 
+# See also:
+# https://github.com/YingfanWang/PaCMAP/blob/master/demo/specify_nn_demo.py
+def create_neighbor_pairs(
+    nbr_idx: np.ndarray,
+    n_neighbors: int,
+) -> np.ndarray:
+    """Create neighbor pairs from nearest neighbor indices. This melts the
+    nearest neighbor indices into a 2D array of shape (n_samples * n_neighbors, 2)
+    where each row is a pair of indices [i, j] where i is the index of the sample
+    and j is the index of the neighbor. Note that i is not considered a neighbor of
+    itself."""
+    melted = (
+        pd.melt(pd.DataFrame(nbr_idx[:, : (n_neighbors + 1)]), [0])[[0, "value"]]
+        .to_numpy()
+        .astype(np.int32)
+    )
+    # sort by the first column, but leave order of second column intact as these are
+    # already in non-decreasing distance order
+    return melted[melted[:, 0].argsort(kind="stable")]
+
+
 @dataclass
 class Pacmap(drnb.embed.base.Embedder):
     """PaCMAP embedder.
@@ -50,11 +71,8 @@ class Pacmap(drnb.embed.base.Embedder):
             precomputed_knn = get_neighbors_with_ctx(
                 x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
             )
-            pair_neighbors = (
-                pd.melt(pd.DataFrame(precomputed_knn.idx), [0])[[0, "value"]]
-                .to_numpy()
-                .astype(np.int32)
-            )
+            pair_neighbors = create_neighbor_pairs(precomputed_knn.idx, n_neighbors)
+
             log.info(
                 "Converted knn to pair neighbors: %s",
                 pair_neighbors.shape,
