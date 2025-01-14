@@ -32,6 +32,7 @@ def sns_embed_plot(
     flipx: bool = False,
     flipy: bool = False,
     show_axes: bool = False,
+    equal_axes: bool = False,
     ax: Axes | None = None,
 ) -> Axes:
     """Create a Seaborn scatter plot of the embedded data.
@@ -48,6 +49,8 @@ def sns_embed_plot(
         pc_axes: Whether to use principal component axes.
         flipx: Whether to flip the x-axis.
         flipy: Whether to flip the y-axis.
+        show_axes: Whether to show the axes.
+        equal_axes: Whether to make the axes equal.
         ax: The axes to use for the plot.
     """
     if title is None:
@@ -148,6 +151,20 @@ def sns_embed_plot(
         plot.xaxis.set_major_locator(AutoLocator())
         plot.yaxis.set_major_locator(AutoLocator())
 
+    if equal_axes:
+        # make the plot square with equal scales
+        xlim = plot.get_xlim()
+        ylim = plot.get_ylim()
+        max_range = max(xlim[1] - xlim[0], ylim[1] - ylim[0])
+
+        xmid = (xlim[1] + xlim[0]) / 2
+        ymid = (ylim[1] + ylim[0]) / 2
+
+        plot.set_xlim(xmid - max_range / 2, xmid + max_range / 2)
+        plot.set_ylim(ymid - max_range / 2, ymid + max_range / 2)
+
+        plot.set_aspect("equal")
+
     if legend and (nlegcol == 1 or force_legend):
         leg_title = None
         if hasattr(color_col, "name"):
@@ -193,6 +210,7 @@ class SeabornPlotter:
         flipx: Whether to flip the x-axis (default False).
         flipy: Whether to flip the y-axis (default False).
         show_axes: Whether to show the axes (default False).
+        equal_axes: Whether to make the axes equal (default False).
     """
 
     cex: int | None = None
@@ -208,6 +226,7 @@ class SeabornPlotter:
     flipx: bool = False
     flipy: bool = False
     show_axes: bool = False
+    equal_axes: bool = False
 
     @classmethod
     def new(cls, **kwargs) -> Self:
@@ -282,6 +301,7 @@ class SeabornPlotter:
             flipy=self.flipy,
             ax=ax,
             show_axes=self.show_axes,
+            equal_axes=self.equal_axes,
         )
         if ax is None:
             plt.show()

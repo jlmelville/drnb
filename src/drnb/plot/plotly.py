@@ -22,6 +22,7 @@ from drnb.plot.palette import palettize
 from drnb.types import EmbedResult
 
 
+# pylint: disable=too-many-statements
 def plotly_embed_plot(
     coords: np.ndarray,
     color_col: pd.DataFrame | pd.Series | np.ndarray | None = None,
@@ -36,6 +37,7 @@ def plotly_embed_plot(
     flipy: bool = False,
     hover: pd.DataFrame | None = None,
     show_axes: bool = False,
+    equal_axes: bool = False,
 ) -> go.Figure:
     """Create a Plotly scatter plot of the embedded data.
 
@@ -53,6 +55,7 @@ def plotly_embed_plot(
         flipy: Whether to flip the y-axis.
         hover: The hover data for the plot.
         show_axes: Whether to show the axes.
+        equal_axes: Whether to make the axes equal.
     """
     scatter_kwargs = {}
 
@@ -179,6 +182,26 @@ def plotly_embed_plot(
         )
     )
 
+    if equal_axes:
+        # make the plot square with equal scales
+        xmax = df["x"].max()
+        xmin = df["x"].min()
+        ymax = df["y"].max()
+        ymin = df["y"].min()
+        max_range = max(xmax - xmin, ymax - ymin)
+
+        xmid = (xmax + xmin) / 2
+        ymid = (ymax + ymin) / 2
+
+        plot.update_layout(
+            yaxis={
+                "scaleanchor": "x",
+                "scaleratio": 1,
+                "range": [ymid - max_range / 2, ymid + max_range / 2],
+            },
+            xaxis={"range": [xmid - max_range / 2, xmid + max_range / 2]},
+        )
+
     return plot
 
 
@@ -202,6 +225,8 @@ class PlotlyPlotter:
         flipy: Whether to flip the y-axis (default False).
         hover: The names of the columns in the target data to use as part of the hover
             data (default None).
+        show_axes: Whether to show the axes (default False).
+        equal_axes: Whether to make the axes equal (default False).
         renderer: The renderer to use for the plot (default "jupyterlab").
         clickable: Whether to make the plot clickable (default False).
         clickable_n_neighbors: The number of neighbors to consider for clickability
@@ -223,6 +248,7 @@ class PlotlyPlotter:
     flipy: bool = False
     hover: List[str] | None = None
     show_axes: bool = False
+    equal_axes: bool = False
     renderer: str = "jupyterlab"
     clickable: bool = False
     clickable_n_neighbors: int = 15
@@ -233,6 +259,7 @@ class PlotlyPlotter:
         """Create a new PlotlyPlotter object."""
         return cls(**kwargs)
 
+    # pylint: disable=too-many-statements
     def plot(
         self,
         embedding_result: EmbedResult,
@@ -325,6 +352,7 @@ class PlotlyPlotter:
             flipy=self.flipy,
             hover=hover,
             show_axes=self.show_axes,
+            equal_axes=self.equal_axes,
         )
 
         if self.clickable:
