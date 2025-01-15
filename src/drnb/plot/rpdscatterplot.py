@@ -35,13 +35,15 @@ class RandomPairDistanceScatterplot:
             n_triplets_per_point=self.n_triplets_per_point,
         )
 
+    # We need to list all the variables names to make this look like a PlotterProtocol
+    # pylint: disable=unused-argument
     def plot(
         self,
         embedding_result: EmbedResult,
         data: np.ndarray | None = None,
-        _: pd.DataFrame | pd.Series | np.ndarray | range | None = None,
+        y: pd.DataFrame | pd.Series | np.ndarray | range | None = None,
         ctx: EmbedContext | None = None,
-        __: Axes | None = None,
+        ax: Axes | None = None,
     ) -> Axes | None:
         """Plot a scatterplot of the random pair distances for the embedded data."""
         vec = self.rpc().evaluatev(data, embedding_result["coords"], ctx)

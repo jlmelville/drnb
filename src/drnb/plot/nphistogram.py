@@ -32,11 +32,12 @@ class NbrPreservationHistogram:
             metric=self.metric, n_neighbors=self.n_neighbors, include_self=False
         )
 
+    # pylint: disable=unused-argument
     def plot(
         self,
         embedding_result: EmbedResult,
         data: np.ndarray | None = None,
-        _: pd.DataFrame | pd.Series | np.ndarray | range | None = None,
+        y: pd.DataFrame | pd.Series | np.ndarray | range | None = None,
         ctx: EmbedContext | None = None,
         __: Axes | None = None,
     ) -> Axes | None:

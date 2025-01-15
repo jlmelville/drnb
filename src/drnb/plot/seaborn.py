@@ -308,7 +308,8 @@ class SeabornPlotter:
         if scalar_mappable is not None:
             if ax_out.get_legend() is not None:
                 ax_out.get_legend().remove()
-            ax_out.figure.colorbar(scalar_mappable)
+            plt.colorbar(scalar_mappable, ax=ax_out)
+            # ax_out.figure.colorbar(scalar_mappable)
         return ax_out
 
     def get_palette(self, ctx: EmbedContext | None) -> dict | None:

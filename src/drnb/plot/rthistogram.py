@@ -37,13 +37,14 @@ class RandomTripletHistogram:
             n_triplets_per_point=self.n_triplets_per_point,
         )
 
+    # pylint: disable=unused-argument
     def plot(
         self,
         embedding_result: EmbedResult,
         data: np.ndarray | None = None,
-        _: pd.DataFrame | pd.Series | np.ndarray | range | None = None,
+        y: pd.DataFrame | pd.Series | np.ndarray | range | None = None,
         ctx: EmbedContext | None = None,
-        __: Axes | None = None,
+        ax: Axes | None = None,
     ) -> Axes | None:
         """Plot a histogram of the random triplet accuracy for the embedded data."""
         vec = self.rte().evaluatev(data, embedding_result["coords"], ctx)
