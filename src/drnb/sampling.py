@@ -22,7 +22,7 @@ def create_sample_plan(
     n_samples: int,
     n_epochs: int,
     strategy: Literal["unif", "inc", "dec"] | None = "unif",
-    n_obs=int | None,
+    n_obs: int | None = None,
 ) -> np.ndarray:
     """Create a plan for the number of samples to use in each epoch. The plan can
     be uniform ("unif"), increasing ("inc"), or decreasing ("dec"). If `n_obs` is not
