@@ -16,6 +16,7 @@ from drnb.io.dataset import read_palette
 from drnb.log import log
 from drnb.plot.palette import palettize
 from drnb.plot.util import hex_to_rgb, is_hex
+from drnb.types import EmbedResult
 
 
 # pylint:disable=too-many-statements
@@ -238,7 +239,7 @@ class SeabornPlotter:
 
     def plot(
         self,
-        embedded: tuple | dict | np.ndarray,
+        embedded: EmbedResult,
         data: np.ndarray | None = None,
         y: pd.DataFrame | pd.Series | np.ndarray | range | None = None,
         ctx: EmbedContext | None = None,
