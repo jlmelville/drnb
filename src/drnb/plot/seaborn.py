@@ -77,6 +77,9 @@ def sns_embed_plot(
     if isinstance(color_col, pd.Series) and pd.api.types.is_categorical_dtype(
         color_col
     ):
+        # Use the categories in the order they appear in the data, but remove categories
+        # that are not present in the data
+        color_col = color_col.cat.remove_unused_categories()
         scatter_kwargs["hue_order"] = color_col.cat.categories
 
     # If the column contains manually-set hex codes, use them directly, no palette or
