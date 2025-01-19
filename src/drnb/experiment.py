@@ -2,13 +2,15 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Set, Tuple
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
 
 import drnb.embed.pipeline as pl
-from drnb.embed import check_embed_method, get_embedder_name
+from drnb.embed import check_embed_method, get_coords, get_embedder_name, set_coords
 from drnb.io import read_pickle, write_pickle
 from drnb.log import log
+from drnb.plot.align import kabsch_best_align
 from drnb.plot.plotly import plotly_result_plot
 from drnb.plot.seaborn import sns_result_plot
 from drnb.util import dts_to_str
@@ -102,10 +104,12 @@ class Experiment:
         datasets: List[str] | None = None,
         methods: List[str] | None = None,
         figsize: Tuple[float, float] | None = None,
+        align: bool = True,
         **kwargs,
     ):
         """Plot the results of the experiment, datasets on the rows and methods on the
-        columns."""
+        columns. If `align` is True, the embeddings will be aligned using Kabsch
+        alignment to the first dataset."""
         if methods is None:
             methods = [name for _, name in self.methods]
         if datasets is None:
@@ -114,16 +118,23 @@ class Experiment:
         if figsize is None:
             figsize = (len(methods) * 6, len(datasets) * 4)
         _, axes = plt.subplots(nrows=len(datasets), ncols=len(methods), figsize=figsize)
+
+        fixed = None
         for i, dataset in enumerate(datasets):
             for j, method in enumerate(methods):
+                if align and j == 0:
+                    fixed = get_coords(self.results[method][dataset])
+
                 if len(axes.shape) == 1:
                     ax = axes[i]
                 else:
                     ax = axes[i, j]
+
                 result_plot(
                     self.results[method][dataset],
                     ax=ax,
                     title=f"{method} on {dataset}",
+                    fixed=fixed,
                     **kwargs,
                 )
         plt.show()
@@ -214,13 +225,22 @@ def result_plot(
     embed_result: dict,
     plot_type: Literal["sns", "plotly"] = "sns",
     *,
+    fixed: np.ndarray | None = None,
     ax: Axes = None,
     **kwargs,
 ):
-    """Plot the result of an embedding using the specified plot type."""
+    """Plot the result of an embedding using the specified plot type. If `fixed` is
+    provided, the embeddings will be aligned using Kabsch alignment to the fixed
+    embedding."""
+    if fixed is not None:
+        coords = get_coords(embed_result)
+        align_coords = kabsch_best_align(fixed, coords)
+        embed_result = set_coords(embed_result, align_coords)
     if plot_type == "sns":
         sns_result_plot(embed_result, ax=ax, **kwargs)
     elif plot_type == "plotly":
         plotly_result_plot(embed_result, **kwargs)
     else:
         raise ValueError(f"Unknown plot_type {plot_type}")
+    if fixed is not None:
+        embed_result = set_coords(embed_result, coords)
