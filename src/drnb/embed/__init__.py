@@ -80,6 +80,17 @@ def get_coords(embedded: EmbedResult) -> np.ndarray:
     return coords
 
 
+def set_coords(embedded: EmbedResult, coords: np.ndarray) -> EmbedResult:
+    """Set the coordinates in the embedded data."""
+    if isinstance(embedded, tuple):
+        embedded = (coords, *embedded[1:])
+    elif isinstance(embedded, dict):
+        embedded["coords"] = coords
+    else:
+        embedded = coords
+    return embedded
+
+
 def fit_transform_embed(
     x: np.ndarray, params: dict, ctor: Any, name: str, **kwargs
 ) -> np.ndarray:
