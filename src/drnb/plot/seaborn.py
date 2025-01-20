@@ -145,6 +145,7 @@ def sns_embed_plot(
         s=cex,
         alpha=alpha_scale,
         legend=legend,
+        edgecolor=None,
         **scatter_kwargs,
     )
     plot.set_title(title)
