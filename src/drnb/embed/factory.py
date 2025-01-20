@@ -93,6 +93,8 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
         from drnb.embed.umato import Umato as ctor
     elif method == "sklearn-mmds":
         from drnb.embed.mmds import Mmds as ctor
+    elif method == "sklearn-nmds":
+        from drnb.embed.mmds import Nmds as ctor
     elif method == "isomap":
         from drnb.embed.isomap import Isomap as ctor
     elif method == "skmmds":
