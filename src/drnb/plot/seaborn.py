@@ -90,16 +90,21 @@ def sns_embed_plot(
             "c": np.array([hex_to_rgb(hexcode, scale=True) for hexcode in color_col])
         }
         legend = False
+        palette = None
     else:
         scatter_kwargs = {"hue": color_col}
 
     # At this point color_col should be one of: a range, a numpy array, a pandas series
     palette = palettize(color_col, palette)
 
-    if palette is not None:
-        scatter_kwargs["palette"] = palette
-    else:
-        scatter_kwargs["palette"] = "viridis"
+    if "c" not in scatter_kwargs:
+        # seaborn warns if we set palette without hue, so if we have already used
+        # manually-set hex codes, don't set palette
+        if palette is not None:
+            scatter_kwargs["palette"] = palette
+        else:
+            scatter_kwargs["palette"] = "viridis"
+
     if ax is not None:
         scatter_kwargs["ax"] = ax
         legend = False
