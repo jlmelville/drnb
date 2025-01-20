@@ -92,12 +92,19 @@ def set_coords(embedded: EmbedResult, coords: np.ndarray) -> EmbedResult:
 
 
 def fit_transform_embed(
-    x: np.ndarray, params: dict, ctor: Any, name: str, **kwargs
+    x: np.ndarray,
+    params: dict,
+    ctor: Any,
+    name: str,
+    fit_transform_params: dict | None = None,
+    **kwargs,
 ) -> np.ndarray:
     """Create an embedder via `ctor` and its `params`, run the embedding and return the
     embedded coordinates. The embedder must have a `fit_transform` method that takes
     the data `x` and returns the embedded coordinates. Any kwargs are passed to the
-    embedder's constructor along with the params.
+    embedder's constructor along with the params. If `fit_transform_params` is provided,
+    these are passed to the `fit_transform` method of the embedder. The `name` is used
+    for logging.
 
     This is a convenience function which removes a small amount of boilerplate code
     from Embedders which follow the sklearn API and return the embedded coordinates
@@ -108,7 +115,11 @@ def fit_transform_embed(
     embedder_ = ctor(
         **params,
     )
-    embedded = embedder_.fit_transform(x)
+
+    if fit_transform_params is None:
+        fit_transform_params = {}
+    fit_transform_params |= {"X": x}
+    embedded = embedder_.fit_transform(**fit_transform_params)
     log.info("Embedding completed")
 
     return embedded
