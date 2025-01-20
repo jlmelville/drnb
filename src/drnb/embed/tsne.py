@@ -98,6 +98,11 @@ def tsne_annealed_exaggeration(
     )
 
     ## early exaggeration
+    log.info(
+        "Running early exaggeration with exaggeration = %.2f for %d iterations",
+        early_exaggeration,
+        n_exaggeration_iter,
+    )
     E = E.optimize(
         n_iter=n_exaggeration_iter,
         exaggeration=early_exaggeration,
@@ -106,6 +111,11 @@ def tsne_annealed_exaggeration(
     )
 
     ## exaggeration annealing
+    log.info(
+        "Annealing exaggeration from %.2f to 1.0 over %d iterations",
+        early_exaggeration,
+        n_anneal_steps,
+    )
     exs = np.linspace(early_exaggeration, 1, n_anneal_steps)
     for ex in exs:
         E = E.optimize(
@@ -115,6 +125,11 @@ def tsne_annealed_exaggeration(
             n_jobs=-1,
         )
 
+    log.info(
+        "Running final optimization with momentum = %.2f for %d iterations",
+        final_momentum,
+        n_iter,
+    )
     ## final optimization without exaggeration
     E = E.optimize(n_iter=n_iter, exaggeration=1, momentum=final_momentum, n_jobs=-1)
 
