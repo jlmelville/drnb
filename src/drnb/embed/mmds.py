@@ -29,7 +29,7 @@ class BaseMds(drnb.embed.base.Embedder):
             x,
             params,
             sklearn.manifold.MDS,
-            "sklearn-MDS",
+            "sklearn-MDS" if self._get_metric() else "sklearn-NMDS",
             n_components=2,
             metric=self._get_metric(),
             n_init=1,
