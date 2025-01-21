@@ -65,8 +65,8 @@ def get_embedder_name(method: List[str] | tuple | str) -> str:
         # method is either just the string name or a tuple of (name, params)
         if len(method) != 2:
             raise ValueError("Unexpected format for method")
-        return method[0]
-    return method
+        return str(method[0])
+    return str(method)
 
 
 def get_coords(embedded: EmbedResult) -> np.ndarray:
