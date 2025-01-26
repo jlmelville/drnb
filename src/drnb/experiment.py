@@ -2,17 +2,13 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Set, Tuple
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-from matplotlib.axes import Axes
 
 import drnb.embed.pipeline as pl
-from drnb.embed import check_embed_method, get_coords, get_embedder_name, set_coords
+from drnb.embed import check_embed_method, get_coords, get_embedder_name
 from drnb.io import read_pickle, write_pickle
 from drnb.log import log
-from drnb.plot.align import kabsch_best_align
-from drnb.plot.plotly import plotly_result_plot
-from drnb.plot.seaborn import sns_result_plot
+from drnb.plot.common import result_plot
 from drnb.util import dts_to_str
 
 
@@ -219,28 +215,3 @@ def results_to_df(
             continue
         df.loc[name] = [ev.value for ev in res["evaluations"]]
     return df
-
-
-def result_plot(
-    embed_result: dict,
-    plot_type: Literal["sns", "plotly"] = "sns",
-    *,
-    fixed: np.ndarray | None = None,
-    ax: Axes = None,
-    **kwargs,
-):
-    """Plot the result of an embedding using the specified plot type. If `fixed` is
-    provided, the embeddings will be aligned using Kabsch alignment to the fixed
-    embedding."""
-    if fixed is not None:
-        coords = get_coords(embed_result)
-        align_coords = kabsch_best_align(fixed, coords)
-        embed_result = set_coords(embed_result, align_coords)
-    if plot_type == "sns":
-        sns_result_plot(embed_result, ax=ax, **kwargs)
-    elif plot_type == "plotly":
-        plotly_result_plot(embed_result, **kwargs)
-    else:
-        raise ValueError(f"Unknown plot_type {plot_type}")
-    if fixed is not None:
-        embed_result = set_coords(embed_result, coords)
