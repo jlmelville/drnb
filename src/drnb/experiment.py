@@ -117,7 +117,11 @@ class Experiment:
 
         if figsize is None:
             figsize = (len(methods) * 6, len(datasets) * 4)
-        _, axes = plt.subplots(nrows=len(datasets), ncols=len(methods), figsize=figsize)
+
+        # Set squeeze=False to always get a 2D array of axes
+        _, axes = plt.subplots(
+            nrows=len(datasets), ncols=len(methods), figsize=figsize, squeeze=False
+        )
 
         fixed = None
         for i, dataset in enumerate(datasets):
@@ -125,20 +129,16 @@ class Experiment:
                 if align and j == 0:
                     fixed = get_coords(self.results[method][dataset])
 
-                if len(axes.shape) == 1:
-                    ax = axes[i]
-                else:
-                    ax = axes[i, j]
-
                 result_plot(
                     self.results[method][dataset],
-                    ax=ax,
+                    ax=axes[i, j],
                     title=f"{method} on {dataset}",
                     fixed=fixed,
                     **kwargs,
                 )
-        plt.show()
+
         plt.tight_layout()
+        plt.show()
 
     def save(
         self,
