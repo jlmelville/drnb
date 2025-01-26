@@ -8,28 +8,49 @@ import drnb.embed
 import drnb.embed.base
 from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.log import log
+from drnb.neighbors.localscale import locally_scaled_neighbors
 from drnb.types import EmbedResult
 
 
 # See also:
 # https://github.com/YingfanWang/PaCMAP/blob/master/demo/specify_nn_demo.py
-def create_neighbor_pairs(
-    nbr_idx: np.ndarray,
-    n_neighbors: int,
-) -> np.ndarray:
-    """Create neighbor pairs from nearest neighbor indices. This melts the
-    nearest neighbor indices into a 2D array of shape (n_samples * n_neighbors, 2)
-    where each row is a pair of indices [i, j] where i is the index of the sample
-    and j is the index of the neighbor. Note that i is not considered a neighbor of
-    itself."""
-    melted = (
-        pd.melt(pd.DataFrame(nbr_idx[:, : (n_neighbors + 1)]), [0])[[0, "value"]]
-        .to_numpy()
-        .astype(np.int32)
-    )
-    # sort by the first column, but leave order of second column intact as these are
-    # already in non-decreasing distance order
-    return melted[melted[:, 0].argsort(kind="stable")]
+def create_neighbor_pairs(nbr_idx: np.ndarray, n_neighbors: int) -> np.ndarray:
+    """Create pairs of neighbor indices from k-nearest neighbor indices.
+
+    Parameters
+    ----------
+    nbr_idx : np.ndarray
+        (N, k) array of neighbor indices. The first column (nbr_idx[:, 0]) is expected
+        to contain self-neighbors (i.e., nbr_idx[i, 0] == i for all i).
+    n_neighbors : int
+        Number of neighbors to use for creating pairs. Must be <= nbr_idx.shape[1].
+        If nbr_idx includes self-neighbors, n_neighbors should typically be
+        nbr_idx.shape[1] - 1 to exclude self-pairs.
+
+    Returns
+    -------
+    np.ndarray
+        (N * n_neighbors, 2) array of neighbor pairs. Each row contains [i, j] where i
+        is the source point and j is one of its neighbors. Self-pairs (where i == j)
+        are not included in the output, even if present in the input nbr_idx.
+
+    Raises
+    ------
+    ValueError
+        If n_neighbors is greater than the number of columns in nbr_idx.
+    """
+    if n_neighbors > nbr_idx.shape[1]:
+        raise ValueError(
+            f"n_neighbors ({n_neighbors}) must be <= number of columns in "
+            f"nbr_idx ({nbr_idx.shape[1]})"
+        )
+
+    n = len(nbr_idx)
+    pairs = np.zeros((n * n_neighbors, 2), dtype=np.int32)
+    for i in range(n):
+        for j in range(n_neighbors):
+            pairs[i * n_neighbors + j] = [i, nbr_idx[i, j + 1]]
+    return pairs
 
 
 @dataclass
@@ -39,6 +60,9 @@ class Pacmap(drnb.embed.base.Embedder):
     Attributes:
         use_precomputed_knn: Whether to use precomputed knn.
         init: Initialization method, one of "pca", "random" or user-supplied.
+        local_scale: Whether to apply local scaling to precomputed neighbors.
+        local_scale_kwargs: Optional kwargs for local scaling (l, m, scale_from,
+            scale_to).
 
     Possible params:
         distance="euclidean" (str): Distance metric.
@@ -55,6 +79,8 @@ class Pacmap(drnb.embed.base.Embedder):
 
     use_precomputed_knn: bool = True
     init: str = None
+    local_scale: bool = False
+    local_scale_kwargs: dict | None = None
 
     def embed_impl(
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
@@ -67,11 +93,33 @@ class Pacmap(drnb.embed.base.Embedder):
         if self.use_precomputed_knn:
             log.info("Using precomputed knn")
             metric = params.get("distance", "euclidean")
+            # Plus 1 to account for the self-neighbor
             n_neighbors = params.get("n_neighbors", 10) + 1
             precomputed_knn = get_neighbors_with_ctx(
                 x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
             )
-            pair_neighbors = create_neighbor_pairs(precomputed_knn.idx, n_neighbors)
+            idx = precomputed_knn.idx
+
+            if self.local_scale:
+                # Default local scaling parameters
+                scale_kwargs = {
+                    "l": n_neighbors,
+                    "m": n_neighbors + 51,
+                    "scale_from": 4,
+                    "scale_to": 6,
+                }
+                if self.local_scale_kwargs is not None:
+                    scale_kwargs.update(self.local_scale_kwargs)
+
+                log.info(
+                    "Applying local scaling to neighbors with params: %s", scale_kwargs
+                )
+
+                idx, _ = locally_scaled_neighbors(
+                    idx, precomputed_knn.dist, **scale_kwargs
+                )
+
+            pair_neighbors = create_neighbor_pairs(idx, n_neighbors - 1)
 
             log.info(
                 "Converted knn to pair neighbors: %s",
