@@ -79,7 +79,7 @@ class Pacmap(drnb.embed.base.Embedder):
 
     use_precomputed_knn: bool = True
     init: str = None
-    local_scale: bool = False
+    local_scale: bool = True
     local_scale_kwargs: dict | None = None
 
     def embed_impl(
@@ -95,22 +95,30 @@ class Pacmap(drnb.embed.base.Embedder):
             metric = params.get("distance", "euclidean")
             # Plus 1 to account for the self-neighbor
             n_neighbors = params.get("n_neighbors", 10) + 1
-            precomputed_knn = get_neighbors_with_ctx(
-                x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
-            )
-            idx = precomputed_knn.idx
 
+            scale_kwargs = {}
             if self.local_scale:
                 # Default local scaling parameters
+                # we already accounted for self-neighbor in n_neighbors so we add 50
+                # to the number of neighbors to scale
                 scale_kwargs = {
                     "l": n_neighbors,
-                    "m": n_neighbors + 51,
+                    "m": n_neighbors + 50,
                     "scale_from": 4,
                     "scale_to": 6,
                 }
                 if self.local_scale_kwargs is not None:
                     scale_kwargs.update(self.local_scale_kwargs)
+                knn_neighbors = scale_kwargs["m"]
+            else:
+                knn_neighbors = n_neighbors
 
+            precomputed_knn = get_neighbors_with_ctx(
+                x, metric, knn_neighbors, knn_params=knn_params, ctx=ctx
+            )
+            idx = precomputed_knn.idx
+
+            if self.local_scale:
                 log.info(
                     "Applying local scaling to neighbors with params: %s", scale_kwargs
                 )
