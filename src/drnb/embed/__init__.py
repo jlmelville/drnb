@@ -45,9 +45,14 @@ def check_embed_method(
     # or a list of chained pre-computed embedder config
     if not isinstance(method, list):
         # or a pre-computed embedder config to allow for drnb keywords
+        # config looks like('pacmap', {'use_precomputed_knn': False, 'params': None})
         if isinstance(method, tuple):
             if len(method) != 2:
                 raise ValueError("Unexpected format for method")
+            # remove params from the config if it exists
+            if "params" in method[1]:
+                params = method[1]["params"]
+                del method[1]["params"]
             method = embedder(method[0], params=params, **method[1])
         if not isinstance(method, tuple):
             method = embedder(method, params=params)
