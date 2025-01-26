@@ -15,3 +15,5 @@ src/*.egg-info
 .ruff_cache/
 
 DONTCHECKMEIN/
+
+.cursorrules
