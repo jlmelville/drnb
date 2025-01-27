@@ -254,12 +254,8 @@ def _get_dataset_info(
             "dim_red": pipeline.get("reduce_result", pipeline_info.get("reduce", None)),
             "n_duplicates": pipeline.get("n_duplicates", 0),
             "tags": " ".join(pipeline.get("tags", [])),
-            "created_on": dts_to_str(
-                pipeline.get("created_on", ""), READABLE_DATETIME_FMT
-            ),
-            "updated_on": dts_to_str(
-                pipeline.get("updated_on", ""), READABLE_DATETIME_FMT
-            ),
+            "created_on": pipeline.get("created_on", "unknown"),
+            "updated_on": pipeline.get("updated_on", "unknown"),
             "url": pipeline.get("url", ""),
         }
 
