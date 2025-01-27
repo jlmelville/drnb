@@ -206,8 +206,23 @@ def describe(df: pd.Series | np.ndarray, count_zeros=True) -> pd.Series:
 def get_nbrs(
     name: str, n_neighbors: int, metric: str = "euclidean"
 ) -> NearestNeighbors:
-    """Get exact neighbors for a dataset, with a given number of neighbors and
-    metric."""
+    """Retrieve exact nearest neighbors for a dataset.
+
+    Gets the k-nearest neighbors for a dataset, excluding self-neighbors. The actual
+    number of neighbors retrieved is n_neighbors + 1 to account for self-neighbors
+    which are then removed.
+
+    Args:
+        name: Name of the dataset to retrieve neighbors for.
+        n_neighbors: Number of neighbors to retrieve (excluding self).
+        metric: Distance metric to use (default: "euclidean").
+
+    Returns:
+        NearestNeighbors: Object containing neighbor indices and distances.
+
+    Raises:
+        ValueError: If exact neighbors cannot be retrieved for the given parameters.
+    """
     nbrs = read_neighbors(
         name,
         n_neighbors=n_neighbors + 1,
@@ -216,6 +231,12 @@ def get_nbrs(
         return_distance=True,
     )
     if nbrs is None:
+        log.warning(
+            "Couldn't get exact %d neighbors with metric '%s' for '%s'",
+            n_neighbors,
+            metric,
+            name,
+        )
         raise ValueError(
             f"Couldn't get exact {n_neighbors} neighbors"
             f" with metric '{metric}' for '{name}'"
@@ -229,9 +250,42 @@ def get_nbrs(
 
 
 def calculate_nbr_stats(name: str, n_neighbors: int, metric: str = "euclidean") -> dict:
-    """Calculate neighbor statistics for a dataset with a given number of neighbors and
-    metric."""
-    nbrs = get_nbrs(name, n_neighbors, metric=metric)
+    """Calculate comprehensive neighbor statistics for a dataset.
+
+    Computes various statistics about the neighborhood structure including:
+    - k-occurrences (reverse nearest neighbor counts)
+    - s-occurrences (mutual nearest neighbor counts)
+    - number of connected components
+    - intrinsic dimensionality estimate
+
+    Args:
+        name: Name of the dataset to analyze.
+        n_neighbors: Number of neighbors to use in calculations.
+        metric: Distance metric used for neighbor calculations (default: "euclidean").
+
+    Returns:
+        dict: Dictionary containing:
+            - name: Dataset name
+            - n_dim: Original dimensionality
+            - n_items: Number of items in dataset
+            - idx_path: Path to the index file
+            - n_components: Number of connected components
+            - dint: Intrinsic dimensionality estimate
+            - n_neighbors: Number of neighbors used
+            - ko_desc: k-occurrences statistics
+            - so_desc: s-occurrences statistics
+            - ko: Raw k-occurrences data
+            - so: Raw s-occurrences data
+
+    Note:
+        Returns an empty dict if neighbors cannot be retrieved (e.g., if n_neighbors
+        is too high for the dataset).
+    """
+    try:
+        nbrs = get_nbrs(name, n_neighbors, metric=metric)
+    except ValueError:
+        # nbrs may be None if n_neighbors is too high for the dataset
+        return {}
     ko_desc, ko = ko_data(nbrs)
     so_desc, so = so_data(nbrs)
     nc = n_components(nbrs)
@@ -356,9 +410,34 @@ def format_df(
 def fetch_nbr_stats(
     name: str, n_neighbors: int, metric: str = "euclidean", cache: bool = True
 ) -> dict:
-    """Fetch neighbor statistics for a dataset, with a given number of neighbors and
-    metric. If the statistics are not cached, they are calculated and cached if
-    requested."""
+    """Fetch or calculate neighbor statistics for a dataset with caching support.
+
+    Attempts to load pre-computed neighbor statistics from cache. If not found,
+    calculates the statistics and optionally caches them for future use.
+
+    Args:
+        name: Name of the dataset to analyze.
+        n_neighbors: Number of neighbors to use in calculations.
+        metric: Distance metric to use for neighbor calculations (default: "euclidean").
+        cache: Whether to cache computed statistics (default: True).
+
+    Returns:
+        dict: Dictionary containing neighbor statistics including:
+        - name: Dataset name
+        - n_dim: Original dimensionality
+        - n_items: Number of items
+        - idx_path: Path to index file
+        - n_components: Number of connected components
+        - dint: Intrinsic dimensionality estimate
+        - n_neighbors: Number of neighbors used
+        - ko_desc: k-occurrences statistics
+        - so_desc: s-occurrences statistics
+        - ko: Raw k-occurrences data
+        - so: Raw s-occurrences data
+
+    Note:
+        Returns an empty dict if n_neighbors is too high for the dataset.
+    """
     try:
         return read_nbr_stats(name, n_neighbors, metric=metric)
     except FileNotFoundError:
@@ -366,7 +445,8 @@ def fetch_nbr_stats(
             "Calculating neighbor stats for %s n_neighbors = %d", name, n_neighbors
         )
         stats = calculate_nbr_stats(name, n_neighbors, metric=metric)
-        if cache:
+        if stats and cache:
+            # stats may be empty if n_neighbors is too high for the dataset
             log.info("Caching neighbor stats")
             write_nbr_stats(stats)
         return stats
@@ -378,8 +458,42 @@ def nbr_stats_summary(
     metric: str = "euclidean",
     cache: bool = True,
 ) -> pd.DataFrame:
-    """Summarize neighbor statistics for a list of datasets, with a given number of
-    neighbors and metric."""
+    """Generate a summary DataFrame of neighbor statistics for multiple datasets.
+
+    Creates a comprehensive summary of neighborhood statistics including k-occurrences,
+    s-occurrences, intrinsic dimensionality, and connected components for one or more
+    datasets.
+
+    Args:
+        n_neighbors: Number of neighbors to use in calculations.
+
+        names: Dataset name(s) to analyze. Can be:
+
+        - None: analyzes all available datasets
+        - str: analyzes a single dataset
+        - List[str]: analyzes multiple specified datasets
+
+        metric: Distance metric to use (default: "euclidean").
+        cache: Whether to use/update cached statistics (default: True).
+
+    Returns:
+        pd.DataFrame: Summary statistics with columns including:
+        - n_dim: Original dimensionality
+        - dint: Intrinsic dimensionality estimate
+        - n_comps: Number of connected components
+        - n_items: Number of items
+        - kmin/kmax/kmedian: k-occurrence statistics
+        - smin/smedian: s-occurrence statistics
+        - k#0/s#0: Count of zero occurrences
+        - kskew/sskew: Skewness measures
+
+        Additional normalized columns (prefixed with 'n') and
+        percentage columns (suffixed with '%') are also included.
+
+    Note:
+        Skips datasets where neighbor calculations fail (e.g., if n_neighbors
+        is too high) and returns an empty DataFrame if no valid results are found.
+    """
     if names is None:
         names = list_available_datasets()
     if not islisty(names):
@@ -390,7 +504,9 @@ def nbr_stats_summary(
         stats_df = _nbr_stats_summary(name, n_neighbors, metric=metric, cache=cache)
         if not stats_df.empty:
             summaries.append(stats_df)
-
+    if not summaries:
+        log.warning("No neighbor stats found for %s", names)
+        return pd.DataFrame()
     return pd.concat(summaries)
 
 
@@ -401,6 +517,9 @@ def _nbr_stats_summary(
         stats = fetch_nbr_stats(name, n_neighbors, metric=metric, cache=cache)
     except ValueError:
         log.info("Skipping neighbor data for %s", name)
+        return pd.DataFrame()
+
+    if not stats:
         return pd.DataFrame()
 
     kdf = pd.DataFrame(stats["ko_desc"]).T
