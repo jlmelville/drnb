@@ -113,7 +113,7 @@ class DatasetPipeline(Jsonizable):
         created_on = dts_to_str()
 
         result = DatasetPipelineResult(
-            str(self),
+            self,
             data_shape=data.shape,
             data_output_paths=data_output_paths,
             target_shape=target_shape,
@@ -342,7 +342,7 @@ class DatasetPipeline(Jsonizable):
 class DatasetPipelineResult(Jsonizable):
     """Data class to store the results of a data pipeline run."""
 
-    pipeline: str
+    pipeline: DatasetPipeline
     started_on: str = "unknown"
     created_on: str = "unknown"
     updated_on: str = "unknown"
