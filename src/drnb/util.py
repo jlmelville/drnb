@@ -65,24 +65,47 @@ READABLE_DATETIME_FMT = "%Y-%m-%d %H:%M:%S"
 
 
 def dts_now() -> float:
-    """Return the current timestamp in UTC."""
+    """Return the current UTC timestamp as a float.
+
+    Returns:
+        float: Current UTC timestamp in seconds since the Unix epoch.
+    """
     return dt_now().timestamp()
 
 
 def dt_now() -> datetime.datetime:
-    """Return the current datetime object in UTC."""
+    """Return the current UTC datetime.
+
+    Returns:
+        datetime.datetime: Current datetime object with UTC timezone.
+    """
     return datetime.datetime.now(datetime.timezone.utc)
 
 
 def dts_to_str(dts: float | None = None, fmt: str = DATETIME_FMT) -> str:
-    """Convert a timestamp to a string with the given format."""
+    """Convert a UTC timestamp to a formatted string.
+
+    Args:
+        dts: UTC timestamp in seconds since the Unix epoch. If None, uses current time.
+        fmt: String format to use (default: DATETIME_FMT).
+
+    Returns:
+        str: Formatted datetime string.
+    """
     if dts is None:
         dts = dts_now()
     return dts_to_dt(dts).strftime(fmt)
 
 
 def dts_to_dt(dts: float) -> datetime.datetime:
-    """Convert a timestamp to a datetime object."""
+    """Convert a UTC timestamp to a datetime object.
+
+    Args:
+        dts: UTC timestamp in seconds since the Unix epoch.
+
+    Returns:
+        datetime.datetime: Datetime object with UTC timezone.
+    """
     return datetime.datetime.fromtimestamp(dts, tz=datetime.timezone.utc)
 
 
