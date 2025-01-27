@@ -214,25 +214,68 @@ def find_candidate_neighbors_info(
     method: str | None = None,
     exact: bool | None = None,
     return_distance: bool = True,
+    verbose: bool = False,
 ) -> NbrInfo | None:
-    """Find the nearest neighbors info for a given dataset. If no suitable neighbors
-    are found, return None. The method will return the smallest file that has at least
-    `n_neighbors` neighbors. If `exact` is True, only exact neighbors are considered.
-    If `exact` is False, only approximate neighbors are considered. If `exact` is None,
-    both exact and approximate neighbors are considered. If `method` is not None, only
-    neighbors calculated with that method are considered. If `return_distance` is True,
-    only neighbors with distances are considered."""
+    """Find the most suitable pre-calculated nearest neighbors info for a dataset.
+
+    This function searches for pre-calculated nearest neighbor files that match the
+    specified criteria, using a series of filtering steps:
+
+    1. Finds all neighbor files matching the dataset name
+    2. Filters for the specified metric
+    3. Filters for exact/approximate calculation method if specified
+    4. Filters for specific neighbor calculation method if specified
+    5. Filters for presence of distance information if required
+    6. Filters for sufficient number of neighbors
+    7. Returns the candidate with the smallest number of neighbors that meets all criteria
+
+    Args:
+        name: Dataset name to search for. If None, returns None.
+        drnb_home: Root directory for data files. If None, uses default.
+        sub_dir: Subdirectory containing neighbor files (default: "nn").
+        n_neighbors: Minimum number of neighbors required (default: 1).
+        metric: Distance metric to match (default: "euclidean").
+        method: Specific neighbor calculation method to match (e.g., "faiss", "sklearn").
+            If None, accepts any method.
+        exact: Filter by exact/approximate calculation:
+        - True: only exact methods
+        - False: only approximate methods
+        - None: accept either
+        return_distance: If True, only accept files with distance information.
+        verbose: If True, log detailed information about the search process.
+
+    Returns:
+        NbrInfo | None: Information about the most suitable neighbor file found, or None if:
+        - No name provided
+        - No neighbor directory found
+        - No neighbor files found for dataset
+        - No files match the specified metric
+        - No files match exact/approximate preference
+        - No files match the specified method
+        - No files have distance information (if required)
+        - No files have sufficient neighbors
+
+    Note:
+        When multiple suitable files exist, prefers .npy or .pkl formats over .csv
+        for better performance.
+    """
     if name is None:
+        if verbose:
+            log.warning("No name provided to find candidate neighbors info")
         return None
 
     try:
         nn_dir_path = get_path(drnb_home=drnb_home, sub_dir=sub_dir)
     except FileNotFoundError:
+        if verbose:
+            log.warning("No neighbors directory found at %s", nn_dir_path)
         return None
 
     # probable nn files
     nn_file_paths = list(Path.glob(nn_dir_path, name + ".*.idx.*"))
     if not nn_file_paths:
+        if verbose:
+            log.warning("No neighbors files found for %s", name)
         return None
 
     # actual nn info
@@ -243,11 +286,15 @@ def find_candidate_neighbors_info(
     ]
     nn_infos = [nn_info for nn_info in nn_infos if nn_info is not None]
     if not nn_infos:
+        if verbose:
+            log.warning("No neighbors info found for %s", name)
         return None
 
     # filter on metric
     nn_infos = [nn_info for nn_info in nn_infos if nn_info.metric == metric]
     if not nn_infos:
+        if verbose:
+            log.warning("No neighbors info found for %s with metric %s", name, metric)
         return None
 
     # If exact or approximate was specifically asked for (exact=None means "don't care")
@@ -257,21 +304,37 @@ def find_candidate_neighbors_info(
         else:
             nn_infos = [nn_info for nn_info in nn_infos if not nn_info.exact]
         if not nn_infos:
+            if verbose:
+                log.warning("No neighbors info found for %s with exact=%s", name, exact)
             return None
 
     if method is not None:
         nn_infos = [nn_info for nn_info in nn_infos if nn_info.method == method]
         if not nn_infos:
+            if verbose:
+                log.warning(
+                    "No neighbors info found for %s with method %s", name, method
+                )
             return None
 
     if return_distance:
         nn_infos = [nn_info for nn_info in nn_infos if nn_info.has_distances]
         if not nn_infos:
+            if verbose:
+                log.warning(
+                    "No neighbors info found for %s with return_distance=%s",
+                    name,
+                    return_distance,
+                )
             return None
 
     # those nbr files with sufficient number of neighbors
     nn_infos = [nn_info for nn_info in nn_infos if nn_info.n_nbrs >= n_neighbors]
     if not nn_infos:
+        if verbose:
+            log.warning(
+                "No neighbors info found for %s with n_neighbors=%d", name, n_neighbors
+            )
         return None
 
     nn_infos = cast(List[NbrInfo], nn_infos)
@@ -283,7 +346,11 @@ def find_candidate_neighbors_info(
     preferred_exts = [".npy", ".pkl"]
     for cinfo in candidate_infos:
         if cinfo.idx_path is not None and cinfo.idx_path.suffix in preferred_exts:
+            if verbose:
+                log.info("Found pre-calculated neighbors file: %s", cinfo.idx_path)
             return cinfo
+    if verbose:
+        log.info("No suitable pre-calculated neighbors available")
     return candidate_info
 
 
