@@ -349,7 +349,7 @@ def format_df(
 
     df[int_cols] = df[int_cols].astype(np.int32)
     # pylint: disable=consider-using-f-string
-    df[float_cols] = df[float_cols].applymap("{0:.2f}".format)
+    df[float_cols] = df[float_cols].map("{0:.2f}".format)
     return df
 
 
