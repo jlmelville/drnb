@@ -80,3 +80,28 @@ def mid_near_neighbors(
         mn_dist[:, i] = rnbrs.dist[:, mid_index]
     mn_idx, mn_dist = sort_neighbors(mn_idx, mn_dist)
     return NearestNeighbors(idx=mn_idx, dist=mn_dist)
+
+
+def random_sample_nbrs(
+    idx: np.ndarray, dist: np.ndarray | None, n_neighbors: int
+) -> NearestNeighbors:
+    """Randomly sample n_neighbors neighbors for each data point.
+
+    Args:
+        idx: The indices of the neighbors.
+        dist: The distances to the neighbors.
+        n_neighbors: The number of neighbors to sample.
+
+    Returns:
+        A NearestNeighbors object with the sampled neighbors.
+    """
+    mask = np.array(
+        [np.random.permutation(idx.shape[1]) < n_neighbors for _ in range(idx.shape[0])]
+    )
+    rand_idx = idx[mask.reshape(idx.shape[0], -1)].reshape(idx.shape[0], n_neighbors)
+    rand_dist = (
+        dist[mask.reshape(idx.shape[0], -1)].reshape(idx.shape[0], n_neighbors)
+        if dist is not None
+        else None
+    )
+    return NearestNeighbors(idx=rand_idx, dist=rand_dist)
