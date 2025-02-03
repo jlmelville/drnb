@@ -13,6 +13,9 @@ from drnb.io import data_relative_path
 from drnb.io.dataset import get_dataset_info, list_available_datasets
 from drnb.log import log
 from drnb.neighbors import NearestNeighbors, read_neighbors
+from drnb.neighbors.localscale import locally_scaled_neighbors
+from drnb.neighbors.nbrinfo import replace_n_neighbors_in_path
+from drnb.neighbors.random import random_sample_nbrs
 from drnb.util import islisty
 
 
@@ -249,7 +252,12 @@ def get_nbrs(
     return nbrs
 
 
-def calculate_nbr_stats(name: str, n_neighbors: int, metric: str = "euclidean") -> dict:
+def calculate_nbr_stats(
+    name: str,
+    n_neighbors: int,
+    metric: str = "euclidean",
+    transform: Literal["local", "random"] | None = None,
+) -> dict:
     """Calculate comprehensive neighbor statistics for a dataset.
 
     Computes various statistics about the neighborhood structure including:
@@ -262,6 +270,9 @@ def calculate_nbr_stats(name: str, n_neighbors: int, metric: str = "euclidean") 
         name: Name of the dataset to analyze.
         n_neighbors: Number of neighbors to use in calculations.
         metric: Distance metric used for neighbor calculations (default: "euclidean").
+        transform: Optionally, transform the neighbors by random sampling (random) or
+            local scaling (local). Note that both methods will increase the number of
+            neighbors to n_neighbors + 50.
 
     Returns:
         dict: Dictionary containing:
@@ -282,18 +293,34 @@ def calculate_nbr_stats(name: str, n_neighbors: int, metric: str = "euclidean") 
         is too high for the dataset).
     """
     try:
-        nbrs = get_nbrs(name, n_neighbors, metric=metric)
+        if transform == "local" or transform == "random":
+            extended_n_neighbors = n_neighbors + 50
+        else:
+            extended_n_neighbors = n_neighbors
+
+        nbrs = get_nbrs(name, extended_n_neighbors, metric=metric)
     except ValueError:
         # nbrs may be None if n_neighbors is too high for the dataset
         return {}
+
+    if transform == "local":
+        nbrs.idx, nbrs.dist = locally_scaled_neighbors(
+            nbrs.idx, nbrs.dist, l=n_neighbors, m=extended_n_neighbors
+        )
+    elif transform == "random":
+        info = nbrs.info
+        nbrs = random_sample_nbrs(nbrs.idx, nbrs.dist, n_neighbors)
+        nbrs.info = info
+
     ko_desc, ko = ko_data(nbrs)
     so_desc, so = so_data(nbrs)
     nc = n_components(nbrs)
     mle_dint = mle_global(nbrs.dist, remove_self=True)
     data_info = get_dataset_info(name)
 
-    if nbrs.info is not None:
+    if nbrs.info is not None and nbrs.info.idx_path is not None:
         idx_path = nbrs.info.idx_path
+        idx_path = replace_n_neighbors_in_path(idx_path, n_neighbors)
     else:
         idx_path = None
 
@@ -346,13 +373,14 @@ def idx_to_stats_path(name: str, idx_path: Path) -> Path:
     )
 
 
-def write_nbr_stats(nbr_stats: dict):
+def write_nbr_stats(nbr_stats: dict, overwrite: bool = False):
     """Write neighbor statistics to a file."""
     idx_path = nbr_stats["idx_path"]
     stats_path = idx_to_stats_path(nbr_stats["name"], idx_path)
-    log.info("Writing pkl format to %s", data_relative_path(stats_path))
-    with open(stats_path, "wb") as f:
-        pickle.dump(nbr_stats, f, pickle.HIGHEST_PROTOCOL)
+    if not stats_path.exists() or overwrite:
+        log.info("Writing pkl format to %s", data_relative_path(stats_path))
+        with open(stats_path, "wb") as f:
+            pickle.dump(nbr_stats, f, pickle.HIGHEST_PROTOCOL)
 
 
 def read_nbr_stats(name: str, n_neighbors: int, metric: str = "euclidean") -> dict:
@@ -408,7 +436,12 @@ def format_df(
 
 
 def fetch_nbr_stats(
-    name: str, n_neighbors: int, metric: str = "euclidean", cache: bool = True
+    name: str,
+    n_neighbors: int,
+    metric: str = "euclidean",
+    transform: Literal["local", "random"] | None = None,
+    cache: bool = True,
+    verbose: bool = False,
 ) -> dict:
     """Fetch or calculate neighbor statistics for a dataset with caching support.
 
@@ -419,8 +452,11 @@ def fetch_nbr_stats(
         name: Name of the dataset to analyze.
         n_neighbors: Number of neighbors to use in calculations.
         metric: Distance metric to use for neighbor calculations (default: "euclidean").
+        transform: Optionally, transform the neighbors by random sampling (random) or
+            local scaling (local). Note that both methods will increase the number of
+            neighbors to n_neighbors + 50.
         cache: Whether to cache computed statistics (default: True).
-
+        verbose: Whether to log verbose messages (default: False).
     Returns:
         dict: Dictionary containing neighbor statistics including:
         - name: Dataset name
@@ -438,25 +474,46 @@ def fetch_nbr_stats(
     Note:
         Returns an empty dict if n_neighbors is too high for the dataset.
     """
-    try:
-        return read_nbr_stats(name, n_neighbors, metric=metric)
-    except FileNotFoundError:
+    if transform is None:
+        try:
+            return read_nbr_stats(name, n_neighbors, metric=metric)
+        except FileNotFoundError:
+            pass
+
+    if verbose:
+        if transform:
+            transform_str = f" ({transform=})"
+        else:
+            transform_str = ""
         log.info(
-            "Calculating neighbor stats for %s n_neighbors = %d", name, n_neighbors
+            "Calculating neighbor stats for %s n_neighbors = %d%s",
+            name,
+            n_neighbors,
+            transform_str,
         )
-        stats = calculate_nbr_stats(name, n_neighbors, metric=metric)
-        if stats and cache:
-            # stats may be empty if n_neighbors is too high for the dataset
-            log.info("Caching neighbor stats")
-            write_nbr_stats(stats)
-        return stats
+    nbr_stats = calculate_nbr_stats(
+        name, n_neighbors, metric=metric, transform=transform
+    )
+    if nbr_stats and cache and transform is None:
+        # only cache the original neighbor info not the transformed neighbors
+        # stats may be empty if n_neighbors is too high for the dataset
+        if verbose:
+            log.info(
+                "Caching neighbor stats for %s n_neighbors = %d if needed",
+                name,
+                n_neighbors,
+            )
+        write_nbr_stats(nbr_stats)
+    return nbr_stats
 
 
 def nbr_stats_summary(
     n_neighbors: int,
     names: List[str] | str | None = None,
     metric: str = "euclidean",
+    transform: Literal["local", "random"] | None = None,
     cache: bool = True,
+    verbose: bool = False,
 ) -> pd.DataFrame:
     """Generate a summary DataFrame of neighbor statistics for multiple datasets.
 
@@ -501,22 +558,43 @@ def nbr_stats_summary(
 
     summaries = []
     for name in names:
-        stats_df = _nbr_stats_summary(name, n_neighbors, metric=metric, cache=cache)
+        stats_df = _nbr_stats_summary(
+            name,
+            n_neighbors,
+            metric=metric,
+            transform=transform,
+            cache=cache,
+            verbose=verbose,
+        )
         if not stats_df.empty:
             summaries.append(stats_df)
     if not summaries:
-        log.warning("No neighbor stats found for %s", names)
+        if verbose:
+            log.warning("No neighbor stats found for %s", names)
         return pd.DataFrame()
     return pd.concat(summaries)
 
 
 def _nbr_stats_summary(
-    name: str, n_neighbors: int, metric: str = "euclidean", cache: bool = True
+    name: str,
+    n_neighbors: int,
+    metric: str = "euclidean",
+    transform: Literal["local", "random"] | None = None,
+    cache: bool = True,
+    verbose: bool = False,
 ) -> pd.DataFrame:
     try:
-        stats = fetch_nbr_stats(name, n_neighbors, metric=metric, cache=cache)
+        stats = fetch_nbr_stats(
+            name,
+            n_neighbors,
+            metric=metric,
+            cache=cache,
+            transform=transform,
+            verbose=verbose,
+        )
     except ValueError:
-        log.info("Skipping neighbor data for %s", name)
+        if verbose:
+            log.info("Skipping neighbor data for %s", name)
         return pd.DataFrame()
 
     if not stats:
