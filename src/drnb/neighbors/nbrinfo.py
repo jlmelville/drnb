@@ -125,8 +125,25 @@ class NbrInfo:
 @dataclass
 class NearestNeighbors:
     """Nearest neighbors information. Contains the indices and optionally the distances
-    to the neighbors. The `info` field contains information about the neighbors."""
+    to the neighbors. The `info` field contains information about the neighbors.
+
+    The `idx` attribute is a numpy array of shape (n_samples, n_neighbors) and contains
+    in each row the indices of the neighbors of the corresponding sample.
+
+    The `dist` attribute, if present, is a numpy array of shape (n_samples, n_neighbors)
+    and contains in each row the distances to the neighbors of the corresponding sample.
+    """
 
     idx: np.ndarray
     info: NbrInfo | None = None
     dist: np.ndarray | None = None
+
+
+def replace_n_neighbors_in_path(path: Path, n_neighbors: int) -> Path:
+    """Replace the number of neighbors in the path.
+    e.g. iris.15.euclidean.exact.faiss.idx.npy => iris.65.euclidean.exact.faiss.idx.npy
+    """
+    parts = path.name.split(".")
+    parts[1] = str(n_neighbors)
+    new_name = ".".join(parts)
+    return path.parent / new_name
