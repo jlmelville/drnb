@@ -106,6 +106,9 @@ class Experiment:
         """Plot the results of the experiment, datasets on the rows and methods on the
         columns. If `align` is True, the embeddings will be aligned using Kabsch
         alignment to the first dataset."""
+        if not self.results:
+            raise ValueError("No results to plot")
+
         if methods is None:
             methods = [name for _, name in self.methods]
         if datasets is None:
