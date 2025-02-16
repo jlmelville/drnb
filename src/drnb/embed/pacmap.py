@@ -90,50 +90,64 @@ class Pacmap(drnb.embed.base.Embedder):
             knn_params = dict(self.use_precomputed_knn)
             self.use_precomputed_knn = True
 
+        apply_pca = params.get("apply_pca", True)
         if self.use_precomputed_knn:
-            log.info("Using precomputed knn")
-            metric = params.get("distance", "euclidean")
-            # Plus 1 to account for the self-neighbor
-            n_neighbors = params.get("n_neighbors", 10) + 1
+            # if we aren't applying PCA or we are but the data is less than 100D, we can
+            # use the precomputed knn
+            if not apply_pca or x.shape[1] <= 100:
+                log.info("Using precomputed knn")
+                metric = params.get("distance", "euclidean")
+                # Plus 1 to account for the self-neighbor
+                n_neighbors = params.get("n_neighbors", 10) + 1
 
-            scale_kwargs = {}
-            if self.local_scale:
-                # Default local scaling parameters
-                # we already accounted for self-neighbor in n_neighbors so we add 50
-                # to the number of neighbors to scale
-                scale_kwargs = {
-                    "l": n_neighbors,
-                    "m": n_neighbors + 50,
-                    "scale_from": 4,
-                    "scale_to": 6,
-                }
-                if self.local_scale_kwargs is not None:
-                    scale_kwargs.update(self.local_scale_kwargs)
-                knn_neighbors = scale_kwargs["m"]
-            else:
-                knn_neighbors = n_neighbors
+                scale_kwargs = {}
+                if self.local_scale:
+                    # Default local scaling parameters
+                    # we already accounted for self-neighbor in n_neighbors so we add 50
+                    # to the number of neighbors to scale
+                    scale_kwargs = {
+                        "l": n_neighbors,
+                        "m": n_neighbors + 50,
+                        "scale_from": 4,
+                        "scale_to": 6,
+                    }
+                    if self.local_scale_kwargs is not None:
+                        scale_kwargs.update(self.local_scale_kwargs)
+                    knn_neighbors = scale_kwargs["m"]
+                else:
+                    knn_neighbors = n_neighbors
 
-            precomputed_knn = get_neighbors_with_ctx(
-                x, metric, knn_neighbors, knn_params=knn_params, ctx=ctx
-            )
-            idx = precomputed_knn.idx
+                precomputed_knn = get_neighbors_with_ctx(
+                    x, metric, knn_neighbors, knn_params=knn_params, ctx=ctx
+                )
+                idx = precomputed_knn.idx
 
-            if self.local_scale:
+                if self.local_scale:
+                    log.info(
+                        "Applying local scaling to neighbors with params: %s",
+                        scale_kwargs,
+                    )
+
+                    idx, _ = locally_scaled_neighbors(
+                        idx, precomputed_knn.dist, **scale_kwargs
+                    )
+
+                pair_neighbors = create_neighbor_pairs(idx, n_neighbors - 1)
+
                 log.info(
-                    "Applying local scaling to neighbors with params: %s", scale_kwargs
+                    "Converted knn to pair neighbors: %s",
+                    pair_neighbors.shape,
                 )
-
-                idx, _ = locally_scaled_neighbors(
-                    idx, precomputed_knn.dist, **scale_kwargs
+                params["pair_neighbors"] = pair_neighbors
+            else:
+                # otherwise, we are applying PCA and it will reduce the dimensionality
+                # which can perturb the nearest neighbors so we can't use the
+                # precomputed knn
+                log.warning(
+                    "Precomputed knn cannot be used: dimensionality will be reduced"
+                    + " from %d to 100 dimensions.",
+                    x.shape[1],
                 )
-
-            pair_neighbors = create_neighbor_pairs(idx, n_neighbors - 1)
-
-            log.info(
-                "Converted knn to pair neighbors: %s",
-                pair_neighbors.shape,
-            )
-            params["pair_neighbors"] = pair_neighbors
 
         return embed_pacmap(x, params, self.init)
 
