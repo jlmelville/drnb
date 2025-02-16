@@ -77,11 +77,12 @@ def plotly_embed_plot(
         color_col_name = str(color_col.name)
 
     if isinstance(color_col, pd.Series):
-        if pd.api.types.is_integer_dtype(color_col):
-            color_col = color_col.astype("category")
-        else:
-            # series -> numpy array
-            color_col = color_col.values
+        if pd.api.types.is_categorical_dtype(color_col):
+            # Use the categories in the order they appear in the data, but remove
+            # categories that are not present in the data
+            color_col = color_col.cat.remove_unused_categories()
+        # series -> numpy array
+        color_col = color_col.values
 
     palette = palettize(color_col, palette)
     if palette is not None:
