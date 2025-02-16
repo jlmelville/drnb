@@ -101,11 +101,27 @@ class Experiment:
         methods: List[str] | None = None,
         figsize: Tuple[float, float] | None = None,
         align: bool = True,
+        grid_color: str = "#dddddd",  # light gray color for grid
         **kwargs,
     ):
         """Plot the results of the experiment, datasets on the rows and methods on the
-        columns. If `align` is True, the embeddings will be aligned using Kabsch
-        alignment to the first dataset."""
+        columns.
+
+        Parameters
+        ----------
+        datasets : List[str] | None
+            List of datasets to plot. If None, uses all datasets.
+        methods : List[str] | None
+            List of methods to plot. If None, uses all methods.
+        figsize : Tuple[float, float] | None
+            Figure size (width, height). If None, calculated based on number of plots.
+        align : bool
+            If True, align embeddings using Kabsch alignment to the first dataset.
+        grid_color : str
+            Color for the vertical grid lines between plots. Set to "" to disable.
+        **kwargs
+            Additional arguments passed to result_plot.
+        """
         if not self.results:
             raise ValueError("No results to plot")
 
@@ -117,8 +133,7 @@ class Experiment:
         if figsize is None:
             figsize = (len(methods) * 6, len(datasets) * 4)
 
-        # Set squeeze=False to always get a 2D array of axes
-        _, axes = plt.subplots(
+        fig, axes = plt.subplots(
             nrows=len(datasets), ncols=len(methods), figsize=figsize, squeeze=False
         )
 
@@ -135,8 +150,26 @@ class Experiment:
                     fixed=fixed,
                     **kwargs,
                 )
-
         plt.tight_layout()
+
+        # Add subtle vertical lines between subplots if grid_color is specified
+        if grid_color:
+            for i in range(len(datasets)):
+                for j in range(1, len(methods)):
+                    # Get the position of the current subplot
+                    pos = axes[i, j].get_position()
+                    # Draw a vertical line at the left edge of the subplot
+                    fig.add_artist(
+                        plt.Line2D(
+                            [pos.x0, pos.x0],  # x coordinates
+                            [pos.y0, pos.y1],  # y coordinates
+                            color=grid_color,
+                            linewidth=1,
+                            transform=fig.transFigure,
+                            clip_on=False,
+                        )
+                    )
+
         plt.show()
 
     def save(
