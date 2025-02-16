@@ -40,7 +40,28 @@ def check_embed_method(
 ) -> str | list | tuple:
     """Ensure that the embedder method is in the correct format. Chained embedders
     can be provided as a list of pre-computed embedder configurations, but in this case
-    the params must be None."""
+    the params must be None.
+
+    If the `method` is a tuple (e.g. one created by `embedder`), then any embedder
+    params contained within the tuple will be merged with the `params` argument. If
+    there are conflicts between the two, values in the `params` argument will take
+    precedence, i.e. the result of calling this:
+
+    ```
+    check_embed_method(
+    embedder(
+        "pacmap", local_scale=False, params=dict(n_neighbors=15, apply_pca=True)
+    ),
+    params=dict(apply_pca=False),
+    ```
+
+    will return:
+
+    ```
+    ('pacmap',
+    {'local_scale': False, 'params': {'n_neighbors': 15, 'apply_pca': False}})
+    ```
+    """
     # in most cases you pass the method name and params to pass to the embedder
     # or a list of chained pre-computed embedder config
     if not isinstance(method, list):
@@ -49,9 +70,12 @@ def check_embed_method(
         if isinstance(method, tuple):
             if len(method) != 2:
                 raise ValueError("Unexpected format for method")
-            # remove params from the config if it exists
+            # remove params from the config if it exists and merge with params arg
+            # if provided
+            if params is None:
+                params = {}
             if "params" in method[1]:
-                params = method[1]["params"]
+                params = (method[1]["params"] or {}) | params
                 del method[1]["params"]
             method = embedder(method[0], params=params, **method[1])
         if not isinstance(method, tuple):
