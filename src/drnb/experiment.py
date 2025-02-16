@@ -218,3 +218,68 @@ def results_to_df(
             continue
         df.loc[name] = [ev.value for ev in res["evaluations"]]
     return df
+
+
+def merge_experiments(
+    exp1: Experiment, exp2: Experiment, name: str | None = None
+) -> Experiment:
+    """Merge two experiments, keeping only datasets that exist in both.
+
+    Parameters
+    ----------
+    exp1 : Experiment
+        First experiment
+    exp2 : Experiment
+        Second experiment
+    name : str | None, optional
+        Name for the merged experiment. If None, will generate a name by combining
+        the original experiment names.
+
+    Returns
+    -------
+    Experiment
+        A new experiment containing the merged results
+
+    Notes
+    -----
+    The merged experiment will:
+    - Include only datasets present in both experiments
+    - Combine methods and results from both experiments
+    - Use evaluations from both experiments
+    - Use provided name or generate one by combining the original experiment names
+    """
+    # Find common datasets
+    common_datasets = exp1.uniq_datasets.intersection(exp2.uniq_datasets)
+    if not common_datasets:
+        raise ValueError("No datasets in common between experiments")
+
+    # Create new experiment
+    merged = Experiment()
+
+    # Add common datasets in the order they appear in exp1
+    for dataset in exp1.datasets:
+        if dataset in common_datasets:
+            merged.add_dataset(dataset)
+
+    # Add methods and results from exp1
+    for method, name in exp1.methods:
+        merged.add_method(method, name=name)
+        merged.results[name] = {
+            dataset: exp1.results[name][dataset] for dataset in common_datasets
+        }
+
+    # Add methods and results from exp2
+    for method, name in exp2.methods:
+        if name not in merged.uniq_method_names:
+            merged.add_method(method, name=name)
+            merged.results[name] = {
+                dataset: exp2.results[name][dataset] for dataset in common_datasets
+            }
+
+    # Combine evaluations
+    merged.evaluations = list(set(exp1.evaluations + exp2.evaluations))
+
+    # Set name
+    merged.name = name if name is not None else f"merged-{exp1.name}-{exp2.name}"
+
+    return merged
