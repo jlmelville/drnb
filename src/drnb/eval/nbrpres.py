@@ -310,6 +310,21 @@ class NbrPreservationEval(EmbeddingEval):
     def _evaluate_setup(
         self, ctx: EmbedContext | None = None
     ) -> Tuple[NearestNeighbors | None, NearestNeighbors | None, dict]:
+        """Setup the evaluation of nearest neighbor preservation.
+
+        Returns:
+            x_nbrs: NearestNeighbors | None - precomputed X neighbors. Exact neighbors
+              are used if available, otherwise approximate neighbors are used. If
+              approximate neighbors are not available, then None is returned, but it
+              is likely that this will lead to an error in the evaluation.
+            y_nbrs: NearestNeighbors | None - precomputed Y neighbors. If exact
+              neighbors are not available, then approximate neighbors are not searched
+              for. Unlike with X neighbors, it is expected and not an error if
+              neighbors are not available.
+            nnp_kwargs: dict - keyword arguments for the evaluation
+
+
+        """
         self._listify_n_neighbors()
 
         if ctx is not None:
@@ -327,15 +342,18 @@ class NbrPreservationEval(EmbeddingEval):
             n_nbrs = int(np.max(self.n_neighbors))
             if not self.include_self:
                 n_nbrs += 1
+            # exact=None will search for exact and then approximate neighbors of X
             x_nbrs = read_neighbors(
                 name=ctx.dataset_name,
                 n_neighbors=n_nbrs,
                 metric=self.metric,
-                exact=True,
+                exact=None,
                 drnb_home=ctx.drnb_home,
                 sub_dir=ctx.nn_sub_dir,
                 return_distance=True,
             )
+            # we only want exact neighbors for Y and we will recalculate downstream if
+            # necessary
             y_nbrs = read_neighbors(
                 name=ctx.embed_nn_name,
                 n_neighbors=n_nbrs,
