@@ -22,6 +22,8 @@ are using VSCode then the `.vscode/settings.json` sets those tools up. I am tryi
 I can get with just [ruff](https://docs.astral.sh/ruff/).
 
 ```bash
+uv venv
+source .venv/bin/activate
 uv pip install -e .
 uv export --only-group=dev | uv pip install --requirements=-
 ```
