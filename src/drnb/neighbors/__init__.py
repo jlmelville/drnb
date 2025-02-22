@@ -266,9 +266,9 @@ def find_candidate_neighbors_info(
 
     try:
         nn_dir_path = get_path(drnb_home=drnb_home, sub_dir=sub_dir)
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         if verbose:
-            log.warning("No neighbors directory found at %s", nn_dir_path)
+            log.warning("No neighbors directory found at %s", e.filename)
         return None
 
     # probable nn files
