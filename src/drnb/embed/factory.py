@@ -73,6 +73,8 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
         from drnb.embed.ivhd import Xvhd as ctor
     elif method == "pacumap":
         from drnb.embed.umap.pacumap import Pacumap as ctor
+    elif method == "localmap":
+        from drnb.embed.pacmap import Localmap as ctor
     elif method == "htumap":
         from drnb.embed.umap.htumap import Htumap as ctor
     elif method == "htnegumap":

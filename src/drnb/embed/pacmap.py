@@ -194,3 +194,138 @@ def embed_pacmap(
         embedded = result
 
     return embedded
+
+
+@dataclass
+class Localmap(drnb.embed.base.Embedder):
+    """LocalMAP embedder.
+
+    Attributes:
+        use_precomputed_knn: Whether to use precomputed knn.
+        init: Initialization method, one of "pca", "random" or user-supplied.
+        local_scale: Whether to apply local scaling to precomputed neighbors.
+        local_scale_kwargs: Optional kwargs for local scaling (l, m, scale_from,
+            scale_to).
+        low_dist_thres: The Proximal Cluster Distance Commons threshold for local FP.
+
+    Possible params:
+        distance="euclidean" (str): Distance metric.
+        n_neighbors=10 (int): Number of neighbors.
+        MN_ratio=0.5 (float): Ratio of mid near pairs to nearest neighbor pairs.
+        FP_ratio=2.0 (float): Ratio of further pairs to nearest neighbor pairs.
+        lr=1.0 (float): Learning rate of the Adam optimizer.
+        num_iters=450 (int): Number of iterations.
+        apply_pca=True (bool): Whether to apply PCA on the input data.
+        intermediate=False (bool): Whether to return intermediate snapshots.
+        intermediate_snapshots (list): Iterations at which snapshots are taken.
+        random_state=None (int): Random seed.
+        low_dist_thres=10 (float): Distance threshold for local FP.
+    """
+
+    use_precomputed_knn: bool = True
+    init: str = None
+    local_scale: bool = True
+    local_scale_kwargs: dict | None = None
+    low_dist_thres: float = 10.0
+
+    def embed_impl(
+        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
+    ) -> EmbedResult:
+        knn_params = {}
+        if isinstance(self.use_precomputed_knn, dict):
+            knn_params = dict(self.use_precomputed_knn)
+            self.use_precomputed_knn = True
+
+        apply_pca = params.get("apply_pca", True)
+        if self.use_precomputed_knn:
+            # if we aren't applying PCA or we are but the data is less than 100D, we can
+            # use the precomputed knn
+            if not apply_pca or x.shape[1] <= 100:
+                log.info("Using precomputed knn")
+                metric = params.get("distance", "euclidean")
+                # Plus 1 to account for the self-neighbor
+                n_neighbors = params.get("n_neighbors", 10) + 1
+
+                scale_kwargs = {}
+                if self.local_scale:
+                    # Default local scaling parameters
+                    # we already accounted for self-neighbor in n_neighbors so we add 50
+                    # to the number of neighbors to scale
+                    scale_kwargs = {
+                        "l": n_neighbors,
+                        "m": n_neighbors + 50,
+                        "scale_from": 4,
+                        "scale_to": 6,
+                    }
+                    if self.local_scale_kwargs is not None:
+                        scale_kwargs.update(self.local_scale_kwargs)
+                    knn_neighbors = scale_kwargs["m"]
+                else:
+                    knn_neighbors = n_neighbors
+
+                precomputed_knn = get_neighbors_with_ctx(
+                    x, metric, knn_neighbors, knn_params=knn_params, ctx=ctx
+                )
+                idx = precomputed_knn.idx
+
+                if self.local_scale:
+                    log.info(
+                        "Applying local scaling to neighbors with params: %s",
+                        scale_kwargs,
+                    )
+
+                    idx, _ = locally_scaled_neighbors(
+                        idx, precomputed_knn.dist, **scale_kwargs
+                    )
+
+                pair_neighbors = create_neighbor_pairs(idx, n_neighbors - 1)
+
+                log.info(
+                    "Converted knn to pair neighbors: %s",
+                    pair_neighbors.shape,
+                )
+                params["pair_neighbors"] = pair_neighbors
+            else:
+                # otherwise, we are applying PCA and it will reduce the dimensionality
+                # which can perturb the nearest neighbors so we can't use the
+                # precomputed knn
+                log.warning(
+                    "Precomputed knn cannot be used: dimensionality will be reduced"
+                    + " from %d to 100 dimensions.",
+                    x.shape[1],
+                )
+
+        # Add the low_dist_thres parameter to params
+        params["low_dist_thres"] = self.low_dist_thres
+
+        return embed_localmap(x, params, self.init)
+
+
+def embed_localmap(
+    x: np.ndarray, params: dict, init: np.ndarray | str | None = None
+) -> np.ndarray | dict:
+    """Embed data using LocalMAP."""
+    # if intermediate_snapshots is supplied, make sure the last value is `num_iters`
+    # to avoid an exception
+    if params.get("intermediate", False) and "intermediate_snapshots" in params:
+        snapshots = params["intermediate_snapshots"]
+        num_iters = params.get("num_iters", 450)
+        if snapshots[-1] != num_iters:
+            snapshots.append(num_iters)
+        params["intermediate_snapshots"] = snapshots
+
+    log.info("Running LocalMAP")
+    embedder = pacmap.LocalMAP(**params)
+    result = embedder.fit_transform(x, init=init)
+    log.info("Embedding completed")
+
+    if params.get("intermediate", False):
+        embedded = {"coords": result[-1], "snapshots": {}}
+        for i in range(result.shape[0]):
+            embedded["snapshots"][f"it_{embedder.intermediate_snapshots[i]}"] = result[
+                i
+            ]
+    else:
+        embedded = result
+
+    return embedded
