@@ -225,9 +225,8 @@ dependencies = [
     { name = "umato" },
 ]
 
-[package.dev-dependencies]
+[package.optional-dependencies]
 dev = [
-    { name = "drnb" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -247,19 +246,14 @@ requires-dist = [
     { name = "plotly", specifier = ">=5.24.1" },
     { name = "pyarrow", specifier = ">=18.1.0" },
     { name = "pynndescent", specifier = ">=0.5.13" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.4" },
     { name = "rich", extras = ["jupyter"], specifier = ">=13.9.4" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.5" },
     { name = "scikit-learn", specifier = ">=1.6.0" },
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "trimap", specifier = ">=1.1.4" },
     { name = "umap-learn", specifier = ">=0.5.7" },
     { name = "umato", specifier = ">=0.1.3" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "drnb" },
-    { name = "pytest", specifier = ">=8.3.4" },
-    { name = "ruff", specifier = ">=0.8.5" },
 ]
 
 [[package]]
@@ -767,7 +761,7 @@ wheels = [
 
 [[package]]
 name = "pacmap"
-version = "0.7.6"
+version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annoy" },
@@ -775,9 +769,9 @@ dependencies = [
     { name = "numpy" },
     { name = "scikit-learn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/06/30/1bec3563695cec01d4727aab4524dac3e94147e9b33387f4dfa558047ddf/pacmap-0.7.6.tar.gz", hash = "sha256:fb726be829b47d90332b0357f205fee0a62cd0aec20bfad11d16ff1b407de0b5", size = 26027 }
+sdist = { url = "https://files.pythonhosted.org/packages/b3/40/3686ff721dd60901f5c2c9a1c62e3573fdf84a0be37be047adbc03ef81f3/pacmap-0.8.0.tar.gz", hash = "sha256:1c0c10180e36b77f5e5344d838d020dd9557ac1ca77f0976c2e308643b019084", size = 29067 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0a/53/281ff390687266f78561cb0eab57e94bdfaa2d50b5e10f04d0b50e39cdee/pacmap-0.7.6-py3-none-any.whl", hash = "sha256:f0c2b53443bc7f3b0e67578c192ce17956351dd7ca709eb27f54c93155ae096a", size = 19126 },
+    { url = "https://files.pythonhosted.org/packages/73/15/5ff2b77b48be04d718e2684c4e707c588183a8c4bbfddf1bd558329281d5/pacmap-0.8.0-py3-none-any.whl", hash = "sha256:c15eff274fd4d4575ba5b42399dc3b71eba80f9131a461d715927e9ae6c812b4", size = 21359 },
 ]
 
 [[package]]
