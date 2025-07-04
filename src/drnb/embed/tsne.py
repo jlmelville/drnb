@@ -142,8 +142,7 @@ def get_n_neighbors_for_perplexity(perplexity: float, x: np.ndarray) -> int:
     k_neighbors = min(n_samples - 1, int(3 * perplexity))
     if k_neighbors < 3 * perplexity:
         log.info(
-            "Using k_neighbors %d, < 3 * perplexity %.2f "
-            "may give unexpected results",
+            "Using k_neighbors %d, < 3 * perplexity %.2f may give unexpected results",
             k_neighbors,
             perplexity,
         )
@@ -163,6 +162,7 @@ def get_tsne_affinities(
     x: np.ndarray | None = None,
     knn_params: dict | None = None,
     metric: str = "euclidean",
+    symmetrize: Literal["max", "mean", "none"] = "mean",
     ctx: EmbedContext | None = None,
 ) -> openTSNE.affinity.Affinities:
     """Get t-SNE affinities, using either perplexity-based or uniform affinities."""
@@ -190,10 +190,9 @@ def get_tsne_affinities(
 
     if affinity_type == "perplexity":
         return openTSNE.affinity.PerplexityBasedNN(
-            perplexity=perplexity,
-            knn_index=tsne_knn,
+            perplexity=perplexity, knn_index=tsne_knn, symmetrize=symmetrize
         )
-    return openTSNE.affinity.Uniform(knn_index=tsne_knn)
+    return openTSNE.affinity.Uniform(knn_index=tsne_knn, symmetrize=symmetrize)
 
 
 @dataclass
@@ -207,6 +206,10 @@ class Tsne(drnb.embed.base.Embedder):
         affinity: Affinity type for t-SNE (perplexity or uniform).
         precomputed_init: Precomputed initial coordinates for embedding.
         anneal_exaggeration: Whether to use annealed exaggeration.
+        symmetrize: Symmetrization method for affinities. "mean" (the default) is the
+          average of the two probabilities, "max" takes the maximum (and will be the
+          OpenTSNE default in the future), and "none" is no symmetrization. Choosing
+          "none" seems unwise.
     """
 
     use_precomputed_knn: bool = True
@@ -215,6 +218,7 @@ class Tsne(drnb.embed.base.Embedder):
     affinity: Literal["perplexity", "uniform"] = "perplexity"
     precomputed_init: np.ndarray | None = None
     anneal_exaggeration: bool = False
+    symmetrize: Literal["max", "mean", "none"] = "mean"
 
     def embed_impl(
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
@@ -234,6 +238,7 @@ class Tsne(drnb.embed.base.Embedder):
                 x=x,
                 knn_params=knn_params,
                 metric=params.get("metric", "euclidean"),
+                symmetrize=self.symmetrize,
                 ctx=ctx,
             )
 
@@ -263,7 +268,13 @@ def embed_tsne(
     anneal_exagg: bool = False,
 ):
     """Embed data using t-SNE."""
-    log.info("Running t-SNE")
+    log.info(
+        "Running t-SNE with initialization: %s and params: %s",
+        f"numpy array (shape: {initialization.shape}, first row: {initialization[0]})"
+        if isinstance(initialization, np.ndarray)
+        else initialization,
+        params,
+    )
 
     if anneal_exagg:
         if affinities is None:
