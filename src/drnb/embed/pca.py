@@ -13,9 +13,14 @@ from drnb.types import EmbedResult
 class Pca(drnb.embed.base.Embedder):
     """PCA embedder."""
 
+    random_state: int | None = None
+
     def embed_impl(
         self, x: np.ndarray, params: dict, _: EmbedContext | None = None
     ) -> EmbedResult:
+        if self.random_state is not None:
+            params["random_state"] = self.random_state
+
         return drnb.embed.fit_transform_embed(
             x, params, sklearn.decomposition.PCA, "PCA", n_components=2
         )
