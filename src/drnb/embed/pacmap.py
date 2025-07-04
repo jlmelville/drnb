@@ -164,7 +164,7 @@ class Pacmap(drnb.embed.base.Embedder):
 # apply_pca=True: whether to apply PCA on the input data. Ignored if distance="hamming" or there are fewer than 100 dimensions in the input data. Otherwise, the first 100 components from truncated SVD are extracted. Data is centered. If no PCA is applied then data is scaled to 0-1 globally (columns maintain their ratio of variances) and then mean-centered.
 # intermediate=False: if True, then snapshots of the coordinates at intermediate steps of the iteration are also returned.
 # intermediate_snapshots=[0, 10, 30, 60, 100, 120, 140, 170, 200, 250, 300, 350, 450]: the iterations at which snapshots are taken. Ignored unless intermediate=True.
-# random_state=None.
+# random_state=None -- random seed must be an python int not a numpy-style one
 # init: one of "pca", "random" or user-supplied
 def embed_pacmap(
     x: np.ndarray, params: dict, init: np.ndarray | str | None = None
