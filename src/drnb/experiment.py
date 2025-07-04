@@ -23,6 +23,7 @@ class Experiment:
     uniq_method_names: Set[str] = field(default_factory=set)
     results: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     evaluations: List = field(default_factory=list)
+    verbose: bool = False
 
     def add_method(self, method, *, params=None, name: str = ""):
         """Add an embedding method to the experiment."""
@@ -54,6 +55,7 @@ class Experiment:
                 method=method,
                 eval_metrics=self.evaluations,
                 plot=False,
+                verbose=self.verbose,
             )
             method_results = self.results.get(method_name)
             if method_results is None:
