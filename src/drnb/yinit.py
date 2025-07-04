@@ -19,6 +19,11 @@ from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.neighbors.random import logn_neighbors
 
 
+def tsne_scale_coords(coords: np.ndarray, target_std: float = 1e-4) -> np.ndarray:
+    """Rescale coordinates to a fixed standard deviation, t-SNE style."""
+    return openTSNE.initialization.rescale(coords, inplace=False, target_std=target_std)
+
+
 def scale_coords(
     coords: NDArray[np.float32], max_coord: float = 10.0
 ) -> NDArray[np.float32]:

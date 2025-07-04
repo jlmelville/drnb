@@ -91,6 +91,8 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
         from drnb.embed.smmds import Mmds as ctor
     elif method == "rescale":
         from drnb.embed.rescale import Rescale as ctor
+    elif method == "tsne-rescale":
+        from drnb.embed.rescale import TsneRescale as ctor
     elif method == "umato":
         from drnb.embed.umato import Umato as ctor
     elif method == "sklearn-mmds":
