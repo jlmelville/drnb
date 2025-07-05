@@ -1,9 +1,9 @@
 [project]
 name = "drnb"
-version = "0.2.0"
+version = "0.2.1"
 description = "Dimensionality reduction notebooks"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"
 authors = [{name = "James Melville", email = "jlmelville@gmail.com"}]
 license = {text = "MIT"}
 classifiers = ["License :: OSI Approved :: MIT License"]
@@ -26,7 +26,7 @@ dependencies = [
     "scikit-learn>=1.6.0",
     "seaborn>=0.13.2",
     "trimap>=1.1.4",
-    "umap-learn>=0.5.7",
+    "umap-learn>=0.5.9.post2",
     "umato>=0.1.3",
 ]
 

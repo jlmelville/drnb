@@ -14,26 +14,36 @@ various datasets and that might be of interest to others.
 
 ## Installing
 
+### Setup
+
 *January 11 2025* Now using Python 3.12 and [uv](https://docs.astral.sh/uv/). Trying to use too
 many dependencies makes things way too brittle, so fewer embedding methods are supported.
 
-The `dev` extra identifier just installs some linting tools for use when developing `drnb` . If you
-are using VSCode then the `.vscode/settings.json` sets those tools up. I am trying to see how far
-I can get with just [ruff](https://docs.astral.sh/ruff/).
+Long term, trying to keep multiple Numba-using projects together just won't work if they are not
+being updated. We end up locked to older versions of numba, which means older versions of llvmlite,
+which means older versions of llvm and python. For now, we limp along with the following
+requirements:
+
+1. Make sure LLVM version 14 is installed: `sudo apt-get install llvm-14`
+2. `export LLVM_CONFIG=/usr/bin/llvm-config-14`
+3. You must use python 3.12.
+
+I will be deprecating packages that are giving trouble. Probably PaCMAP, UMAP and openTSNE will
+stick around. openTSNE doesn't rely on numba so doesn't cause trouble.
 
 ```bash
 uv venv
 source .venv/bin/activate
 uv pip install -e .
-uv export --only-group=dev | uv pip install --requirements=-
+# or if you want:
+# uv pip install -e .['dev']
 ```
 
-The second line is for installing the 'dev' dependency group (see
-<https://github.com/astral-sh/uv/issues/8590>).
+The `dev` extra identifier just installs some linting tools for use when developing `drnb` . If you
+are using VSCode then the `.vscode/settings.json` sets those tools up. I am trying to see how far
+I can get with just [ruff](https://docs.astral.sh/ruff/).
 
 ### Optional packages
-
-I will be deprecating packages that are giving trouble.
 
 #### Faiss
 
