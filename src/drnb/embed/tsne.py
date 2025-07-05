@@ -77,17 +77,18 @@ def tsne_annealed_exaggeration(
     final_momentum: float = 0.8,
     initialization: Literal["pca", "random", "spectral"] | np.ndarray | None = "pca",
     negative_gradient_method: Literal["auto", "bh", "fft"] = "auto",
-    n_jobs: int = -1,
+    gradient_descent_params: dict = {},
 ) -> np.ndarray:
     """t-SNE with annealed exaggeration: after early exaggeration, slowly reduce
     the exaggeration factor to 1.0."""
     # initialization
     init = tsne_init(data, affinities, initialization, random_state=random_state)
 
-    # prevent spamming of "Automatically determined negative gradient method" message
-    n_samples = affinities.P.shape[0]
-
+    # Calculate the actual gradient method here to prevent spamming of
+    # "Automatically determined negative gradient method" message inside the annealing
+    # loop
     if negative_gradient_method == "auto":
+        n_samples = affinities.P.shape[0]
         if n_samples < 10_000:
             negative_gradient_method = "bh"
         else:
@@ -96,9 +97,9 @@ def tsne_annealed_exaggeration(
     E = openTSNE.TSNEEmbedding(
         init,
         affinities,
-        n_jobs=n_jobs,
         random_state=random_state,
         negative_gradient_method=negative_gradient_method,
+        **gradient_descent_params,
     )
 
     ## early exaggeration
@@ -111,7 +112,6 @@ def tsne_annealed_exaggeration(
         n_iter=n_exaggeration_iter,
         exaggeration=early_exaggeration,
         momentum=initial_momentum,
-        n_jobs=n_jobs,
     )
 
     ## exaggeration annealing
@@ -126,7 +126,6 @@ def tsne_annealed_exaggeration(
             n_iter=1,
             exaggeration=ex,
             momentum=anneal_momentum,
-            n_jobs=n_jobs,
         )
 
     log.info(
@@ -136,7 +135,9 @@ def tsne_annealed_exaggeration(
     )
     ## final optimization without exaggeration
     E = E.optimize(
-        n_iter=n_iter, exaggeration=1, momentum=final_momentum, n_jobs=n_jobs
+        n_iter=n_iter,
+        exaggeration=1,
+        momentum=final_momentum,
     )
 
     return np.array(E)
@@ -288,14 +289,33 @@ def embed_tsne(
                 "Annealed exaggeration is only supported with pre-calculated affinities"
             )
         random_state = params.get("random_state", 42)
+
+        negative_gradient_method = params.get("negative_gradient_method", "auto")
         early_exaggeration_iter = params.get("early_exaggeration_iter", 250)
         n_exaggeration_iter = int(early_exaggeration_iter / 2)
         early_exaggeration = params.get("early_exaggeration", 12)
         initial_momentum = params.get("initial_momentum", 0.5)
         final_momentum = params.get("final_momentum", 0.8)
         n_iter = params.get("n_iter", 500)
-        # negative gradient method is set to fft because barnes-hut has become
-        # weirdly slow for reasons I don't currently understand.
+
+        gradient_descent_params = {
+            "n_jobs": params.get("n_jobs", 1),
+            "dof": params.get("dof", 1),
+            "learning_rate": params.get("learning_rate", "auto"),
+            "verbose": params.get("verbose", False),
+            # Barnes-Hut params
+            "theta": params.get("theta", 0.5),
+            # Interpolation params
+            "n_interpolation_points": params.get("n_interpolation_points", 3),
+            "min_num_intervals": params.get("min_num_intervals", 50),
+            "ints_in_interval": params.get("ints_in_interval", 1),
+            "max_grad_norm": params.get("max_grad_norm", None),
+            "max_step_norm": params.get("max_step_norm", 5),
+            # Callback params
+            "callbacks": params.get("callbacks", None),
+            "callbacks_every_iters": params.get("callbacks_every_iters", 50),
+        }
+
         embedded = tsne_annealed_exaggeration(
             data=x,
             affinities=affinities,
@@ -308,7 +328,8 @@ def embed_tsne(
             n_iter=n_iter,
             final_momentum=final_momentum,
             initialization=initialization,
-            negative_gradient_method="fft",
+            negative_gradient_method=negative_gradient_method,
+            gradient_descent_params=gradient_descent_params,
         )
     else:
         embedder = openTSNE.TSNE(n_components=2, **params)
