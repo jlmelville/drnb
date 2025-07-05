@@ -9,5 +9,5 @@ import pandas as pd
 # some actions may be optional (e.g. scaling) in which case None should be used
 ActionConfig = str | tuple[str, dict]
 DataSet = tuple[np.ndarray, pd.DataFrame]
-DistanceFunc = Callable[[np.float32, np.float32], np.float32]
+DistanceFunc = Callable[[np.ndarray, np.ndarray], np.float32]
 EmbedResult = tuple | dict | np.ndarray

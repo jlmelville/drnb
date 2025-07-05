@@ -184,6 +184,10 @@ class Umap(drnb.embed.base.Embedder):
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
     ) -> EmbedResult:
         params = self.update_params(x, params, ctx)
+        if "random_state" in params:
+            # UMAP will complain if n_jobs is not 1 when random_state is set
+            # so just shut it up here
+            params["n_jobs"] = 1
 
         log.info("Running UMAP")
         embedder = umap.UMAP(
@@ -194,7 +198,7 @@ class Umap(drnb.embed.base.Embedder):
 
         if params.get("densmap", False) and params.get("output_dens", False):
             embedded = {
-                "coords": embedded,
+                "coords": embedded[0],
                 "dens_ro": embedded[1],
                 "dens_re": embedded[2],
             }
