@@ -1,0 +1,7 @@
+[plugins.pacmap]
+folder = "pacmap"
+# runner = "uv run drnb-plugin-run.py" 
+# runner = "uv run -q --python 3.10 drnb-plugin-run.py"
+
+[plugins.localmap]
+folder = "pacmap"

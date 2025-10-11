@@ -1,6 +1,8 @@
 from typing import Callable
 
 import drnb.embed.base
+from drnb.plugins.external import ExternalEmbedder
+from drnb.plugins.registry import get_registry, plugins_enabled
 from drnb.types import ActionConfig
 
 
@@ -37,10 +39,20 @@ def create_embedder(
 # pylint: disable=import-outside-toplevel,too-many-statements
 def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
     method = method.lower()
+
+    if plugins_enabled():
+        entry = get_registry().lookup(method)
+        if entry is not None:
+
+            def _ctor(**embed_kwds):
+                return ExternalEmbedder(method=method, **embed_kwds)
+
+            return _ctor
+
     if method == "ncvis":
         from drnb.embed.ncvis import NCVis as ctor
-    elif method == "pacmap":
-        from drnb.embed.pacmap import Pacmap as ctor
+    # elif method == "pacmap":
+    #     from drnb.embed.pacmap import Pacmap as ctor
     elif method == "pca":
         from drnb.embed.pca import Pca as ctor
     elif method == "pymde":
