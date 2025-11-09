@@ -1,27 +1,32 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import numpy as np
 
 from drnb.embed.base import Embedder
 from drnb.embed.context import EmbedContext
 from drnb.log import log  # rich logger
+from drnb.plugins.protocol import (
+    PROTOCOL_VERSION,
+    PluginInputPaths,
+    PluginNeighbors,
+    PluginOptions,
+    PluginOutputPaths,
+    PluginRequest,
+    context_to_payload,
+    env_flag,
+    request_to_dict,
+    sanitize_params,
+)
 from drnb.plugins.registry import get_registry, plugins_enabled
 from drnb.types import EmbedResult
-
-
-def _placeholder_coords(n: int, seed: int = 42) -> np.ndarray:
-    # reasonably compact spiral to avoid plot sizing surprises
-    k = np.arange(n, dtype=np.float32)
-    r = np.sqrt(k / max(n - 1, 1))
-    phi = (np.pi * (3 - np.sqrt(5))) * k
-    return np.column_stack([r * np.cos(phi), r * np.sin(phi)]).astype(np.float32)
 
 
 @dataclass
@@ -38,7 +43,6 @@ class ExternalEmbedder(Embedder):
     use_precomputed_neighbors: bool | None = None
     drnb_init: str | None = None
     snapshots: list[int] | None = None
-    on_unavailable: str = "placeholder"  # "placeholder" | "error"
 
     def embed_impl(
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
@@ -54,16 +58,20 @@ class ExternalEmbedder(Embedder):
             )
         )
 
-        if not (
-            plugins_enabled()
-            and (spec := get_registry().lookup(self.method))
-            and spec.plugin_dir.exists()
-        ):
-            return self._unavailable(x, f"plugin not found or plugins disabled")
+        if not plugins_enabled():
+            self._fail("plugins disabled via DRNB_PLUGINS")
 
-        with tempfile.TemporaryDirectory(prefix=f"drnb-{self.method}-") as td:
-            tdir = Path(td)
-            x_path = tdir / "x.npy"
+        spec = get_registry().lookup(self.method)
+        if spec is None or not spec.plugin_dir.exists():
+            self._fail("plugin not found")
+
+        params = dict(params or {})
+        safe_params = sanitize_params(params)
+        keep_tmp = env_flag("DRNB_PLUGIN_KEEP_TMP", False)
+        tmpdir = Path(tempfile.mkdtemp(prefix=f"drnb-{self.method}-"))
+
+        try:
+            x_path = tmpdir / "x.npy"
             np.save(x_path, np.asarray(x, dtype=np.float32, order="C"))
 
             # Pass precomputed KNN if ctx allows it; failure is soft (plugin can recompute)
@@ -73,46 +81,44 @@ class ExternalEmbedder(Embedder):
                     from drnb.embed.context import get_neighbors_with_ctx
 
                     metric = (
-                        self.params.get("metric")
-                        or self.params.get("distance")
-                        or "euclidean"
+                        params.get("metric") or params.get("distance") or "euclidean"
                     )
-                    n_neighbors = int(self.params.get("n_neighbors", 15))
+                    n_neighbors = int(params.get("n_neighbors", 15))
                     pre = get_neighbors_with_ctx(x, metric, n_neighbors, ctx=ctx)
                     if pre is not None and getattr(pre, "idx", None) is not None:
-                        idx_path = tdir / "knn_idx.npy"
+                        idx_path = tmpdir / "knn_idx.npy"
                         np.save(idx_path, pre.idx.astype(np.int32, copy=False))
                         if getattr(pre, "dist", None) is not None:
-                            dist_path = tdir / "knn_dist.npy"
+                            dist_path = tmpdir / "knn_dist.npy"
                             np.save(dist_path, pre.dist.astype(np.float32, copy=False))
                 except Exception as e:  # noqa: BLE001
                     log.warning(
                         f"[external:{self.method}] KNN passthrough failed; plugin may compute: {e}"
                     )
 
-            req = {
-                "protocol": 1,
-                "method": self.method,
-                "params": dict(self.params),
-                "options": {
-                    "snapshots": sorted(set(self.snapshots or [])),
-                },
-                "input": {
-                    "x_path": str(x_path),
-                    "neighbors": {
-                        "idx_path": str(idx_path) if idx_path else None,
-                        "dist_path": str(dist_path) if dist_path else None,
-                    },
-                },
-                "context": {
-                    "dataset_name": getattr(ctx, "dataset_name", ""),
-                    "embed_method_label": getattr(
-                        ctx, "embed_method_label", self.method
+            result_path = tmpdir / "result.npz"
+            snapshots = sorted({int(s) for s in (self.snapshots or [])})
+            request = PluginRequest(
+                protocol_version=PROTOCOL_VERSION,
+                method=self.method,
+                params=safe_params,
+                context=context_to_payload(ctx),
+                input=PluginInputPaths(
+                    x_path=str(x_path),
+                    neighbors=PluginNeighbors(
+                        idx_path=str(idx_path) if idx_path else None,
+                        dist_path=str(dist_path) if dist_path else None,
                     ),
-                },
-            }
-            req_path = tdir / "request.json"
-            req_path.write_text(json.dumps(req), encoding="utf-8")
+                ),
+                options=PluginOptions(
+                    snapshots=snapshots,
+                    keep_temps=keep_tmp,
+                ),
+                output=PluginOutputPaths(result_path=str(result_path)),
+            )
+            req_path = tmpdir / "request.json"
+            req_payload = request_to_dict(request)
+            req_path.write_text(json.dumps(req_payload, ensure_ascii=False), encoding="utf-8")
 
             # Build command. Default: current python, unbuffered, run the runner script.
             cmd = spec.runner or [sys.executable, "-u", "drnb-plugin-run.py"]
@@ -142,21 +148,21 @@ class ExternalEmbedder(Embedder):
                     pass
 
             if code != 0:
-                msg = f"plugin exit {code}"
-                log.warning(f"[external:{self.method}] {msg}")
-                return self._unavailable(x, msg)
+                self._fail(f"plugin exit {code}")
 
             try:
                 resp = json.loads(out.strip())
             except Exception as e:  # noqa: BLE001
-                return self._unavailable(x, f"bad JSON from plugin: {e}")
+                self._fail(f"bad JSON from plugin: {e}")
 
             if not resp.get("ok", False):
-                return self._unavailable(
-                    x, f"plugin error: {resp.get('message', 'unknown')}"
-                )
+                self._fail(f"plugin error: {resp.get('message', 'unknown')}")
 
-            npz_path = Path(resp["result_npz"])
+            npz_hint = resp.get("result_npz") or request.output.result_path
+            npz_path = Path(npz_hint).resolve()
+            if not _path_within(npz_path, tmpdir):
+                self._fail("plugin wrote results outside of workspace")
+
             with np.load(npz_path, allow_pickle=False) as z:
                 coords = z["coords"].astype(np.float32, copy=False)
                 snaps: dict[int, np.ndarray] = {}
@@ -173,14 +179,24 @@ class ExternalEmbedder(Embedder):
                 result["snapshots"] = snaps
             return result
 
+        finally:
+            if keep_tmp:
+                log.info(
+                    f"[external:{self.method}] kept plugin workspace at {tmpdir}"
+                )
+            else:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+
     def embed(self, x: np.ndarray, ctx: EmbedContext | None = None) -> EmbedResult:
         return self.embed_impl(x, self.params, ctx)
 
-    def _unavailable(self, x: np.ndarray, reason: str) -> dict[str, Any]:
-        if self.on_unavailable == "error":
-            raise RuntimeError(reason)
-        log.warning(f"[external:{self.method}] unavailable -> placeholder ({reason})")
-        return {
-            "coords": _placeholder_coords(x.shape[0]),
-            "info": {"unavailable": True, "reason": reason},
-        }
+    def _fail(self, message: str) -> NoReturn:
+        raise RuntimeError(f"[external:{self.method}] {message}")
+
+
+def _path_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
