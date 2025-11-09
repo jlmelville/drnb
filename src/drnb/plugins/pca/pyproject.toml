@@ -1,0 +1,14 @@
+[project]
+name = "drnb-plugin-pca"
+version = "0.0.1"
+description = "PCA plugin for drnb external embedder"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "scikit-learn",
+    "drnb @ file://../../.."
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

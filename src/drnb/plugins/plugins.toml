@@ -1,3 +1,7 @@
+[plugins."pca-plugin"]
+folder = "pca"
+runner = "python -u drnb-plugin-run.py"
+
 [plugins.pacmap]
 folder = "pacmap"
 # runner = "uv run drnb-plugin-run.py" 
