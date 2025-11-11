@@ -129,7 +129,9 @@ class ExternalEmbedder(Embedder):
             )
             req_path = tmpdir / "request.json"
             req_payload = request_to_dict(request)
-            req_path.write_text(json.dumps(req_payload, ensure_ascii=False), encoding="utf-8")
+            req_path.write_text(
+                json.dumps(req_payload, ensure_ascii=False), encoding="utf-8"
+            )
 
             # Build command. Default: current python, unbuffered, run the runner script.
             cmd = spec.runner or [sys.executable, "-u", "drnb-plugin-run.py"]
@@ -138,13 +140,18 @@ class ExternalEmbedder(Embedder):
             log.info(f"[external:{self.method}] launching: {' '.join(cmd)}")
 
             # Stream plugin logs from stderr, keep stdout for the final JSON line.
+            env = {
+                **os.environ,
+                "PYTHONUNBUFFERED": "1",
+                "DRNB_LOG_PLAIN": "1",
+            }
             proc = subprocess.Popen(  # noqa: S603
                 cmd,
                 cwd=spec.plugin_dir,
                 text=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                env={**os.environ, "PYTHONUNBUFFERED": "1"},
+                env=env,
             )
             assert proc.stdout and proc.stderr
             try:
@@ -192,9 +199,7 @@ class ExternalEmbedder(Embedder):
 
         finally:
             if keep_tmp:
-                log.info(
-                    f"[external:{self.method}] kept plugin workspace at {tmpdir}"
-                )
+                log.info(f"[external:{self.method}] kept plugin workspace at {tmpdir}")
             else:
                 shutil.rmtree(tmpdir, ignore_errors=True)
 

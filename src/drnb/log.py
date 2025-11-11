@@ -1,4 +1,6 @@
 import logging
+import os
+import sys
 from contextlib import contextmanager
 from typing import Any, Generator
 
@@ -10,13 +12,31 @@ from rich.logging import RichHandler
 rich.jupyter.JUPYTER_HTML_FORMAT = """\
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace;margin-bottom:0px;margin-top:0px">{code}</pre>
 """
-console = Console(width=100)
 FORMAT = "%(message)s"
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    val = os.environ.get(name)
+    if val is None:
+        return default
+    return val.strip().lower() not in ("0", "false", "no", "")
+
+
+# we need to not emit any fancy formatting if we are reading from a pipe -- the main
+# process is already formatting the logs for us
+_plain_logs = _env_flag("DRNB_LOG_PLAIN")
+
+if _plain_logs:
+    handler = logging.StreamHandler()
+else:
+    console = Console(width=100)
+    handler = RichHandler(console=console)
+
 logging.basicConfig(
     level=logging.INFO,
     format=FORMAT,
     datefmt="[%X]",
-    handlers=[RichHandler(console=console)],
+    handlers=[handler],
 )
 log = logging.getLogger("rich")
 
