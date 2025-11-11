@@ -14,7 +14,6 @@ import openTSNE
 from drnb.embed.tsne import get_tsne_affinities, tsne_annealed_exaggeration
 from drnb.plugins.protocol import PROTOCOL_VERSION, context_from_payload
 
-
 _PLUGIN_ONLY_PARAMS = {
     "use_precomputed_knn",
     "affinity",
@@ -82,7 +81,9 @@ def run_tsne(req: dict[str, Any]) -> dict[str, Any]:
     with redirect_stdout(sys.stderr):
         if anneal:
             if affinities is None:
-                raise RuntimeError("Annealed exaggeration requires precomputed affinities")
+                raise RuntimeError(
+                    "Annealed exaggeration requires precomputed affinities"
+                )
             early_exaggeration_iter = params.get("early_exaggeration_iter", 250)
             n_exaggeration_iter = int(early_exaggeration_iter / 2)
             n_anneal_steps = n_exaggeration_iter
@@ -120,7 +121,9 @@ def run_tsne(req: dict[str, Any]) -> dict[str, Any]:
             )
         else:
             tsne_params = {
-                key: value for key, value in params.items() if key not in _PLUGIN_ONLY_PARAMS
+                key: value
+                for key, value in params.items()
+                if key not in _PLUGIN_ONLY_PARAMS
             }
             _log(f"Running openTSNE.TSNE with params={tsne_params}")
             tsne = openTSNE.TSNE(n_components=2, **tsne_params)

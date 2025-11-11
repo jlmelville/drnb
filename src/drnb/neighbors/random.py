@@ -65,7 +65,7 @@ def mid_near_neighbors(
     neighbor, n_random random neighbors are generated and after ordering by distance,
     the mid_index-th neighbor is selected."""
     if mid_index > n_random - 1:
-        raise ValueError(f"mid_index must be in range [0, {n_random-1}]")
+        raise ValueError(f"mid_index must be in range [0, {n_random - 1}]")
     n = data.shape[0]
     mn_idx = np.empty((n, n_neighbors), dtype=int)
     mn_dist = np.empty((n, n_neighbors), dtype=float)

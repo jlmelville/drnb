@@ -36,9 +36,7 @@ def _neighbor_tuple(
     if idx_path:
         idx = np.load(idx_path, allow_pickle=False)
         dist_path = neigh.get("dist_path")
-        dist = (
-            np.load(dist_path, allow_pickle=False) if dist_path else None
-        )
+        dist = np.load(dist_path, allow_pickle=False) if dist_path else None
         return idx, dist
     options = req.get("options") or {}
     if ctx is None or not options.get("use_precomputed_knn", True):

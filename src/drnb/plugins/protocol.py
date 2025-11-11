@@ -72,7 +72,9 @@ def sanitize_params(params: dict[str, Any] | None) -> dict[str, JSONValue]:
     """Convert params into a JSON-safe structure, rejecting unsupported types."""
     if params is None:
         return {}
-    return {str(key): _sanitize_value(value, path=str(key)) for key, value in params.items()}
+    return {
+        str(key): _sanitize_value(value, path=str(key)) for key, value in params.items()
+    }
 
 
 def _sanitize_value(value: Any, path: str) -> JSONValue:
@@ -88,7 +90,9 @@ def _sanitize_value(value: Any, path: str) -> JSONValue:
             for key, val in value.items()
         }
     if isinstance(value, (list, tuple, set)):
-        return [_sanitize_value(v, path=f"{path}[{idx}]") for idx, v in enumerate(value)]
+        return [
+            _sanitize_value(v, path=f"{path}[{idx}]") for idx, v in enumerate(value)
+        ]
     raise TypeError(f"Unsupported parameter type at {path}: {type(value).__name__}")
 
 

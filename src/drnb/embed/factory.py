@@ -44,7 +44,6 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
     if plugins_enabled():
         entry = get_registry().lookup(method)
         if entry is not None:
-
             allowed = {f.name for f in dataclass_fields(ExternalEmbedder)}
 
             def _ctor(**embed_kwds):
@@ -132,9 +131,7 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
     return ctor
 
 
-def _normalize_external_kwds(
-    embed_kwds: dict | None, allowed: set[str]
-) -> dict:
+def _normalize_external_kwds(embed_kwds: dict | None, allowed: set[str]) -> dict:
     if embed_kwds is None:
         embed_kwds = {}
     embed_kwds = dict(embed_kwds)
