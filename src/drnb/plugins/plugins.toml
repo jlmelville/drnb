@@ -13,3 +13,7 @@ folder = "pacmap"
 
 [plugins.localmap]
 folder = "pacmap"
+
+[plugins."tsne-plugin"]
+folder = "tsne"
+runner = "python -u drnb-plugin-run.py"

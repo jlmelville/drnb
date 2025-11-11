@@ -1,0 +1,14 @@
+[project]
+name = "drnb-plugin-tsne"
+version = "0.0.1"
+description = "openTSNE plugin runner for drnb"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "openTSNE",
+    "drnb @ file://../../.."
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

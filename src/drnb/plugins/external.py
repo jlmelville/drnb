@@ -98,21 +98,32 @@ class ExternalEmbedder(Embedder):
 
             result_path = tmpdir / "result.npz"
             snapshots = sorted({int(s) for s in (self.snapshots or [])})
+            input_paths = PluginInputPaths(
+                x_path=str(x_path),
+                neighbors=PluginNeighbors(
+                    idx_path=str(idx_path) if idx_path else None,
+                    dist_path=str(dist_path) if dist_path else None,
+                ),
+            )
+
+            if self.drnb_init is not None:
+                init_path = tmpdir / "init.npy"
+                np.save(
+                    init_path,
+                    np.asarray(self.drnb_init, dtype=np.float32, order="C"),
+                )
+                input_paths.init_path = str(init_path)
+
             request = PluginRequest(
                 protocol_version=PROTOCOL_VERSION,
                 method=self.method,
                 params=safe_params,
                 context=context_to_payload(ctx),
-                input=PluginInputPaths(
-                    x_path=str(x_path),
-                    neighbors=PluginNeighbors(
-                        idx_path=str(idx_path) if idx_path else None,
-                        dist_path=str(dist_path) if dist_path else None,
-                    ),
-                ),
+                input=input_paths,
                 options=PluginOptions(
                     snapshots=snapshots,
                     keep_temps=keep_tmp,
+                    use_precomputed_knn=use_knn,
                 ),
                 output=PluginOutputPaths(result_path=str(result_path)),
             )

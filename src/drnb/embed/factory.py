@@ -1,3 +1,4 @@
+from dataclasses import fields as dataclass_fields
 from typing import Callable
 
 import drnb.embed.base
@@ -44,8 +45,11 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
         entry = get_registry().lookup(method)
         if entry is not None:
 
+            allowed = {f.name for f in dataclass_fields(ExternalEmbedder)}
+
             def _ctor(**embed_kwds):
-                return ExternalEmbedder(method=method, **embed_kwds)
+                normalized = _normalize_external_kwds(embed_kwds, allowed)
+                return ExternalEmbedder(method=method, **normalized)
 
             return _ctor
 
@@ -126,3 +130,23 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
     else:
         raise ValueError(f"Unknown method {method}")
     return ctor
+
+
+def _normalize_external_kwds(
+    embed_kwds: dict | None, allowed: set[str]
+) -> dict:
+    if embed_kwds is None:
+        embed_kwds = {}
+    embed_kwds = dict(embed_kwds)
+    params = embed_kwds.setdefault("params", {})
+    if params is None:
+        params = {}
+        embed_kwds["params"] = params
+    if not isinstance(params, dict):
+        raise ValueError("External embedder params must be a dict")
+    for key in list(embed_kwds.keys()):
+        if key == "params":
+            continue
+        if key not in allowed:
+            params[key] = embed_kwds.pop(key)
+    return embed_kwds
