@@ -1,3 +1,7 @@
+[plugins."trimap-plugin"]
+folder = "trimap"
+runner = "python -u drnb-plugin-run.py"
+
 [plugins."pca-plugin"]
 folder = "pca"
 runner = "python -u drnb-plugin-run.py"
