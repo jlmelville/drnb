@@ -207,7 +207,7 @@ requires-dist = [
     { name = "nbformat", specifier = ">=5.10.4" },
     { name = "numpy", specifier = ">=1.22,<2.1" },
     { name = "opentsne", specifier = ">=1.0.2" },
-    { name = "pacmap", specifier = ">=0.7.6" },
+    { name = "pacmap", specifier = ">=0.8.0" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "plotly", specifier = ">=5.24.1" },
     { name = "pyarrow", specifier = ">=18.1.0" },

@@ -1,94 +1,250 @@
 #!/usr/bin/env python
+from __future__ import annotations
+
 import argparse
 import json
 import sys
+import traceback
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import pacmap
+
+from drnb.embed.context import get_neighbors_with_ctx
+from drnb.embed.pacmap import create_neighbor_pairs
+from drnb.neighbors.localscale import locally_scaled_neighbors
+from drnb.plugins.protocol import PROTOCOL_VERSION, context_from_payload
 
 
 def _log(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
 
-def _pairs_from_knn(idx: np.ndarray, n_neighbors: int) -> np.ndarray:
-    n = idx.shape[0]
-    use = idx[:, 1 : 1 + n_neighbors] if idx.shape[1] > n_neighbors else idx[:, 1:]
-    m = use.shape[1]
-    pairs = np.empty((n * m, 2), dtype=np.int32)
-    out = 0
-    for i in range(n):
-        nn = use[i]
-        k = nn.shape[0]
-        pairs[out : out + k, 0] = i
-        pairs[out : out + k, 1] = nn
-        out += k
-    return pairs[:out]
+def _load_request(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    proto = data.get("protocol") or data.get("protocol_version")
+    if proto != PROTOCOL_VERSION:
+        raise RuntimeError(
+            f"protocol mismatch: expected {PROTOCOL_VERSION}, got {proto}"
+        )
+    return data
 
 
-def run_pacmap(req: dict) -> dict:
-    import pacmap  # ensure installed in the environment
+def _load_array(path: str | None) -> np.ndarray | None:
+    if not path:
+        return None
+    return np.load(path, allow_pickle=False)
 
-    _log("Running PaCMAP via plugin")
 
-    x = np.load(req["input"]["x_path"])
-    params = dict(req.get("params") or {})
+def _load_initialization(req: dict[str, Any], params: dict[str, Any]) -> Any:
+    init = params.pop("init", None)
+    init_path = (req.get("input") or {}).get("init_path")
+    array = _load_array(init_path)
+    if array is not None:
+        return array
+    return init
+
+
+def _needs_precomputed(
+    options: dict[str, Any], params: dict[str, Any], x: np.ndarray
+) -> bool:
+    if not options.get("use_precomputed_knn", True):
+        return False
+    apply_pca = params.get("apply_pca", True)
+    if apply_pca and x.shape[1] > 100:
+        _log("Precomputed knn cannot be used: dimensionality will be reduced via PCA")
+        return False
+    return True
+
+
+def _load_neighbors(
+    req: dict[str, Any],
+    ctx,
+    metric: str,
+    n_neighbors: int,
+    x: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray] | tuple[None, None]:
     neigh = (req.get("input") or {}).get("neighbors") or {}
-    idx_path = neigh.get("idx_path")
-    pair_neighbors = None
-    if idx_path:
-        _log("using precomputed knn")
-        idx = np.load(idx_path)
-        n_neighbors = int(params.get("n_neighbors", 10))
-        pair_neighbors = _pairs_from_knn(idx, n_neighbors)
+    idx = _load_array(neigh.get("idx_path"))
+    dist = _load_array(neigh.get("dist_path"))
+    if idx is not None and idx.shape[1] >= n_neighbors:
+        if dist is None:
+            dist = np.zeros_like(idx, dtype=np.float32)
+        return idx, dist
+    if ctx is None:
+        return (None, None)
+    pre = get_neighbors_with_ctx(x, metric, n_neighbors, ctx=ctx)
+    if pre is None:
+        return (None, None)
+    dist = pre.dist if pre.dist is not None else np.zeros_like(pre.idx)
+    return pre.idx, dist
 
-    snaps = sorted(set((req.get("options") or {}).get("snapshots") or []))
+
+def _prepare_pair_neighbors(
+    req: dict[str, Any],
+    params: dict[str, Any],
+    x: np.ndarray,
+    ctx,
+    *,
+    local_scale: bool,
+    local_scale_kwargs: dict[str, Any] | None,
+) -> np.ndarray | None:
+    if not _needs_precomputed(req.get("options") or {}, params, x):
+        return None
+    metric = params.get("distance", params.get("metric", "euclidean"))
+    base_neighbors = int(params.get("n_neighbors", 10)) + 1
+    scale_kwargs = {
+        "l": base_neighbors,
+        "m": base_neighbors + 50,
+        "scale_from": 4,
+        "scale_to": 6,
+    }
+    if local_scale_kwargs:
+        scale_kwargs.update(local_scale_kwargs)
+    knn_neighbors = scale_kwargs["m"] if local_scale else base_neighbors
+    idx, dist = _load_neighbors(req, ctx, metric, knn_neighbors, x)
+    if idx is None or dist is None:
+        _log("No precomputed knn available; plugin will rely on PaCMAP defaults")
+        return None
+    if local_scale:
+        max_cols = idx.shape[1]
+        scale_kwargs["m"] = min(scale_kwargs["m"], max_cols)
+        scale_kwargs["l"] = min(scale_kwargs["l"], scale_kwargs["m"])
+        idx, _ = locally_scaled_neighbors(idx, dist, **scale_kwargs)
+    else:
+        use_cols = min(base_neighbors, idx.shape[1])
+        idx = idx[:, :use_cols]
+    neighbor_count = min(base_neighbors - 1, idx.shape[1] - 1)
+    if neighbor_count <= 0:
+        return None
+    pair_neighbors = create_neighbor_pairs(idx, neighbor_count)
+    return pair_neighbors
+
+
+def _configure_snapshots(params: dict[str, Any], options: dict[str, Any]) -> list[int]:
+    snaps = list(params.get("intermediate_snapshots") or [])
+    snaps.extend(options.get("snapshots") or [])
+    snaps = sorted({int(s) for s in snaps})
     if snaps:
         params["intermediate"] = True
+        num_iters = params.get("num_iters", 450)
+        if snaps[-1] != num_iters:
+            snaps.append(num_iters)
         params["intermediate_snapshots"] = snaps
+    return snaps
 
-    _log(f"PaCMAP params: {params}")
-    emb = pacmap.PaCMAP(**params)
-    result = emb.fit_transform(x, pair_neighbors=pair_neighbors)
 
-    # Normalize to a single coords and optional snapshots
-    save = {}
-    if isinstance(result, np.ndarray) and result.ndim == 2:
-        save["coords"] = result.astype(np.float32, copy=False)
+def _summarize_params(params: dict[str, Any]) -> dict[str, Any]:
+    def _summarize(value: Any) -> Any:
+        if isinstance(value, (int, float, bool, str)) or value is None:
+            return value
+        if isinstance(value, (list, tuple)):
+            if all(isinstance(x, (int, float, bool, str)) or x is None for x in value):
+                return value
+            return f"<{type(value).__name__} len={len(value)}>"
+        if isinstance(value, np.ndarray):
+            return f"<ndarray shape={value.shape} dtype={value.dtype}>"
+        return f"<{type(value).__name__}>"
+
+    return {key: _summarize(val) for key, val in params.items()}
+
+
+def _extract_snapshot_arrays(
+    result: Any, snapshots: list[int]
+) -> tuple[np.ndarray, dict[int, np.ndarray]]:
+    if isinstance(result, dict) and "coords" in result:
+        coords = np.asarray(result["coords"])
+        snap_map: dict[int, np.ndarray] = {}
+        for key, value in (result.get("snapshots") or {}).items():
+            try:
+                iteration = int(str(key).split("_")[1])
+            except (IndexError, ValueError):
+                continue
+            snap_map[iteration] = np.asarray(value)
+        return coords, snap_map
+
+    array = np.asarray(result)
+    if array.ndim == 2:
+        return array, {}
+
+    if not snapshots:
+        # No metadata to align snapshots; treat trailing slice as coords only.
+        return array[-1], {}
+
+    series = array
+    expected = len(snapshots)
+    if series.ndim >= 3 and series.shape[0] != expected and series.shape[-1] == expected:
+        series = np.moveaxis(series, -1, 0)
+
+    coords = series[-1]
+    snap_map: dict[int, np.ndarray] = {}
+    limit = min(expected, series.shape[0])
+    for i in range(limit):
+        snap_map[snapshots[i]] = series[i]
+    return coords, snap_map
+
+
+def _save_result(result, snapshots: list[int], out_path: Path) -> dict[str, Any]:
+    coords, snap_map = _extract_snapshot_arrays(result, snapshots)
+    save: dict[str, np.ndarray] = {"coords": coords.astype(np.float32, copy=False)}
+    for iteration, array in snap_map.items():
+        save[f"snap_{iteration}"] = array.astype(np.float32, copy=False)
+    np.savez_compressed(out_path, **save)
+    return {"ok": True, "result_npz": str(out_path)}
+
+
+def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
+    ctx = context_from_payload(req.get("context"))
+    x = np.load(req["input"]["x_path"], allow_pickle=False)
+    params = dict(req.get("params") or {})
+
+    options = req.get("options") or {}
+    init = _load_initialization(req, params)
+    snapshots = _configure_snapshots(params, options)
+    local_scale = params.pop("local_scale", True)
+    local_scale_kwargs = params.pop("local_scale_kwargs", None)
+
+    pair_neighbors = _prepare_pair_neighbors(
+        req,
+        params,
+        x,
+        ctx,
+        local_scale=local_scale,
+        local_scale_kwargs=local_scale_kwargs,
+    )
+    if pair_neighbors is not None:
+        params["pair_neighbors"] = pair_neighbors
+
+    summarized = _summarize_params(params)
+    if method == "pacmap-plugin":
+        _log(f"Running PaCMAP with params={summarized}")
+        embedder = pacmap.PaCMAP(**params)
+    elif method == "localmap-plugin":
+        _log(f"Running LocalMAP with params={summarized}")
+        embedder = pacmap.LocalMAP(**params)
     else:
-        # result is a 3D array [N, 2, T] or list of (N, 2)
-        if isinstance(result, np.ndarray) and result.ndim == 3:
-            save["coords"] = result[:, :, -1].astype(np.float32, copy=False)
-            for i, it in enumerate(snaps):
-                save[f"snap_{it:04d}"] = result[:, :, i].astype(np.float32, copy=False)
-        else:
-            save["coords"] = result[-1].astype(np.float32, copy=False)
-            for arr, it in zip(result, snaps):
-                save[f"snap_{it:04d}"] = arr.astype(np.float32, copy=False)
+        raise RuntimeError(f"unknown method {method}")
 
-    out = Path("result.npz").resolve()
-    np.savez_compressed(out, **save)
-    return {"ok": True, "result_npz": str(out)}
+    result = embedder.fit_transform(x, init=init)
+    out_path = Path(req["output"]["result_path"]).resolve()
+    return _save_result(result, snapshots, out_path)
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--method", required=True
-    )  # "pacmap" (kept for symmetry if you add more)
-    ap.add_argument("--request", required=True)  # path to JSON
-    args = ap.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--method", required=True)
+    parser.add_argument("--request", required=True)
+    args = parser.parse_args()
 
-    req = json.loads(Path(args.request).read_text(encoding="utf-8"))
+    req = _load_request(Path(args.request))
     try:
-        if args.method == "pacmap":
-            resp = run_pacmap(req)
-        else:
-            resp = {"ok": False, "message": f"unknown method {args.method}"}
-    except Exception as e:  # noqa: BLE001
-        resp = {"ok": False, "message": str(e)}
+        resp = run_method(req, args.method)
+    except Exception as exc:  # noqa: BLE001
+        tb = traceback.format_exc()
+        _log(tb)
+        resp = {"ok": False, "message": tb or str(exc)}
 
-    # IMPORTANT: exactly one JSON to stdout; logs go to stderr
     print(json.dumps(resp), flush=True)
 
 

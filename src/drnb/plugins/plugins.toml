@@ -6,13 +6,13 @@ runner = "python -u drnb-plugin-run.py"
 folder = "pca"
 runner = "python -u drnb-plugin-run.py"
 
-[plugins.pacmap]
+[plugins."pacmap-plugin"]
 folder = "pacmap"
-# runner = "uv run drnb-plugin-run.py" 
-# runner = "uv run -q --python 3.10 drnb-plugin-run.py"
+runner = "python -u drnb-plugin-run.py"
 
-[plugins.localmap]
+[plugins."localmap-plugin"]
 folder = "pacmap"
+runner = "python -u drnb-plugin-run.py"
 
 [plugins."tsne-plugin"]
 folder = "tsne"

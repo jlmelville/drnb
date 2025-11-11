@@ -42,7 +42,6 @@ class ExternalEmbedder(Embedder):
     use_precomputed_knn: bool | None = None
     use_precomputed_neighbors: bool | None = None
     drnb_init: str | None = None
-    snapshots: list[int] | None = None
 
     def embed_impl(
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
@@ -97,7 +96,6 @@ class ExternalEmbedder(Embedder):
                     )
 
             result_path = tmpdir / "result.npz"
-            snapshots = sorted({int(s) for s in (self.snapshots or [])})
             input_paths = PluginInputPaths(
                 x_path=str(x_path),
                 neighbors=PluginNeighbors(
@@ -121,7 +119,6 @@ class ExternalEmbedder(Embedder):
                 context=context_to_payload(ctx),
                 input=input_paths,
                 options=PluginOptions(
-                    snapshots=snapshots,
                     keep_temps=keep_tmp,
                     use_precomputed_knn=use_knn,
                 ),
@@ -183,12 +180,12 @@ class ExternalEmbedder(Embedder):
 
             with np.load(npz_path, allow_pickle=False) as z:
                 coords = z["coords"].astype(np.float32, copy=False)
-                snaps: dict[int, np.ndarray] = {}
+                snaps: dict[str, np.ndarray] = {}
                 for k in z.files:
                     if k.startswith("snap_"):
                         try:
                             it = int(k.split("_")[1])
-                            snaps[it] = z[k].astype(np.float32, copy=False)
+                            snaps[f"it_{it}"] = z[k].astype(np.float32, copy=False)
                         except Exception:
                             pass
 

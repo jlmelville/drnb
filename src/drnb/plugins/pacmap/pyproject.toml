@@ -1,0 +1,14 @@
+[project]
+name = "drnb-plugin-pacmap"
+version = "0.0.1"
+description = "PaCMAP/LocalMAP plugin runner for drnb"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "pacmap>=0.8.0",
+    "drnb @ file://../../.."
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

@@ -54,8 +54,8 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
 
     if method == "ncvis":
         from drnb.embed.ncvis import NCVis as ctor
-    # elif method == "pacmap":
-    #     from drnb.embed.pacmap import Pacmap as ctor
+    elif method == "pacmap":
+        from drnb.embed.pacmap import Pacmap as ctor
     elif method == "pca":
         from drnb.embed.pca import Pca as ctor
     elif method == "pymde":
