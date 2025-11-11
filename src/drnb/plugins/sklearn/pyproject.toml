@@ -1,7 +1,7 @@
 [project]
-name = "drnb-plugin-pca"
+name = "drnb-plugin-sklearn"
 version = "0.0.1"
-description = "PCA plugin for drnb external embedder"
+description = "Consolidated sklearn-based plugin runners for drnb"
 requires-python = ">=3.12"
 dependencies = [
     "numpy",

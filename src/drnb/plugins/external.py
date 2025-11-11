@@ -33,7 +33,7 @@ from drnb.types import EmbedResult
 class ExternalEmbedder(Embedder):
     """
     Out-of-process embedder for conflict-heavy methods. Returns the same
-    result shape as in-process embedders: {"coords": ..., "snapshots": {...}}.
+    result shape as in-process embedders: {"coords": ..., }.
     """
 
     # Make 'method' kw-only with a default to avoid dataclass ordering issues.

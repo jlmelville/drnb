@@ -3,7 +3,23 @@ folder = "trimap"
 runner = "python -u drnb-plugin-run.py"
 
 [plugins."pca-plugin"]
-folder = "pca"
+folder = "sklearn"
+runner = "python -u drnb-plugin-run.py"
+
+[plugins."randproj-plugin"]
+folder = "sklearn"
+runner = "python -u drnb-plugin-run.py"
+
+[plugins."isomap-plugin"]
+folder = "sklearn"
+runner = "python -u drnb-plugin-run.py"
+
+[plugins."mmds-plugin"]
+folder = "sklearn"
+runner = "python -u drnb-plugin-run.py"
+
+[plugins."nmds-plugin"]
+folder = "sklearn"
 runner = "python -u drnb-plugin-run.py"
 
 [plugins."pacmap-plugin"]
