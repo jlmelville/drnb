@@ -66,8 +66,6 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
         from drnb.embed.trimap import Trimap as ctor
     elif method == "tsne":
         from drnb.embed.tsne import Tsne as ctor
-    elif method == "tsvd":
-        from drnb.embed.tsvd import Tsvd as ctor
     elif method == "umap":
         from drnb.embed.umap import Umap as ctor
     elif method == "negumap":
