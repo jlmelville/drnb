@@ -32,7 +32,7 @@ def test_pacmap_plugin_returns_snapshots(tmp_path) -> None:
     params = {
         "n_neighbors": 8,
         "random_state": 0,
-        "num_iters": 450,
+        "num_iters": (100, 100, 250),
         "apply_pca": False,
         "intermediate": True,
         "intermediate_snapshots": snapshots,
@@ -41,7 +41,7 @@ def test_pacmap_plugin_returns_snapshots(tmp_path) -> None:
     plugin = create_embedder(
         "pacmap-plugin",
         {
-            "params": dict(params),
+            "params": params,
             "init": "pca",
             "local_scale": False,
         },
@@ -50,7 +50,7 @@ def test_pacmap_plugin_returns_snapshots(tmp_path) -> None:
     plugin_res = plugin.embed(x, ctx=_ctx("pacmap-plugin", tmp_path))
     assert isinstance(plugin_res, dict)
     _assert_snapshot_contract(
-        plugin_res, n_rows=40, requested=snapshots, final_iter=params["num_iters"]
+        plugin_res, n_rows=40, requested=snapshots, final_iter=sum(params["num_iters"])
     )
 
 
@@ -61,7 +61,7 @@ def test_localmap_plugin_returns_snapshots(tmp_path) -> None:
     params = {
         "n_neighbors": 6,
         "random_state": 0,
-        "num_iters": 450,
+        "num_iters": (100, 100, 250),
         "apply_pca": False,
         "intermediate": True,
         "intermediate_snapshots": snapshots,
@@ -70,7 +70,7 @@ def test_localmap_plugin_returns_snapshots(tmp_path) -> None:
     plugin = create_embedder(
         "localmap-plugin",
         {
-            "params": dict(params),
+            "params": params,
             "init": "pca",
             "local_scale": False,
         },
@@ -79,5 +79,5 @@ def test_localmap_plugin_returns_snapshots(tmp_path) -> None:
     plugin_res = plugin.embed(x, ctx=_ctx("localmap-plugin", tmp_path))
     assert isinstance(plugin_res, dict)
     _assert_snapshot_contract(
-        plugin_res, n_rows=35, requested=snapshots, final_iter=params["num_iters"]
+        plugin_res, n_rows=35, requested=snapshots, final_iter=sum(params["num_iters"])
     )

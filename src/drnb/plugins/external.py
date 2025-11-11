@@ -68,6 +68,8 @@ class ExternalEmbedder(Embedder):
         safe_params = sanitize_params(params)
         keep_tmp = env_flag("DRNB_PLUGIN_KEEP_TMP", False)
         tmpdir = Path(tempfile.mkdtemp(prefix=f"drnb-{self.method}-"))
+        self._workspace_dir = tmpdir
+        self._cleanup_workspace = not keep_tmp
 
         try:
             x_path = tmpdir / "x.npy"
@@ -195,15 +197,25 @@ class ExternalEmbedder(Embedder):
             return result
 
         finally:
-            if keep_tmp:
-                log.info(f"[external:{self.method}] kept plugin workspace at {tmpdir}")
-            else:
+            cleanup = getattr(self, "_cleanup_workspace", True)
+            if cleanup:
                 shutil.rmtree(tmpdir, ignore_errors=True)
+            else:
+                log.info(f"[external:{self.method}] kept plugin workspace at {tmpdir}")
+            self._workspace_dir = None
+            self._cleanup_workspace = True
 
     def embed(self, x: np.ndarray, ctx: EmbedContext | None = None) -> EmbedResult:
         return self.embed_impl(x, self.params, ctx)
 
     def _fail(self, message: str) -> NoReturn:
+        workspace = getattr(self, "_workspace_dir", None)
+        if workspace is not None:
+            log.error(
+                f"[external:{self.method}] failure occurred; workspace retained at {workspace}"
+            )
+            message = f"{message} (workspace: {workspace})"
+            self._cleanup_workspace = False
         raise RuntimeError(f"[external:{self.method}] {message}")
 
 

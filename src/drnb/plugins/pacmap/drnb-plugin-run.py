@@ -122,15 +122,16 @@ def _prepare_pair_neighbors(
     return pair_neighbors
 
 
-def _configure_snapshots(params: dict[str, Any], options: dict[str, Any]) -> list[int]:
-    snaps = list(params.get("intermediate_snapshots") or [])
-    snaps.extend(options.get("snapshots") or [])
-    snaps = sorted({int(s) for s in snaps})
+def _configure_snapshots(params: dict[str, Any]) -> list[int]:
+    snaps = params.get("intermediate_snapshots") or []
     if snaps:
         params["intermediate"] = True
-        num_iters = params.get("num_iters", 450)
-        if snaps[-1] != num_iters:
-            snaps.append(num_iters)
+        # PaCMAP uses "num_iters" to specify the number of iterations per phase
+        # so let's be super careful with naming to not confuse ourselves
+        num_iters_per_phase: tuple[int, ...] = params.get("num_iters", (450,))
+        total_iters = sum(num_iters_per_phase)
+        if snaps[-1] != total_iters:
+            snaps.append(total_iters)
         params["intermediate_snapshots"] = snaps
     return snaps
 
@@ -174,7 +175,11 @@ def _extract_snapshot_arrays(
 
     series = array
     expected = len(snapshots)
-    if series.ndim >= 3 and series.shape[0] != expected and series.shape[-1] == expected:
+    if (
+        series.ndim >= 3
+        and series.shape[0] != expected
+        and series.shape[-1] == expected
+    ):
         series = np.moveaxis(series, -1, 0)
 
     coords = series[-1]
@@ -201,7 +206,8 @@ def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
 
     options = req.get("options") or {}
     init = _load_initialization(req, params)
-    snapshots = _configure_snapshots(params, options)
+    snapshots = _configure_snapshots(params)
+
     local_scale = params.pop("local_scale", True)
     local_scale_kwargs = params.pop("local_scale_kwargs", None)
 

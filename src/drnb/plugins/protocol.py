@@ -31,7 +31,6 @@ class PluginInputPaths:
 
 @dataclass
 class PluginOptions:
-    snapshots: list[int] = field(default_factory=list)
     keep_temps: bool = False
     log_path: str | None = None
     use_precomputed_knn: bool | None = None
