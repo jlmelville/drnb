@@ -33,3 +33,7 @@ runner = "python -u drnb-plugin-run.py"
 [plugins."tsne-plugin"]
 folder = "tsne"
 runner = "python -u drnb-plugin-run.py"
+
+[plugins."umato-plugin"]
+folder = "umato"
+runner = "python -u drnb-plugin-run.py"

@@ -219,7 +219,7 @@ requires-dist = [
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "trimap", specifier = ">=1.1.4" },
     { name = "umap-learn", specifier = ">=0.5.9.post2" },
-    { name = "umato", specifier = ">=0.1.3" },
+    { name = "umato", specifier = ">=1.0.0" },
 ]
 provides-extras = ["dev"]
 
@@ -239,21 +239,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/8b/50/4b769ce1ac4071a1ef6d86b1a3fb56cdc3a37615e8c5519e1af96cdac366/fastjsonschema-2.21.1.tar.gz", hash = "sha256:794d4f0a58f848961ba16af7b9c85a3e88cd360df008c59aac6fc5ae9323b5d4", size = 373939, upload-time = "2024-12-02T10:55:15.133Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/90/2b/0817a2b257fe88725c25589d89aec060581aabf668707a8d03b2e9e0cb2a/fastjsonschema-2.21.1-py3-none-any.whl", hash = "sha256:c9e5b7e908310918cf494a434eeb31384dd84a98b57a30bcb1f535015b554667", size = 23924, upload-time = "2024-12-02T10:55:07.599Z" },
-]
-
-[[package]]
-name = "fcsparser"
-version = "0.2.4"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "setuptools" },
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ff/17/89cf417134b47cb6e1351b56e3d9508bb3e511bd53d899672ce15c3effed/fcsparser-0.2.4.tar.gz", hash = "sha256:fa8e60d1bbda2fd592b6fd387e7bf3048fa357359e06e0b263e7034469f617b3", size = 7061675, upload-time = "2021-10-24T17:29:49.322Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/67/9a/0b893be056e0d1a77e8b2966353e408a091a16da2b78772904b4598a2d7d/fcsparser-0.2.4-py3-none-any.whl", hash = "sha256:52e07e96ec21c5915c78c0481aa796888890f704e56a0c7114f5c198ef6de46e", size = 5031986, upload-time = "2021-10-24T17:29:44.902Z" },
 ]
 
 [[package]]
@@ -1057,15 +1042,6 @@ wheels = [
 ]
 
 [[package]]
-name = "setuptools"
-version = "80.9.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/18/5d/3bf57dcd21979b887f014ea83c24ae194cfcd12b9e0fda66b957c69d1fca/setuptools-80.9.0.tar.gz", hash = "sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c", size = 1319958, upload-time = "2025-05-27T00:56:51.443Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/dc/17031897dae0efacfea57dfd3a82fdd2a2aeb58e0ff71b77b87e44edc772/setuptools-80.9.0-py3-none-any.whl", hash = "sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922", size = 1201486, upload-time = "2025-05-27T00:56:49.664Z" },
-]
-
-[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1204,21 +1180,18 @@ wheels = [
 
 [[package]]
 name = "umato"
-version = "0.1.3"
+version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "fcsparser" },
     { name = "joblib" },
-    { name = "matplotlib" },
     { name = "numba" },
     { name = "numpy" },
-    { name = "pandas" },
     { name = "scikit-learn" },
     { name = "scipy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/98/de/7f6b43275c476a96197395908f7553dce9f00d4bd5b75b62155deae900a6/umato-0.1.3.tar.gz", hash = "sha256:6cff6b86e8b3a79546f5d4f411b1e9d9bc55fb917bac8a0b1e72cdf675137283", size = 52362, upload-time = "2024-12-03T03:37:49.928Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d5/81/db6155f54052ae927934478db77f12350924b79506e4aadbfc89262b35ce/umato-1.0.0.tar.gz", hash = "sha256:98e183600d270577fca4f9ab3de70da492d2c99dbf41220c74266f2e14f25404", size = 42396, upload-time = "2025-08-28T09:09:43.461Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f2/41/913321fc2d2011f5158345c2b2b166d75fe464ebec514039e12cd068d9d2/umato-0.1.3-py3-none-any.whl", hash = "sha256:27268f83e8caafd7a583f173490250d630c9e6efcbacbbd2a02714c52579f5bc", size = 64174, upload-time = "2024-12-03T03:37:48.25Z" },
+    { url = "https://files.pythonhosted.org/packages/82/52/6608b0385fac3a5f54f6f6def2c2c14a3fe6a4e5ae3b974efb5fe62e2b40/umato-1.0.0-py3-none-any.whl", hash = "sha256:a222bc65f27c193e29ca33d999214ec1bb9d6f929b2ec63bf86f9a2cae792384", size = 44023, upload-time = "2025-08-28T09:09:41.972Z" },
 ]
 
 [[package]]

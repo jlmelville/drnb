@@ -1,0 +1,14 @@
+[project]
+name = "drnb-plugin-umato"
+version = "0.0.1"
+description = "UMATO plugin runner for drnb"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "umato>=0.1.3",
+    "drnb @ file://../../.."
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
