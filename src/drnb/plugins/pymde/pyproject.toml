@@ -1,0 +1,16 @@
+[project]
+name = "drnb-plugin-pymde"
+version = "0.0.1"
+description = "PyMDE plugin runner for drnb"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "pymde>=0.1.19",
+    "torch",
+    "scipy",
+    "drnb @ file://../../.."
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

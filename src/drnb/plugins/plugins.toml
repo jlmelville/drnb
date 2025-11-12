@@ -41,3 +41,7 @@ runner = "python -u drnb-plugin-run.py"
 [plugins."ncvis-plugin"]
 folder = "ncvis"
 runner = "python -u drnb-plugin-run.py"
+
+[plugins."pymde-plugin"]
+folder = "pymde"
+runner = "python -u drnb-plugin-run.py"
