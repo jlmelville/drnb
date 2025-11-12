@@ -1,0 +1,14 @@
+[project]
+name = "drnb-plugin-ncvis"
+version = "0.0.1"
+description = "NCVis plugin runner for drnb"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "ncvis>=0.1.10",
+    "drnb @ file://../../.."
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
