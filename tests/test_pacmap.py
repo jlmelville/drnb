@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from drnb.embed.pacmap import create_neighbor_pairs
+from drnb.embed.deprecated.pacmap import create_neighbor_pairs
 
 
 def test_create_neighbor_pairs():

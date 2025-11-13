@@ -12,7 +12,7 @@ import numpy as np
 import pacmap
 
 from drnb.embed.context import get_neighbors_with_ctx
-from drnb.embed.pacmap import create_neighbor_pairs
+from drnb.embed.deprecated.pacmap import create_neighbor_pairs
 from drnb.neighbors.localscale import locally_scaled_neighbors
 from drnb.plugins.protocol import PROTOCOL_VERSION, context_from_payload
 
