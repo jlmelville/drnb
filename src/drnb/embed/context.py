@@ -5,10 +5,7 @@ import numpy as np
 
 import drnb.io as nbio
 import drnb.io.dataset as dataio
-from drnb.neighbors import (
-    NearestNeighbors,
-    get_neighbors,
-)
+from drnb.neighbors import NearestNeighbors, get_neighbors, read_neighbors
 from drnb.types import DataSet
 
 
@@ -93,6 +90,37 @@ def get_neighbors_with_ctx(
     if return_distance and result.dist is None:
         raise ValueError("return_distance was True but no distance data was returned")
     return result
+
+
+def read_neighbors_with_ctx(
+    metric: str,
+    n_neighbors: int,
+    ctx: EmbedContext | None = None,
+    *,
+    method: str | None = None,
+    exact: bool | None = None,
+    return_distance: bool = True,
+    verbose: bool = False,
+) -> NearestNeighbors | None:
+    """Read precomputed neighbors using only context metadata (never computes).
+
+    This helper mirrors :func:`get_neighbors_with_ctx` but skips any on-demand
+    computation. If no matching neighbor file exists on disk it simply returns
+    ``None`` so callers can fall back to their own logic.
+    """
+    if ctx is None:
+        return None
+    return read_neighbors(
+        name=ctx.dataset_name,
+        n_neighbors=n_neighbors,
+        metric=metric,
+        method=method,
+        exact=exact,
+        drnb_home=ctx.drnb_home,
+        sub_dir=ctx.nn_sub_dir,
+        return_distance=return_distance,
+        verbose=verbose,
+    )
 
 
 def read_dataset_from_ctx(ctx: EmbedContext, verbose: bool = False) -> DataSet:

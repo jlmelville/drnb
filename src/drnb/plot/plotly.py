@@ -13,12 +13,13 @@ from matplotlib.axes import Axes
 from drnb.embed import get_coords
 from drnb.embed.context import (
     EmbedContext,
-    get_neighbors_with_ctx,
     read_dataset_from_ctx,
+    read_neighbors_with_ctx,
 )
 from drnb.io.dataset import read_palette
 from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.plot.palette import palettize
+from drnb.log import log
 from drnb.types import EmbedResult
 
 
@@ -370,16 +371,23 @@ class PlotlyPlotter:
         """Make the PlotlyPlotter object clickable."""
         if ctx is None:
             return fig
-        knn = get_neighbors_with_ctx(
-            data=None,
+        knn = read_neighbors_with_ctx(
             metric=self.clickable_metric,
             n_neighbors=self.clickable_n_neighbors + 1,
-            return_distance=False,
             ctx=ctx,
+            return_distance=False,
         )
-        knn = knn.idx[:, 1:]
+        if knn is None:
+            log.warning(
+                "Clickable Plotly plot requested %d %s neighbors but none were found; "
+                "falling back to a static figure",
+                self.clickable_n_neighbors,
+                self.clickable_metric,
+            )
+            return fig
+        neighbor_idx = knn.idx[:, 1:]
 
-        return clickable_neighbors(fig, knn)
+        return clickable_neighbors(fig, neighbor_idx)
 
     def get_palette(self, ctx: EmbedContext | None) -> dict | None:
         """Get the palette for the PlotlyPlotter object, if it exists."""
