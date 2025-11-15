@@ -63,6 +63,15 @@ SDK editable inside that venv first, then install the plugin runner itself. The 
 longer exposes `drnb_plugin_sdk` via a symlink, so skipping the first command will result in import
 errors.
 
+To automate the same workflow, run:
+
+```bash
+./scripts/install.sh
+```
+
+This script installs the SDK and core package, then attempts to install every plugin under
+`plugins/`. Plugin installs are best-effort—failures are logged but do not abort the script.
+
 ### Optional packages
 
 #### Faiss
