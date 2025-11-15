@@ -24,7 +24,12 @@ class Registry:
         if env_root:
             root = Path(os.path.expanduser(os.path.expandvars(env_root)))
         else:
-            root = Path(__file__).resolve().parent
+            repo_root = Path(__file__).resolve().parents[3]
+            default_root = repo_root / _DEFAULT_PLUGINS_ROOT
+            if default_root.exists():
+                root = default_root
+            else:
+                root = Path(__file__).resolve().parent
         self.root = Path(root)
         self._by_method: dict[str, PluginSpec] = {}
         self._load()
