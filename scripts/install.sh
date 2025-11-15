@@ -7,12 +7,49 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UV_BIN="${UV:-uv}"
+FRESH=0
+
+usage() {
+  cat <<'EOF'
+Usage: ./scripts/install.sh [--fresh]
+
+Options:
+  --fresh, -f    Delete each project's .venv before running `uv sync`.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --fresh|-f)
+      FRESH=1
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+sync_dir() {
+  local dir="$1"
+  if [[ $FRESH -eq 1 && -d "$dir/.venv" ]]; then
+    echo "[drnb-install] Removing existing virtualenv at $dir/.venv"
+    rm -rf "$dir/.venv"
+  fi
+  (cd "$dir" && "$UV_BIN" sync)
+}
 
 echo "[drnb-install] Installing drnb-plugin-sdk from $ROOT_DIR/drnb-plugin-sdk"
-"$UV_BIN" pip install -e "$ROOT_DIR/drnb-plugin-sdk"
+sync_dir "$ROOT_DIR/drnb-plugin-sdk"
 
 echo "[drnb-install] Installing drnb core package from $ROOT_DIR"
-"$UV_BIN" pip install -e "$ROOT_DIR"
+sync_dir "$ROOT_DIR"
 
 PLUGIN_ROOT="$ROOT_DIR/plugins"
 if [[ -d "$PLUGIN_ROOT" ]]; then
@@ -24,7 +61,7 @@ if [[ -d "$PLUGIN_ROOT" ]]; then
     fi
     plugin_name="${plugin_dir##*/}"
     echo "[drnb-install] -> plugins/$plugin_name"
-    if ! "$UV_BIN" pip install -e "$plugin_dir"; then
+    if ! sync_dir "$plugin_dir"; then
       echo "[drnb-install] !! Failed to install plugins/$plugin_name (continuing)" >&2
     fi
   done

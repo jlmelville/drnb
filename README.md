@@ -34,9 +34,9 @@ stick around. openTSNE doesn't rely on numba so doesn't cause trouble.
 ```bash
 uv venv
 source .venv/bin/activate
-uv pip install -e .
+uv sync
 # or if you want:
-# uv pip install -e .['dev']
+# uv sync --dev
 ```
 
 The `dev` extra identifier just installs some linting tools for use when developing `drnb` . If you
@@ -50,11 +50,11 @@ inside this repo (or any downstream checkout) install components in this order:
 
 ```bash
 # from repo root
-uv pip install -e drnb-plugin-sdk     # shared protocol/neighbor helpers
-uv pip install -e .                   # core drnb package
+cd drnb-plugin-sdk && uv sync && cd ..
+uv sync                                 # core drnb package
 # optional: install individual plugin runners under plugins/<name>
-uv pip install -e plugins/pacmap
-uv pip install -e plugins/tsne
+cd plugins/pacmap && uv sync && cd ../..
+cd plugins/tsne && uv sync && cd ../..
 # ...repeat for whichever plugins you need
 ```
 
@@ -63,14 +63,21 @@ SDK editable inside that venv first, then install the plugin runner itself. The 
 longer exposes `drnb_plugin_sdk` via a symlink, so skipping the first command will result in import
 errors.
 
+`uv sync` reads the existing `pyproject.toml`/`uv.lock` and installs the project in
+editable mode while honoring the locked dependency versions. This is preferable to
+`uv pip install -e .`, which ignores the lock file and can drift from the expected
+environment.
+
 To automate the same workflow, run:
 
 ```bash
 ./scripts/install.sh
 ```
 
-This script installs the SDK and core package, then attempts to install every plugin under
-`plugins/`. Plugin installs are best-effort—failures are logged but do not abort the script.
+This script runs `uv sync` inside the SDK, the core repo, and then every plugin under
+`plugins/`. Plugin installs are best-effort—failures are logged but do not abort the
+script. Pass `--fresh` (or `-f`) if you want to delete each project's `.venv` before
+syncing, which is useful when switching Python versions.
 
 ### Optional packages
 
