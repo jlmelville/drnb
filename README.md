@@ -43,6 +43,26 @@ The `dev` extra identifier just installs some linting tools for use when develop
 are using VSCode then the `.vscode/settings.json` sets those tools up. I am trying to see how far
 I can get with just [ruff](https://docs.astral.sh/ruff/).
 
+### Plugin SDK and plugin runners
+
+Plugins now live in separate workspaces and share code via the `drnb-plugin-sdk`. When working
+inside this repo (or any downstream checkout) install components in this order:
+
+```bash
+# from repo root
+uv pip install -e drnb-plugin-sdk     # shared protocol/neighbor helpers
+uv pip install -e .                   # core drnb package
+# optional: install individual plugin runners under plugins/<name>
+uv pip install -e plugins/pacmap
+uv pip install -e plugins/tsne
+# ...repeat for whichever plugins you need
+```
+
+Because the SDK is a standalone package, each plugin virtualenv can stay lightweight: install the
+SDK editable inside that venv first, then install the plugin runner itself. The host package no
+longer exposes `drnb_plugin_sdk` via a symlink, so skipping the first command will result in import
+errors.
+
 ### Optional packages
 
 #### Faiss
