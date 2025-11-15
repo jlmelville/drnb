@@ -77,7 +77,9 @@ To automate the same workflow, run:
 This script runs `uv sync` inside the SDK, the core repo, and then every plugin under
 `plugins/`. Plugin installs are best-effort—failures are logged but do not abort the
 script. Pass `--fresh` (or `-f`) if you want to delete each project's `.venv` before
-syncing, which is useful when switching Python versions.
+syncing (useful when switching Python versions). Pass `--reinstall-sdk` (or `-r`) to
+force `uv sync` to reinstall the `drnb-plugin-sdk` dependency in each project without
+bumping its version—handy while iterating on the SDK itself.
 
 ### Optional packages
 

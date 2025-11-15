@@ -6,7 +6,7 @@ import sys
 import traceback
 from typing import Callable, Dict
 
-from .protocol import PluginRequest, load_request
+from drnb_plugin_sdk.protocol import PluginRequest, load_request
 
 
 def run_plugin(

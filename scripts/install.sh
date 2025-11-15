@@ -8,13 +8,17 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UV_BIN="${UV:-uv}"
 FRESH=0
+REINSTALL_SDK=0
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/install.sh [--fresh]
+Usage: ./scripts/install.sh [--fresh] [--reinstall-sdk]
 
 Options:
-  --fresh, -f    Delete each project's .venv before running `uv sync`.
+  --fresh, -f          Delete each project's .venv before running `uv sync`.
+  --reinstall-sdk, -r  Pass `--reinstall-package drnb-plugin-sdk` to `uv sync`
+                       so core/plugins pick up SDK changes without bumping the
+                       version.
 EOF
 }
 
@@ -22,6 +26,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --fresh|-f)
       FRESH=1
+      shift
+      ;;
+    --reinstall-sdk|-r)
+      REINSTALL_SDK=1
       shift
       ;;
     -h|--help)
@@ -42,7 +50,11 @@ sync_dir() {
     echo "[drnb-install] Removing existing virtualenv at $dir/.venv"
     rm -rf "$dir/.venv"
   fi
-  (cd "$dir" && "$UV_BIN" sync)
+  if [[ $REINSTALL_SDK -eq 1 ]]; then
+    (cd "$dir" && "$UV_BIN" sync --reinstall-package drnb-plugin-sdk)
+  else
+    (cd "$dir" && "$UV_BIN" sync)
+  fi
 }
 
 echo "[drnb-install] Installing drnb-plugin-sdk from $ROOT_DIR/drnb-plugin-sdk"
