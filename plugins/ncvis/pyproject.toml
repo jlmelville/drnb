@@ -6,15 +6,12 @@ requires-python = "==3.10.14"
 dependencies = [
     "numpy<2",
     "ncvis",
-    # "drnb-plugin-sdk>=0.1.0",
+    "scipy>=1.15.3",
 ]
 
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
-
-[tool.uv.sources]
-drnb-plugin-sdk = { path = "../../drnb-plugin-sdk" }
 
 [tool.uv.extra-build-dependencies]
 ncvis = ["numpy<2", "cython", "pybind11"]
