@@ -10,8 +10,7 @@ from typing import Any
 
 import ncvis
 import numpy as np
-
-from . import protocol_compat as sdk_protocol
+import protocol_compat as sdk_protocol
 
 
 def _log(msg: str) -> None:

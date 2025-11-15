@@ -27,7 +27,7 @@ from drnb.plugins.protocol import (
     request_to_dict,
     sanitize_params,
 )
-from drnb.plugins.registry import get_registry, plugins_enabled
+from drnb.plugins.registry import PluginSpec, get_registry, plugins_enabled
 from drnb.types import EmbedResult
 
 
@@ -134,9 +134,8 @@ class ExternalEmbedder(Embedder):
                 json.dumps(req_payload, ensure_ascii=False), encoding="utf-8"
             )
 
-            # Build command. Default: current python, unbuffered, run the runner script.
-            cmd = spec.runner or [sys.executable, "-u", "drnb-plugin-run.py"]
-            cmd = list(cmd) + ["--method", self.method, "--request", str(req_path)]
+            cmd = list(spec.runner or _default_runner(spec))
+            cmd += ["--method", self.method, "--request", str(req_path)]
 
             log.info(f"[external:{self.method}] launching: {' '.join(cmd)}")
 
@@ -146,6 +145,7 @@ class ExternalEmbedder(Embedder):
                 "PYTHONUNBUFFERED": "1",
                 "DRNB_LOG_PLAIN": "1",
             }
+            env.pop("VIRTUAL_ENV", None)
             proc = subprocess.Popen(  # noqa: S603
                 cmd,
                 cwd=spec.plugin_dir,
@@ -227,3 +227,39 @@ def _path_within(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def _default_runner(spec: PluginSpec) -> list[str]:
+    uv_var = os.environ.get("UV", "uv")
+    uv_path = shutil.which(uv_var)
+    if uv_path:
+        return [uv_path, "run", "--color", "never", "drnb-plugin-run.py"]
+
+    plugin_python = _find_plugin_python(spec.plugin_dir)
+    if plugin_python:
+        log.warning(
+            "[external:%s] uv executable '%s' not found; using plugin-local interpreter %s",
+            spec.method,
+            uv_var,
+            plugin_python,
+        )
+        return [plugin_python, "-u", "drnb-plugin-run.py"]
+
+    log.warning(
+        "[external:%s] uv executable '%s' not found and plugin .venv is missing; using host interpreter",
+        spec.method,
+        uv_var,
+    )
+    return [sys.executable, "-u", "drnb-plugin-run.py"]
+
+
+def _find_plugin_python(plugin_dir: Path) -> str | None:
+    candidates = [
+        plugin_dir / ".venv" / "bin" / "python",
+        plugin_dir / ".venv" / "Scripts" / "python.exe",
+        plugin_dir / ".venv" / "Scripts" / "python",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return None

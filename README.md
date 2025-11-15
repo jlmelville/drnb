@@ -81,6 +81,12 @@ syncing (useful when switching Python versions). Pass `--reinstall-sdk` (or `-r`
 force `uv sync` to reinstall the `drnb-plugin-sdk` dependency in each project without
 bumping its version—handy while iterating on the SDK itself.
 
+When `ExternalEmbedder` launches a plugin it runs `uv run drnb-plugin-run.py` inside that
+plugin's directory, so the `.venv` created by `uv sync` is picked up automatically (no manual
+activation required). Keep `uv` on your `PATH` or set the `UV` environment variable; if you
+need a bespoke invocation you can override the `runner` field for that plugin in
+`plugins/plugins.toml`.
+
 ### Optional packages
 
 #### Faiss

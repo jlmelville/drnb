@@ -1,27 +1,21 @@
 [plugins."trimap-plugin"]
 folder = "trimap"
-runner = "python -u drnb-plugin-run.py"
 
 [plugins."pacmap-plugin"]
 folder = "pacmap"
-runner = "python -u drnb-plugin-run.py"
 
 [plugins."localmap-plugin"]
 folder = "pacmap"
-runner = "python -u drnb-plugin-run.py"
 
 [plugins."tsne-plugin"]
 folder = "tsne"
-runner = "python -u drnb-plugin-run.py"
 
 [plugins."umato-plugin"]
 folder = "umato"
-runner = "python -u drnb-plugin-run.py"
 
 [plugins."ncvis-plugin"]
 folder = "ncvis"
-runner = "python -u drnb-plugin-run.py"
+runner = "uv run --color never --preview-features extra-build-dependencies drnb-plugin-run.py"
 
 [plugins."pymde-plugin"]
 folder = "pymde"
-runner = "python -u drnb-plugin-run.py"
