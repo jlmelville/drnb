@@ -2,26 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from drnb.embed.context import EmbedContext
 from drnb_plugin_sdk import protocol as sdk_protocol
 
-PROTOCOL_VERSION = sdk_protocol.PROTOCOL_VERSION
-PluginNeighbors = sdk_protocol.PluginNeighbors
-PluginInputPaths = sdk_protocol.PluginInputPaths
-PluginOptions = sdk_protocol.PluginOptions
-PluginOutputPaths = sdk_protocol.PluginOutputPaths
-PluginRequest = sdk_protocol.PluginRequest
-env_flag = sdk_protocol.env_flag
-request_to_dict = sdk_protocol.request_to_dict
-sanitize_params = sdk_protocol.sanitize_params
-load_request = sdk_protocol.load_request
-
-
-def context_to_payload(ctx: EmbedContext | None) -> dict[str, Any] | None:
-    return sdk_protocol.context_to_payload(ctx)
+from drnb.embed.context import EmbedContext
 
 
 def context_from_payload(data: dict[str, Any] | None) -> EmbedContext | None:
+    """Convert the SDK context payload back into EmbedContext."""
     plugin_ctx = sdk_protocol.context_from_payload(data)
     if plugin_ctx is None:
         return None

@@ -9,22 +9,11 @@ from pathlib import Path
 from typing import Any, NoReturn
 
 import numpy as np
+from drnb_plugin_sdk import protocol as sdk_protocol
 
 from drnb.embed.base import Embedder
 from drnb.embed.context import EmbedContext
 from drnb.log import log  # rich logger
-from drnb.plugins.protocol import (
-    PROTOCOL_VERSION,
-    PluginInputPaths,
-    PluginNeighbors,
-    PluginOptions,
-    PluginOutputPaths,
-    PluginRequest,
-    context_to_payload,
-    env_flag,
-    request_to_dict,
-    sanitize_params,
-)
 from drnb.plugins.registry import get_registry, plugins_enabled
 from drnb.types import EmbedResult
 
@@ -65,8 +54,8 @@ class ExternalEmbedder(Embedder):
             self._fail("plugin not found")
 
         params = dict(params or {})
-        safe_params = sanitize_params(params)
-        keep_tmp = env_flag("DRNB_PLUGIN_KEEP_TMP", False)
+        safe_params = sdk_protocol.sanitize_params(params)
+        keep_tmp = sdk_protocol.env_flag("DRNB_PLUGIN_KEEP_TMP", False)
         tmpdir = Path(tempfile.mkdtemp(prefix=f"drnb-{self.method}-"))
         self._workspace_dir = tmpdir
         self._cleanup_workspace = not keep_tmp
@@ -98,9 +87,9 @@ class ExternalEmbedder(Embedder):
                     )
 
             result_path = tmpdir / "result.npz"
-            input_paths = PluginInputPaths(
+            input_paths = sdk_protocol.PluginInputPaths(
                 x_path=str(x_path),
-                neighbors=PluginNeighbors(
+                neighbors=sdk_protocol.PluginNeighbors(
                     idx_path=str(idx_path) if idx_path else None,
                     dist_path=str(dist_path) if dist_path else None,
                 ),
@@ -114,20 +103,20 @@ class ExternalEmbedder(Embedder):
                 )
                 input_paths.init_path = str(init_path)
 
-            request = PluginRequest(
-                protocol_version=PROTOCOL_VERSION,
+            request = sdk_protocol.PluginRequest(
+                protocol_version=sdk_protocol.PROTOCOL_VERSION,
                 method=self.method,
                 params=safe_params,
-                context=context_to_payload(ctx),
+                context=sdk_protocol.context_to_payload(ctx),
                 input=input_paths,
-                options=PluginOptions(
+                options=sdk_protocol.PluginOptions(
                     keep_temps=keep_tmp,
                     use_precomputed_knn=use_knn,
                 ),
-                output=PluginOutputPaths(result_path=str(result_path)),
+                output=sdk_protocol.PluginOutputPaths(result_path=str(result_path)),
             )
             req_path = tmpdir / "request.json"
-            req_payload = request_to_dict(request)
+            req_payload = sdk_protocol.request_to_dict(request)
             req_path.write_text(
                 json.dumps(req_payload, ensure_ascii=False), encoding="utf-8"
             )
