@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import traceback
 from pathlib import Path
 from typing import Any
@@ -11,12 +10,7 @@ from typing import Any
 import ncvis
 import numpy as np
 import protocol_compat as sdk_protocol
-
-
-def _log(msg: str) -> None:
-    print(msg, file=sys.stderr, flush=True)
-
-
+from drnb_plugin_sdk.helpers.logging import log
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")
@@ -36,7 +30,7 @@ def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
     x = np.load(req["input"]["x_path"], allow_pickle=False)
     params = dict(req.get("params") or {})
 
-    _log(f"Running NCVis with params={params}")
+    log(f"Running NCVis with params={params}")
     embedder = ncvis.NCVis(**params)
     coords = embedder.fit_transform(x).astype(np.float32, copy=False)
 
@@ -56,7 +50,7 @@ def main() -> None:
         resp = run_method(req, args.method)
     except Exception:  # noqa: BLE001
         tb = traceback.format_exc()
-        _log(tb)
+        log(tb)
         resp = {"ok": False, "message": tb}
 
     response_path = (req.get("output") or {}).get("response_path")
@@ -65,7 +59,7 @@ def main() -> None:
     Path(response_path).write_text(
         json.dumps(resp, ensure_ascii=False), encoding="utf-8"
     )
-    _log(f"Wrote response to {response_path}")
+    log(f"Wrote response to {response_path}")
 
 
 if __name__ == "__main__":

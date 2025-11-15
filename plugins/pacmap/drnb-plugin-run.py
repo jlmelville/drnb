@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import traceback
 from pathlib import Path
 from typing import Any
@@ -11,17 +10,12 @@ from typing import Any
 import numpy as np
 import pacmap
 from drnb_plugin_sdk import protocol as sdk_protocol
+from drnb_plugin_sdk.helpers.logging import log
 from drnb_plugin_sdk.helpers.results import write_response_json
 
 from drnb.embed.context import get_neighbors_with_ctx
 from drnb.embed.deprecated.pacmap import create_neighbor_pairs
 from drnb.neighbors.localscale import locally_scaled_neighbors
-
-
-def _log(msg: str) -> None:
-    print(msg, file=sys.stderr, flush=True)
-
-
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")
@@ -54,7 +48,7 @@ def _needs_precomputed(
         return False
     apply_pca = params.get("apply_pca", True)
     if apply_pca and x.shape[1] > 100:
-        _log("Precomputed knn cannot be used: dimensionality will be reduced via PCA")
+        log("Precomputed knn cannot be used: dimensionality will be reduced via PCA")
         return False
     return True
 
@@ -106,7 +100,7 @@ def _prepare_pair_neighbors(
     knn_neighbors = scale_kwargs["m"] if local_scale else base_neighbors
     idx, dist = _load_neighbors(req, ctx, metric, knn_neighbors, x)
     if idx is None or dist is None:
-        _log("No precomputed knn available; plugin will rely on PaCMAP defaults")
+        log("No precomputed knn available; plugin will rely on PaCMAP defaults")
         return None
     if local_scale:
         max_cols = idx.shape[1]
@@ -225,10 +219,10 @@ def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
 
     summarized = _summarize_params(params)
     if method == "pacmap-plugin":
-        _log(f"Running PaCMAP with params={summarized}")
+        log(f"Running PaCMAP with params={summarized}")
         embedder = pacmap.PaCMAP(**params)
     elif method == "localmap-plugin":
-        _log(f"Running LocalMAP with params={summarized}")
+        log(f"Running LocalMAP with params={summarized}")
         embedder = pacmap.LocalMAP(**params)
     else:
         raise RuntimeError(f"unknown method {method}")
@@ -249,14 +243,14 @@ def main() -> None:
         resp = run_method(req, args.method)
     except Exception as exc:  # noqa: BLE001
         tb = traceback.format_exc()
-        _log(tb)
+        log(tb)
         resp = {"ok": False, "message": tb or str(exc)}
 
     response_path = (req.get("output") or {}).get("response_path")
     if not response_path:
         raise RuntimeError("Request missing output.response_path")
     write_response_json(response_path, resp)
-    _log(f"Wrote response to {response_path}")
+    log(f"Wrote response to {response_path}")
 
 
 if __name__ == "__main__":

@@ -59,6 +59,8 @@ loads it via `numpy.load` to build the final `EmbedResult`.
 
 - `drnb_plugin_sdk.helpers.runner.run_plugin` – CLI boilerplate, request loading,
   uniform error handling.
+- `drnb_plugin_sdk.helpers.logging.log` – emits stderr logs with flushing so
+  plugin progress messages appear in the host log immediately.
 - `drnb_plugin_sdk.helpers.results.save_result_npz` – writes coords/snapshots as
   float32 and returns the correct response dict.
 - `drnb_plugin_sdk.helpers.neighbors.load_neighbors` – read serialized KNN

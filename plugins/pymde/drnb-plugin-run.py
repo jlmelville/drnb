@@ -3,13 +3,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 import traceback
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 from drnb_plugin_sdk import protocol as sdk_protocol
+from drnb_plugin_sdk.helpers.logging import log
 from drnb_plugin_sdk.helpers.results import write_response_json
 
 from drnb.embed.context import get_neighbors_with_ctx
@@ -18,12 +18,6 @@ from drnb.embed.deprecated.pymde import (
     nn_to_graph,
     pymde_n_neighbors,
 )
-
-
-def _log(msg: str) -> None:
-    print(msg, file=sys.stderr, flush=True)
-
-
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")
@@ -54,7 +48,7 @@ def _build_graph(
         return None
 
     if ctx is None:
-        _log("No EmbedContext supplied; PyMDE plugin cannot reuse neighbors")
+        log("No EmbedContext supplied; PyMDE plugin cannot reuse neighbors")
         return None
 
     metric = params.get("distance", "euclidean")
@@ -63,7 +57,7 @@ def _build_graph(
 
     pre = get_neighbors_with_ctx(x, metric, n_neighbors, ctx=ctx)
     if pre is None:
-        _log("No precomputed knn available; PyMDE will use its internal graph")
+        log("No precomputed knn available; PyMDE will use its internal graph")
         return None
     return nn_to_graph(pre)
 
@@ -81,7 +75,7 @@ def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
 
     seed = params.pop("seed", None)
 
-    _log(f"Running PyMDE with params={params}")
+    log(f"Running PyMDE with params={params}")
     coords = embed_pymde_nbrs(x, seed=seed, params=params, graph=graph).astype(
         np.float32, copy=False
     )
@@ -102,14 +96,14 @@ def main() -> None:
         resp = run_method(req, args.method)
     except Exception:  # noqa: BLE001
         tb = traceback.format_exc()
-        _log(tb)
+        log(tb)
         resp = {"ok": False, "message": tb}
 
     response_path = (req.get("output") or {}).get("response_path")
     if not response_path:
         raise RuntimeError("Request missing output.response_path")
     write_response_json(response_path, resp)
-    _log(f"Wrote response to {response_path}")
+    log(f"Wrote response to {response_path}")
 
 
 if __name__ == "__main__":

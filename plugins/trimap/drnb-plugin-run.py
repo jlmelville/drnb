@@ -3,20 +3,16 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import trimap
 from drnb_plugin_sdk import protocol as sdk_protocol
+from drnb_plugin_sdk.helpers.logging import log
 from drnb_plugin_sdk.helpers.results import write_response_json
 
 from drnb.embed.context import get_neighbors_with_ctx
-
-
-def _log(msg: str) -> None:
-    print(msg, file=sys.stderr, flush=True)
 
 
 def _load_request(path: Path) -> dict[str, Any]:
@@ -61,7 +57,7 @@ def run_trimap(req: dict[str, Any]) -> dict[str, Any]:
     knn_tuple = _neighbor_tuple(req, x, ctx)
     if knn_tuple is not None:
         params["knn_tuple"] = knn_tuple
-        _log("Using precomputed KNN data for TriMap")
+        log("Using precomputed KNN data for TriMap")
 
     return_seq = bool(params.get("return_seq", False))
     orig_return_every = trimap.trimap_._RETURN_EVERY
@@ -71,7 +67,7 @@ def run_trimap(req: dict[str, Any]) -> dict[str, Any]:
     try:
         if return_every != orig_return_every:
             trimap.trimap_._RETURN_EVERY = return_every
-        _log(f"Running TriMap with params={params}")
+        log(f"Running TriMap with params={params}")
         embedder = trimap.TRIMAP(n_dims=2, **params)
         result = embedder.fit_transform(x, init=init)
     finally:
@@ -112,7 +108,7 @@ def main() -> None:
     if not response_path:
         raise RuntimeError("Request missing output.response_path")
     write_response_json(response_path, resp)
-    _log(f"Wrote response to {response_path}")
+    log(f"Wrote response to {response_path}")
 
 
 if __name__ == "__main__":

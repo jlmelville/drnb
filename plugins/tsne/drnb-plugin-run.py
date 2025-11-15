@@ -12,6 +12,7 @@ import numpy as np
 import openTSNE
 from drnb.embed.tsne import get_tsne_affinities, tsne_annealed_exaggeration
 from drnb_plugin_sdk import protocol as sdk_protocol
+from drnb_plugin_sdk.helpers.logging import log
 from drnb_plugin_sdk.helpers.results import write_response_json
 
 _PLUGIN_ONLY_PARAMS = {
@@ -27,12 +28,6 @@ _PLUGIN_ONLY_PARAMS = {
     "final_momentum",
     "gradient_descent_params",
 }
-
-
-def _log(msg: str) -> None:
-    print(msg, file=sys.stderr, flush=True)
-
-
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")
@@ -125,7 +120,7 @@ def run_tsne(req: dict[str, Any]) -> dict[str, Any]:
                 for key, value in params.items()
                 if key not in _PLUGIN_ONLY_PARAMS
             }
-            _log(f"Running openTSNE.TSNE with params={tsne_params}")
+            log(f"Running openTSNE.TSNE with params={tsne_params}")
             tsne = openTSNE.TSNE(n_components=2, **tsne_params)
             embedded = tsne.fit(x, affinities=affinities, initialization=init)
 
@@ -154,7 +149,7 @@ def main() -> None:
     if not response_path:
         raise RuntimeError("Request missing output.response_path")
     write_response_json(response_path, resp)
-    _log(f"Wrote response to {response_path}")
+    log(f"Wrote response to {response_path}")
 
 
 if __name__ == "__main__":

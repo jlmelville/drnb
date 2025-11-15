@@ -1,5 +1,6 @@
 """Python-only helper modules for drnb plugin runners."""
 
+from .logging import log
 from .neighbors import (
     NbrInfo,
     NearestNeighbors,
@@ -17,7 +18,7 @@ __all__ = [
     "run_plugin",
     "save_result_npz",
     "write_response_json",
-    "write_response_json",
+    "log",
     "NbrInfo",
     "NearestNeighbors",
     "find_candidate_neighbors_info",
