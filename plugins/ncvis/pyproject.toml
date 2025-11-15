@@ -2,11 +2,11 @@
 name = "drnb-plugin-ncvis"
 version = "0.0.1"
 description = "NCVis plugin runner for drnb"
-requires-python = ">=3.12"
+requires-python = "==3.10.14"
 dependencies = [
-    "numpy",
-    "ncvis>=0.1.10",
-    "drnb-plugin-sdk>=0.1.0",
+    "numpy<2",
+    "ncvis",
+    # "drnb-plugin-sdk>=0.1.0",
 ]
 
 [build-system]
@@ -15,3 +15,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.uv.sources]
 drnb-plugin-sdk = { path = "../../drnb-plugin-sdk" }
+
+[tool.uv.extra-build-dependencies]
+ncvis = ["numpy<2", "cython", "pybind11"]
