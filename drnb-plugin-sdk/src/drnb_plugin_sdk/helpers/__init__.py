@@ -10,12 +10,14 @@ from .neighbors import (
     replace_n_neighbors_in_path,
     write_neighbors,
 )
-from .results import save_result_npz
+from .results import save_result_npz, write_response_json
 from .runner import run_plugin
 
 __all__ = [
     "run_plugin",
     "save_result_npz",
+    "write_response_json",
+    "write_response_json",
     "NbrInfo",
     "NearestNeighbors",
     "find_candidate_neighbors_info",

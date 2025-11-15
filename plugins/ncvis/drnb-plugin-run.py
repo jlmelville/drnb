@@ -59,7 +59,13 @@ def main() -> None:
         _log(tb)
         resp = {"ok": False, "message": tb}
 
-    print(json.dumps(resp), flush=True)
+    response_path = (req.get("output") or {}).get("response_path")
+    if not response_path:
+        raise RuntimeError("Request missing output.response_path")
+    Path(response_path).write_text(
+        json.dumps(resp, ensure_ascii=False), encoding="utf-8"
+    )
+    _log(f"Wrote response to {response_path}")
 
 
 if __name__ == "__main__":

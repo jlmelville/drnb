@@ -87,6 +87,9 @@ activation required). Keep `uv` on your `PATH` or set the `UV` environment varia
 need a bespoke invocation you can override the `runner` field for that plugin in
 `plugins/plugins.toml`.
 
+See `docs/plugin-protocol.md` for the complete request/response contract that every plugin runner
+must follow.
+
 ### Optional packages
 
 #### Faiss

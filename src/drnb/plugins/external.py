@@ -1,9 +1,11 @@
 import json
+import logging
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, NoReturn
@@ -100,6 +102,7 @@ class ExternalEmbedder(Embedder):
                     )
 
             result_path = tmpdir / "result.npz"
+            response_path = tmpdir / "response.json"
             input_paths = PluginInputPaths(
                 x_path=str(x_path),
                 neighbors=PluginNeighbors(
@@ -126,7 +129,9 @@ class ExternalEmbedder(Embedder):
                     keep_temps=keep_tmp,
                     use_precomputed_knn=use_knn,
                 ),
-                output=PluginOutputPaths(result_path=str(result_path)),
+                output=PluginOutputPaths(
+                    result_path=str(result_path), response_path=str(response_path)
+                ),
             )
             req_path = tmpdir / "request.json"
             req_payload = request_to_dict(request)
@@ -139,7 +144,7 @@ class ExternalEmbedder(Embedder):
 
             log.info(f"[external:{self.method}] launching: {' '.join(cmd)}")
 
-            # Stream plugin logs from stderr, keep stdout for the final JSON line.
+            # Stream plugin logs from stdout/stderr, let response JSON be written to disk.
             env = {
                 **os.environ,
                 "PYTHONUNBUFFERED": "1",
@@ -155,24 +160,28 @@ class ExternalEmbedder(Embedder):
                 env=env,
             )
             assert proc.stdout and proc.stderr
-            try:
-                for line in proc.stderr:
-                    log.info(line.rstrip())  # live logs into notebook
-                out = proc.stdout.read()
-                code = proc.wait()
-            finally:
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
+            stdout_logger = log.getChild(f"external.{self.method}.stdout")
+            stderr_logger = log.getChild(f"external.{self.method}.stderr")
+            stdout_thread = threading.Thread(
+                target=_stream_pipe,
+                args=(proc.stdout, stdout_logger, logging.INFO),
+                daemon=True,
+            )
+            stderr_thread = threading.Thread(
+                target=_stream_pipe,
+                args=(proc.stderr, stderr_logger, logging.INFO),
+                daemon=True,
+            )
+            stdout_thread.start()
+            stderr_thread.start()
+            code = proc.wait()
+            stdout_thread.join()
+            stderr_thread.join()
 
             if code != 0:
                 self._fail(f"plugin exit {code}")
 
-            try:
-                resp = json.loads(out.strip())
-            except Exception as e:  # noqa: BLE001
-                self._fail(f"bad JSON from plugin: {e}")
+            resp = _load_response(response_path)
 
             if not resp.get("ok", False):
                 self._fail(f"plugin error: {resp.get('message', 'unknown')}")
@@ -227,13 +236,11 @@ def _path_within(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
-
-
 def _default_runner(spec: PluginSpec) -> list[str]:
     uv_var = os.environ.get("UV", "uv")
     uv_path = shutil.which(uv_var)
     if uv_path:
-        return [uv_path, "run", "--color", "never", "drnb-plugin-run.py"]
+        return [uv_path, "run", "--color", "never", "--quiet", "drnb-plugin-run.py"]
 
     plugin_python = _find_plugin_python(spec.plugin_dir)
     if plugin_python:
@@ -263,3 +270,24 @@ def _find_plugin_python(plugin_dir: Path) -> str | None:
         if candidate.exists():
             return str(candidate)
     return None
+
+
+def _stream_pipe(pipe, logger, level: int) -> None:
+    try:
+        for line in pipe:
+            logger.log(level, line.rstrip())
+    finally:
+        try:
+            pipe.close()
+        except Exception:
+            pass
+
+
+def _load_response(response_path: Path | str) -> dict[str, Any]:
+    path = Path(response_path)
+    if not path.exists():
+        raise RuntimeError(f"plugin response not written to {path}")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"invalid plugin response at {path}: {exc}") from exc

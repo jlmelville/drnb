@@ -48,6 +48,7 @@ class PluginOptions:
 @dataclass
 class PluginOutputPaths:
     result_path: str
+    response_path: str | None = None
 
 
 @dataclass
@@ -119,6 +120,9 @@ def _decode_request(raw: dict[str, Any]) -> PluginRequest:
             neighbors=PluginNeighbors(**(input_payload.get("neighbors") or {})),
         ),
         options=PluginOptions(**options_payload),
-        output=PluginOutputPaths(**output_payload),
+        output=PluginOutputPaths(
+            result_path=output_payload["result_path"],
+            response_path=output_payload.get("response_path"),
+        ),
     )
     return request

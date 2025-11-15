@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -19,3 +20,14 @@ def save_result_npz(
             payload[key] = np.asarray(value, dtype=np.float32, order="C")
     np.savez_compressed(out_path, **payload)
     return {"ok": True, "result_npz": str(out_path)}
+
+
+def write_response_json(
+    response_path: str | Path, payload: Mapping[str, Any]
+) -> str:
+    """Persist the final plugin response JSON to disk."""
+    out_path = Path(response_path).resolve()
+    out_path.write_text(
+        json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+    )
+    return str(out_path)

@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 import pacmap
 from drnb_plugin_sdk import protocol as sdk_protocol
+from drnb_plugin_sdk.helpers.results import write_response_json
 
 from drnb.embed.context import get_neighbors_with_ctx
 from drnb.embed.deprecated.pacmap import create_neighbor_pairs
@@ -251,7 +252,11 @@ def main() -> None:
         _log(tb)
         resp = {"ok": False, "message": tb or str(exc)}
 
-    print(json.dumps(resp), flush=True)
+    response_path = (req.get("output") or {}).get("response_path")
+    if not response_path:
+        raise RuntimeError("Request missing output.response_path")
+    write_response_json(response_path, resp)
+    _log(f"Wrote response to {response_path}")
 
 
 if __name__ == "__main__":

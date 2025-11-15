@@ -50,7 +50,9 @@ def test_request_round_trip(tmp_path: Path) -> None:
             neighbors=PluginNeighbors(idx_path="idx.npy", dist_path="dist.npy"),
         ),
         options=PluginOptions(),
-        output=PluginOutputPaths(result_path="result.npz"),
+        output=PluginOutputPaths(
+            result_path="result.npz", response_path="response.json"
+        ),
     )
     req_path = tmp_path / "request.json"
     req_path.write_text(json.dumps(request_to_dict(req)), encoding="utf-8")
@@ -59,3 +61,5 @@ def test_request_round_trip(tmp_path: Path) -> None:
     assert loaded.method == req.method
     assert loaded.params == req.params
     assert loaded.input.x_path == req.input.x_path
+    assert loaded.output.result_path == "result.npz"
+    assert loaded.output.response_path == "response.json"

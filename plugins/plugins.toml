@@ -15,7 +15,7 @@ folder = "umato"
 
 [plugins."ncvis-plugin"]
 folder = "ncvis"
-runner = "uv run --color never --preview-features extra-build-dependencies drnb-plugin-run.py"
+runner = "uv run --color never --quiet --preview-features extra-build-dependencies drnb-plugin-run.py"
 
 [plugins."pymde-plugin"]
 folder = "pymde"

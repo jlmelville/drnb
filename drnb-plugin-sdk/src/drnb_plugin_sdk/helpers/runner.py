@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 import traceback
 from typing import Callable, Dict
 
 from drnb_plugin_sdk.protocol import PluginRequest, load_request
+
+from .results import write_response_json
 
 
 def run_plugin(
@@ -22,13 +23,8 @@ def run_plugin(
 
     handler = handlers.get(args.method)
     if handler is None:
-        print(
-            json.dumps(
-                {"ok": False, "message": f"unknown method {args.method}"},
-            ),
-            flush=True,
-        )
-        sys.exit(0)
+        print(f"Unknown method {args.method}", file=sys.stderr, flush=True)
+        sys.exit(1)
 
     try:
         request = load_request(args.request)
@@ -37,4 +33,7 @@ def run_plugin(
         traceback.print_exc(file=sys.stderr)
         response = {"ok": False, "message": str(exc)}
 
-    print(json.dumps(response), flush=True)
+    response_path = request.output.response_path
+    if not response_path:
+        raise RuntimeError("Plugin request missing output.response_path")
+    write_response_json(response_path, response)

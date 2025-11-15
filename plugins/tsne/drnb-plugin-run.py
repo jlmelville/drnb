@@ -12,6 +12,7 @@ import numpy as np
 import openTSNE
 from drnb.embed.tsne import get_tsne_affinities, tsne_annealed_exaggeration
 from drnb_plugin_sdk import protocol as sdk_protocol
+from drnb_plugin_sdk.helpers.results import write_response_json
 
 _PLUGIN_ONLY_PARAMS = {
     "use_precomputed_knn",
@@ -149,7 +150,11 @@ def main() -> None:
     except Exception as exc:  # noqa: BLE001
         resp = {"ok": False, "message": str(exc)}
 
-    print(json.dumps(resp), flush=True)
+    response_path = (req.get("output") or {}).get("response_path")
+    if not response_path:
+        raise RuntimeError("Request missing output.response_path")
+    write_response_json(response_path, resp)
+    _log(f"Wrote response to {response_path}")
 
 
 if __name__ == "__main__":
