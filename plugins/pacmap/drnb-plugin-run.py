@@ -10,11 +10,11 @@ from typing import Any
 
 import numpy as np
 import pacmap
+from drnb_plugin_sdk import protocol as sdk_protocol
 
 from drnb.embed.context import get_neighbors_with_ctx
 from drnb.embed.deprecated.pacmap import create_neighbor_pairs
 from drnb.neighbors.localscale import locally_scaled_neighbors
-from drnb.plugins.protocol import PROTOCOL_VERSION, context_from_payload
 
 
 def _log(msg: str) -> None:
@@ -24,9 +24,9 @@ def _log(msg: str) -> None:
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")
-    if proto != PROTOCOL_VERSION:
+    if proto != sdk_protocol.PROTOCOL_VERSION:
         raise RuntimeError(
-            f"protocol mismatch: expected {PROTOCOL_VERSION}, got {proto}"
+            f"protocol mismatch: expected {sdk_protocol.PROTOCOL_VERSION}, got {proto}"
         )
     return data
 
@@ -200,7 +200,7 @@ def _save_result(result, snapshots: list[int], out_path: Path) -> dict[str, Any]
 
 
 def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
-    ctx = context_from_payload(req.get("context"))
+    ctx = sdk_protocol.context_from_payload(req.get("context"))
     x = np.load(req["input"]["x_path"], allow_pickle=False)
     params = dict(req.get("params") or {})
 

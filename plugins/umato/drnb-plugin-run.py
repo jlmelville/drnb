@@ -10,8 +10,7 @@ from typing import Any
 
 import numpy as np
 import umato
-
-from drnb.plugins.protocol import PROTOCOL_VERSION, context_from_payload
+from drnb_plugin_sdk import protocol as sdk_protocol
 
 DEFAULT_HUB_NUM = 300
 
@@ -23,9 +22,9 @@ def _log(msg: str) -> None:
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")
-    if proto != PROTOCOL_VERSION:
+    if proto != sdk_protocol.PROTOCOL_VERSION:
         raise RuntimeError(
-            f"protocol mismatch: expected {PROTOCOL_VERSION}, got {proto}"
+            f"protocol mismatch: expected {sdk_protocol.PROTOCOL_VERSION}, got {proto}"
         )
     return data
 
@@ -45,7 +44,7 @@ def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
     if method != "umato-plugin":
         raise RuntimeError(f"unknown method {method}")
 
-    context_from_payload(req.get("context"))
+    sdk_protocol.context_from_payload(req.get("context"))
 
     x = np.load(req["input"]["x_path"], allow_pickle=False)
     params = dict(req.get("params") or {})

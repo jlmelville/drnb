@@ -10,9 +10,8 @@ from typing import Any
 
 import numpy as np
 import openTSNE
-
 from drnb.embed.tsne import get_tsne_affinities, tsne_annealed_exaggeration
-from drnb.plugins.protocol import PROTOCOL_VERSION, context_from_payload
+from drnb_plugin_sdk import protocol as sdk_protocol
 
 _PLUGIN_ONLY_PARAMS = {
     "use_precomputed_knn",
@@ -36,9 +35,9 @@ def _log(msg: str) -> None:
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")
-    if proto != PROTOCOL_VERSION:
+    if proto != sdk_protocol.PROTOCOL_VERSION:
         raise RuntimeError(
-            f"protocol mismatch: expected {PROTOCOL_VERSION}, got {proto}"
+            f"protocol mismatch: expected {sdk_protocol.PROTOCOL_VERSION}, got {proto}"
         )
     return data
 
@@ -68,7 +67,7 @@ def _build_affinities(req: dict[str, Any], x: np.ndarray, ctx) -> Any:
 
 
 def run_tsne(req: dict[str, Any]) -> dict[str, Any]:
-    ctx = context_from_payload(req.get("context"))
+    ctx = sdk_protocol.context_from_payload(req.get("context"))
     x = np.load(req["input"]["x_path"], allow_pickle=False)
     params = dict(req.get("params") or {})
 

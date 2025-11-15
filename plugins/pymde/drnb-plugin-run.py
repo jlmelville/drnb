@@ -9,10 +9,14 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from drnb_plugin_sdk import protocol as sdk_protocol
 
 from drnb.embed.context import get_neighbors_with_ctx
-from drnb.embed.pymde import embed_pymde_nbrs, nn_to_graph, pymde_n_neighbors
-from drnb.plugins.protocol import PROTOCOL_VERSION, context_from_payload
+from drnb.embed.deprecated.pymde import (
+    embed_pymde_nbrs,
+    nn_to_graph,
+    pymde_n_neighbors,
+)
 
 
 def _log(msg: str) -> None:
@@ -22,9 +26,9 @@ def _log(msg: str) -> None:
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")
-    if proto != PROTOCOL_VERSION:
+    if proto != sdk_protocol.PROTOCOL_VERSION:
         raise RuntimeError(
-            f"protocol mismatch: expected {PROTOCOL_VERSION}, got {proto}"
+            f"protocol mismatch: expected {sdk_protocol.PROTOCOL_VERSION}, got {proto}"
         )
     return data
 
@@ -67,7 +71,7 @@ def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
     if method != "pymde-plugin":
         raise RuntimeError(f"unknown method {method}")
 
-    ctx = context_from_payload(req.get("context"))
+    ctx = sdk_protocol.context_from_payload(req.get("context"))
     x = np.load(req["input"]["x_path"], allow_pickle=False)
     params = dict(req.get("params") or {})
 
