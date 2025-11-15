@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
-from drnb_plugin_sdk.neighbors import (
+from drnb_plugin_sdk.helpers.neighbors import (
     NbrInfo,
     NearestNeighbors,
     find_candidate_neighbors_info,

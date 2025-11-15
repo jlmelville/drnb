@@ -6,7 +6,7 @@ from typing import List
 from drnb.io import data_relative_path, get_path, write_data
 from drnb.log import log
 from drnb.neighbors.nbrinfo import NbrInfo, NearestNeighbors
-from drnb_plugin_sdk.neighbors import (
+from drnb_plugin_sdk.helpers.neighbors import (
     find_candidate_neighbors_info as sdk_find_candidate_neighbors_info,
     read_neighbors as sdk_read_neighbors,
 )

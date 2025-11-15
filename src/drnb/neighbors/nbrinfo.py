@@ -1,4 +1,4 @@
-from drnb_plugin_sdk.neighbors import (
+from drnb_plugin_sdk.helpers.neighbors import (
     NbrInfo,
     NearestNeighbors,
     idx_to_dist,

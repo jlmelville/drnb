@@ -15,8 +15,6 @@ from .protocol import (
     request_to_dict,
     sanitize_params,
 )
-from .runner import run_plugin
-from .results import save_result_npz
 
 __all__ = [
     "PROTOCOL_VERSION",
@@ -31,7 +29,5 @@ __all__ = [
     "env_flag",
     "load_request",
     "request_to_dict",
-    "run_plugin",
     "sanitize_params",
-    "save_result_npz",
 ]
