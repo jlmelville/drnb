@@ -1,24 +1,13 @@
 # drnb-plugin-sdk
 
-Shared helpers used by the `drnb` core and its external plugin runners. This package
-exposes the IPC protocol dataclasses, CLI runner wrapper, neighbor file utilities,
-and result-writing helpers so plugins can stay lightweight without importing the full
-`drnb` dependency stack.
+Minimal protocol definitions and optional Python helpers for drnb plugin runners.
 
-Install in editable mode while working inside the main repository:
+- `drnb_plugin_sdk` (top-level package) exposes only the JSON dataclasses and
+  request loader needed by every plugin. Copy this module verbatim if you need
+  to target an older Python version or another language.
+- `drnb_plugin_sdk.helpers` contains convenience utilities (neighbor IO, CLI
+  runner, result writer). These depend on Python 3.12 and NumPy; use them only
+  when you control the plugin runtime.
 
-```
-uv pip install -e drnb-plugin-sdk
-```
-
-After installation, both the host environment and every plugin virtual environment can
-import `drnb_plugin_sdk`.
-
-## Neighbor helpers
-
-Plugins should call `drnb_plugin_sdk.neighbors.load_neighbors(request)` to load the
-optional `knn_idx.npy` / `knn_dist.npy` files referenced inside the request payload.
-It is up to each plugin to decide how many neighbors it needs (by inspecting user
-parameters, defaults, or method-specific heuristics) and then slice or supplement the
-loaded arrays accordingly. If no neighbor files exist for the requested dataset, the
-SDK helper returns `(None, None)` so plugins can fall back to their own neighbor logic.
+Keeping these concerns separate makes it possible to implement plugins in other
+languages or Python versions without dragging along superfluous helpers.

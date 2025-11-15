@@ -3,7 +3,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from drnb_plugin_sdk.protocol import (
     PROTOCOL_VERSION,
     PluginContext,
