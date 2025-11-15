@@ -171,6 +171,7 @@ version = "0.2.1"
 source = { editable = "." }
 dependencies = [
     { name = "annoy" },
+    { name = "drnb-plugin-sdk" },
     { name = "glasbey" },
     { name = "hnswlib" },
     { name = "httpx" },
@@ -188,7 +189,6 @@ dependencies = [
     { name = "seaborn" },
     { name = "trimap" },
     { name = "umap-learn" },
-    { name = "umato" },
 ]
 
 [package.optional-dependencies]
@@ -200,6 +200,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "annoy", specifier = ">=1.17.3" },
+    { name = "drnb-plugin-sdk", directory = "drnb-plugin-sdk" },
     { name = "glasbey", specifier = ">=0.2.1" },
     { name = "hnswlib", specifier = ">=0.8.0" },
     { name = "httpx", specifier = ">=0.28.1" },
@@ -219,7 +220,21 @@ requires-dist = [
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "trimap", specifier = ">=1.1.4" },
     { name = "umap-learn", specifier = ">=0.5.9.post2" },
-    { name = "umato", specifier = ">=1.0.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "drnb-plugin-sdk"
+version = "0.1.0"
+source = { directory = "drnb-plugin-sdk" }
+dependencies = [
+    { name = "numpy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy", specifier = ">=1.22,<2.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.4" },
 ]
 provides-extras = ["dev"]
 
@@ -1176,22 +1191,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/5f/ee/6bc65bd375c812026a7af63fe9d09d409382120aff25f2152f1ba12af5ec/umap_learn-0.5.9.post2.tar.gz", hash = "sha256:bdf60462d779bd074ce177a0714ced17e6d161285590fa487f3f9548dd3c31c9", size = 95441, upload-time = "2025-07-03T00:18:02.479Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6b/b1/c24deeda9baf1fd491aaad941ed89e0fed6c583a117fd7b79e0a33a1e6c0/umap_learn-0.5.9.post2-py3-none-any.whl", hash = "sha256:fbe51166561e0e7fab00ef3d516ac2621243b8d15cf4bef9f656d701736b16a0", size = 90146, upload-time = "2025-07-03T00:18:01.042Z" },
-]
-
-[[package]]
-name = "umato"
-version = "1.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "joblib" },
-    { name = "numba" },
-    { name = "numpy" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d5/81/db6155f54052ae927934478db77f12350924b79506e4aadbfc89262b35ce/umato-1.0.0.tar.gz", hash = "sha256:98e183600d270577fca4f9ab3de70da492d2c99dbf41220c74266f2e14f25404", size = 42396, upload-time = "2025-08-28T09:09:43.461Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/52/6608b0385fac3a5f54f6f6def2c2c14a3fe6a4e5ae3b974efb5fe62e2b40/umato-1.0.0-py3-none-any.whl", hash = "sha256:a222bc65f27c193e29ca33d999214ec1bb9d6f929b2ec63bf86f9a2cae792384", size = 44023, upload-time = "2025-08-28T09:09:41.972Z" },
 ]
 
 [[package]]

@@ -5,6 +5,7 @@ build/
 dist/
 wheels/
 src/*.egg-info
+drnb-plugin-sdk/**/*.egg-info
 
 .ipynb_checkpoints
 
