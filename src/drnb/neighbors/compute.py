@@ -344,7 +344,9 @@ def _preferred_exact_methods():
     return metric_algs
 
 
-def _slice_neighbors(neighbors_data: NearestNeighbors, n_neighbors: int) -> NearestNeighbors:
+def _slice_neighbors(
+    neighbors_data: NearestNeighbors, n_neighbors: int
+) -> NearestNeighbors:
     if neighbors_data.info is None:
         raise ValueError("Cannot slice neighbors without metadata")
     if neighbors_data.info.n_nbrs < n_neighbors:
