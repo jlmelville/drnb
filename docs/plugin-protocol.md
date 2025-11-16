@@ -73,8 +73,6 @@ loads it via `numpy.load` to build the final `EmbedResult`.
   plugin progress messages appear in the host log immediately.
 - `drnb_plugin_sdk.helpers.results.save_result_npz` – writes coords/snapshots as
   float32 and returns the correct response dict.
-- `drnb_plugin_sdk.helpers.neighbors.load_neighbors` – read serialized KNN
-   arrays without reimplementing `numpy.load` logic.
 
 Using these helpers keeps every plugin aligned with the protocol and avoids
 copy/pasted serialization code.

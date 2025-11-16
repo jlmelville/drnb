@@ -1,79 +1,25 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
-import argparse
-import json
-import traceback
-from pathlib import Path
-from typing import Any
-
 import ncvis
 import numpy as np
-import protocol_compat as sdk_protocol
-from drnb_plugin_sdk.helpers.logging import log
+from drnb_plugin_sdk_310 import protocol as sdk_protocol
+from drnb_plugin_sdk_310.helpers.logging import log, summarize_params
+from drnb_plugin_sdk_310.helpers.paths import resolve_x_path
+from drnb_plugin_sdk_310.helpers.results import save_result_npz
+from drnb_plugin_sdk_310.helpers.runner import run_plugin
 
 
-def _load_request(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    proto = data.get("protocol") or data.get("protocol_version")
-    if proto != sdk_protocol.PROTOCOL_VERSION:
-        raise RuntimeError(
-            f"protocol mismatch: expected {sdk_protocol.PROTOCOL_VERSION}, got {proto}"
-        )
-    return data
+def run_ncvis(req: sdk_protocol.PluginRequest) -> dict[str, str]:
+    x = np.load(resolve_x_path(req), allow_pickle=False)
+    params = dict(req.params or {})
 
-
-def _preferred_input_path(req: dict[str, Any], key: str) -> str:
-    options = req.get("options") or {}
-    if not options.get("use_sandbox_copies"):
-        source = (req.get("input") or {}).get("source_paths") or {}
-        candidate = source.get(key)
-        if candidate and Path(candidate).exists():
-            return candidate
-    return (req.get("input") or {}).get(key)
-
-
-def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
-    if method != "ncvis-plugin":
-        raise RuntimeError(f"unknown method {method}")
-
-    sdk_protocol.context_from_payload(req.get("context"))
-
-    x_path = _preferred_input_path(req, "x_path")
-    x = np.load(x_path, allow_pickle=False)
-    params = dict(req.get("params") or {})
-
-    log(f"Running NCVis with params={params}")
+    log(f"Running NCVis with params={summarize_params(params)}")
     embedder = ncvis.NCVis(**params)
     coords = embedder.fit_transform(x).astype(np.float32, copy=False)
 
-    result_path = Path(req["output"]["result_path"]).resolve()
-    np.savez_compressed(result_path, coords=coords)
-    return {"ok": True, "result_npz": str(result_path)}
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--method", required=True)
-    parser.add_argument("--request", required=True)
-    args = parser.parse_args()
-
-    req = _load_request(Path(args.request))
-    try:
-        resp = run_method(req, args.method)
-    except Exception:  # noqa: BLE001
-        tb = traceback.format_exc()
-        log(tb)
-        resp = {"ok": False, "message": tb}
-
-    response_path = (req.get("output") or {}).get("response_path")
-    if not response_path:
-        raise RuntimeError("Request missing output.response_path")
-    Path(response_path).write_text(
-        json.dumps(resp, ensure_ascii=False), encoding="utf-8"
-    )
-    log(f"Wrote response to {response_path}")
+    return save_result_npz(req.output.result_path, coords)
 
 
 if __name__ == "__main__":
-    main()
+    run_plugin({"ncvis-plugin": run_ncvis})

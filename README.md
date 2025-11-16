@@ -45,12 +45,15 @@ I can get with just [ruff](https://docs.astral.sh/ruff/).
 
 ### Plugin SDK and plugin runners
 
-Plugins now live in separate workspaces and share code via the `drnb-plugin-sdk`. When working
-inside this repo (or any downstream checkout) install components in this order:
+Plugins now live in separate workspaces and share code via the `drnb-plugin-sdk` (Python 3.12) or,
+for the ncvis runner, the Python 3.10–compatible `drnb-plugin-sdk-310`. When working inside this
+repo (or any downstream checkout) install components in this order:
 
 ```bash
 # from repo root
 cd drnb-plugin-sdk && uv sync && cd ..
+# optional: for Python 3.10-only plugins (ncvis)
+cd drnb-plugin-sdk-310 && uv sync && cd ..
 uv sync                                 # core drnb package
 # optional: install individual plugin runners under plugins/<name>
 cd plugins/pacmap && uv sync && cd ../..
@@ -78,8 +81,8 @@ This script runs `uv sync` inside the SDK, the core repo, and then every plugin 
 `plugins/`. Plugin installs are best-effort—failures are logged but do not abort the
 script. Pass `--fresh` (or `-f`) if you want to delete each project's `.venv` before
 syncing (useful when switching Python versions). Pass `--reinstall-sdk` (or `-r`) to
-force `uv sync` to reinstall the `drnb-plugin-sdk` dependency in each project without
-bumping its version—handy while iterating on the SDK itself.
+force `uv sync` to reinstall the `drnb-plugin-sdk` (and `drnb-plugin-sdk-310` when present)
+dependency in each project without bumping its version—handy while iterating on the SDKs.
 
 When `ExternalEmbedder` launches a plugin it runs `uv run drnb-plugin-run.py` inside that
 plugin's directory, so the `.venv` created by `uv sync` is picked up automatically (no manual

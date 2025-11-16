@@ -60,6 +60,11 @@ sync_dir() {
 echo "[drnb-install] Installing drnb-plugin-sdk from $ROOT_DIR/drnb-plugin-sdk"
 sync_dir "$ROOT_DIR/drnb-plugin-sdk"
 
+if [[ -d "$ROOT_DIR/drnb-plugin-sdk-310" ]]; then
+  echo "[drnb-install] Installing drnb-plugin-sdk-310 from $ROOT_DIR/drnb-plugin-sdk-310"
+  sync_dir "$ROOT_DIR/drnb-plugin-sdk-310"
+fi
+
 echo "[drnb-install] Installing drnb core package from $ROOT_DIR"
 sync_dir "$ROOT_DIR"
 

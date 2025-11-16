@@ -7,6 +7,7 @@ name = "drnb-plugin-ncvis"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
+    { name = "drnb-plugin-sdk-310" },
     { name = "ncvis" },
     { name = "numpy" },
     { name = "scipy" },
@@ -14,10 +15,26 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "drnb-plugin-sdk-310", directory = "../../drnb-plugin-sdk-310" },
     { name = "ncvis" },
     { name = "numpy", specifier = "<2" },
     { name = "scipy", specifier = ">=1.15.3" },
 ]
+
+[[package]]
+name = "drnb-plugin-sdk-310"
+version = "0.1.0"
+source = { directory = "../../drnb-plugin-sdk-310" }
+dependencies = [
+    { name = "numpy" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "numpy", specifier = ">=1.22,<2.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.4" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "ncvis"

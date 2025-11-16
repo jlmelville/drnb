@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: drnb-plugin-sdk-310
+Version: 0.1.0
+Summary: Shared helpers for drnb plugin runners (Python 3.10 compatible)
+Author: James Melville
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy<2.1,>=1.22
+Provides-Extra: dev
+Requires-Dist: pytest>=8.3.4; extra == "dev"
