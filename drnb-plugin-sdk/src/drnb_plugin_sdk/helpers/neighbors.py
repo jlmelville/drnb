@@ -81,6 +81,9 @@ def find_candidate_neighbors_info(
     `exact`, `method`, and `require_distance` are optional filters. If they are not
     None, then only those results that match all of them are returned.
 
+    If `exact` is None, then exact neighbors are preferred if available, otherwise
+    approximate neighbors are returned.
+
     If `n_neighbors` is specified then the result with the smallest number of neighbors
     greater than or equal to `n_neighbors` is returned. If `n_neighbors` is None, the
     result with the maximum number of neighbors is returned. The latter case is for
@@ -103,7 +106,16 @@ def find_candidate_neighbors_info(
             nn_infos.append(info)
     if not nn_infos:
         return None
-    if exact is not None:
+    if exact is None:
+        # if no exact preference is specified, prefer exact neighbors
+        exact_nn_infos = [info for info in nn_infos if info.exact]
+        if exact_nn_infos:
+            nn_infos = exact_nn_infos
+        else:
+            # but it's not a failure if we don't have any exact neighbors so take
+            # the approximate neighbors instead
+            nn_infos = [info for info in nn_infos if not info.exact]
+    else:
         nn_infos = [info for info in nn_infos if info.exact is exact]
     if method is not None:
         nn_infos = [info for info in nn_infos if info.method == method]
