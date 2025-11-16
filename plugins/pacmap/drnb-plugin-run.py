@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 import pacmap
 from drnb_plugin_sdk import protocol as sdk_protocol
-from drnb_plugin_sdk.helpers.logging import log
+from drnb_plugin_sdk.helpers.logging import log, summarize_params
 from drnb_plugin_sdk.helpers.results import write_response_json
 
 from drnb.embed.context import get_neighbors_with_ctx
@@ -133,21 +133,6 @@ def _configure_snapshots(params: dict[str, Any]) -> list[int]:
     return snaps
 
 
-def _summarize_params(params: dict[str, Any]) -> dict[str, Any]:
-    def _summarize(value: Any) -> Any:
-        if isinstance(value, (int, float, bool, str)) or value is None:
-            return value
-        if isinstance(value, (list, tuple)):
-            if all(isinstance(x, (int, float, bool, str)) or x is None for x in value):
-                return value
-            return f"<{type(value).__name__} len={len(value)}>"
-        if isinstance(value, np.ndarray):
-            return f"<ndarray shape={value.shape} dtype={value.dtype}>"
-        return f"<{type(value).__name__}>"
-
-    return {key: _summarize(val) for key, val in params.items()}
-
-
 def _extract_snapshot_arrays(
     result: Any, snapshots: list[int]
 ) -> tuple[np.ndarray, dict[int, np.ndarray]]:
@@ -219,7 +204,7 @@ def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
     if pair_neighbors is not None:
         params["pair_neighbors"] = pair_neighbors
 
-    summarized = _summarize_params(params)
+    summarized = summarize_params(params)
     if method == "pacmap-plugin":
         log(f"Running PaCMAP with params={summarized}")
         embedder = pacmap.PaCMAP(**params)

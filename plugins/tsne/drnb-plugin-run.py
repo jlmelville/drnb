@@ -12,7 +12,7 @@ import numpy as np
 import openTSNE
 from drnb.embed.tsne import get_tsne_affinities, tsne_annealed_exaggeration
 from drnb_plugin_sdk import protocol as sdk_protocol
-from drnb_plugin_sdk.helpers.logging import log
+from drnb_plugin_sdk.helpers.logging import log, summarize_params
 from drnb_plugin_sdk.helpers.results import write_response_json
 
 _PLUGIN_ONLY_PARAMS = {
@@ -122,7 +122,7 @@ def run_tsne(req: dict[str, Any]) -> dict[str, Any]:
                 for key, value in params.items()
                 if key not in _PLUGIN_ONLY_PARAMS
             }
-            log(f"Running openTSNE.TSNE with params={tsne_params}")
+            log(f"Running openTSNE.TSNE with params={summarize_params(tsne_params)}")
             tsne = openTSNE.TSNE(n_components=2, **tsne_params)
             embedded = tsne.fit(x, affinities=affinities, initialization=init)
 

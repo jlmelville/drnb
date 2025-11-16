@@ -7,6 +7,7 @@ dependencies = [
     "numpy",
     "trimap",
     "drnb-plugin-sdk>=0.1.0",
+    "setuptools<81",
 ]
 
 [build-system]

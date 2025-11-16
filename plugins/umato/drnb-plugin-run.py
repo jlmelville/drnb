@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import umato
 from drnb_plugin_sdk import protocol as sdk_protocol
-from drnb_plugin_sdk.helpers.logging import log
+from drnb_plugin_sdk.helpers.logging import log, summarize_params
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
 
@@ -32,7 +32,7 @@ def run_umato(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
 
     _adjust_hub_num(x, params)
 
-    log(f"Running UMATO with params={params}")
+    log(f"Running UMATO with params={summarize_params(params)}")
     embedder = umato.UMATO(**params)
     coords = embedder.fit_transform(x).astype(np.float32, copy=False)
 

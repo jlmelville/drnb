@@ -8,7 +8,7 @@ import pymde
 import scipy.sparse as sp
 import torch
 from drnb_plugin_sdk import protocol as sdk_protocol
-from drnb_plugin_sdk.helpers.logging import log
+from drnb_plugin_sdk.helpers.logging import log, summarize_params
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
 from pymde import constraints, preprocess, problem, quadratic
@@ -382,7 +382,7 @@ def run_pymde(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
 
     seed = params.pop("seed", None)
 
-    log(f"Running PyMDE with params={params}")
+    log(f"Running PyMDE with params={summarize_params(params)}")
     coords = embed_pymde_nbrs(x, seed=seed, params=params, graph=graph).astype(
         np.float32, copy=False
     )
