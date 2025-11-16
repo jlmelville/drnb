@@ -18,7 +18,6 @@ from drnb_plugin_sdk import (
     PluginOptions,
     PluginOutputPaths,
     PluginRequest,
-    PluginSourcePaths,
 )
 
 from drnb.embed.base import Embedder
@@ -86,7 +85,6 @@ class ExternalEmbedder(Embedder):
             result_path = tmpdir / "result.npz"
             response_path = tmpdir / "response.json"
 
-            source_paths = _build_source_paths(ctx)
             source_x = _find_source_data_path(ctx)
             init_source = _init_source_path(self.drnb_init)
             source_neighbors = _find_source_neighbors(ctx, params) if use_knn else None
@@ -94,12 +92,8 @@ class ExternalEmbedder(Embedder):
             input_paths = PluginInputPaths(
                 x_path="",
                 neighbors=PluginNeighbors(),
-                source_paths=source_paths,
+                source_paths=None,
             )
-            if source_paths is not None:
-                source_paths.x_path = str(source_x) if source_x else None
-                source_paths.init_path = str(init_source) if init_source else None
-                source_paths.neighbors = source_neighbors or PluginNeighbors()
 
             if use_sandbox:
                 x_path = tmpdir / "x.npy"
@@ -325,18 +319,6 @@ _DATA_EXTS: tuple[str, ...] = (
     ".csv",
     ".csv.gz",
 )
-
-
-def _build_source_paths(ctx: EmbedContext | None) -> PluginSourcePaths | None:
-    if ctx is None:
-        return None
-    return PluginSourcePaths(
-        drnb_home=ctx.drnb_home,
-        dataset=ctx.dataset_name,
-        data_sub_dir=ctx.data_sub_dir,
-        nn_sub_dir=ctx.nn_sub_dir,
-        triplet_sub_dir=ctx.triplet_sub_dir,
-    )
 
 
 def _find_source_data_path(ctx: EmbedContext | None) -> Path | None:

@@ -10,28 +10,18 @@ plugin runner. All plugins must follow these rules so
 temporary workspace. The payload mirrors `drnb_plugin_sdk.protocol.PluginRequest`
 and always contains:
 
-- `protocol_version`: currently `1`. Plugins must validate this integer before
-  doing any work.
-- `method`: the registry key (e.g. `pacmap`). Use it to dispatch within a
-  multi-method runner.
+- `protocol_version`: currently `1`. Plugins must validate this integer before doing any work.
+- `method`: the registry key (e.g. `pacmap`, `tsne`). No `-plugin` suffix.
 - `params`: the embedding parameters dictionary (JSON primitives only).
-- `context`: optional metadata (dataset name, experiment directories). Plugins
-  may use this for logging only.
-- `input`: paths to serialized arrays:
-  - `x_path`: NumPy `.npy` file with the feature matrix.
-  - `init_path`: optional `.npy` initialization array.
-  - `neighbors`: optional precomputed KNN arrays (`idx_path`, `dist_path`).
-- `input.source_paths` (optional): the original on-disk locations for the same
-  inputs, when known. Fields include:
-  - `drnb_home`: data root.
-  - `dataset`, `data_sub_dir`, `nn_sub_dir`, `triplet_sub_dir`: layout hints.
-  - `x_path`, `init_path`, and `neighbors.idx_path/dist_path`: canonical files
-    under `drnb_home` (e.g., `<drnb_home>/data/<dataset>-data.npy` or
-    `<drnb_home>/nn/<name>.<k>.<metric>.<exact|approximate>.<method>.idx.npy`).
-- `options`: flags such as `use_precomputed_knn`. More keys may appear over time:
-  - `use_sandbox_copies` (default: false) keeps the legacy behavior of copying
-    inputs into the plugin workspace. When false (the default), `x_path` and
-    neighbor paths point directly at the source files under `DRNB_HOME`.
+- `context`: metadata for logging; typically `dataset_name`, `embed_method_name` (matches `method`), optional `embed_method_variant`, `experiment_name`, and layout hints (`drnb_home`, `data_sub_dir`, `nn_sub_dir`, `triplet_sub_dir`).
+- `input`: authoritative paths plugins must read:
+  - `x_path`: required feature matrix path.
+  - `init_path`: optional initialization path (may be `null`).
+  - `neighbors`: optional precomputed KNN (`idx_path`, `dist_path`, either may be `null`).
+  - `source_paths`: optional and omitted when identical to `input`; include only when runtime paths differ from their originals (e.g., sandbox copies) and mirror `input` plus layout hints.
+- `options`: flags such as `use_precomputed_knn`. Current keys:
+  - `use_sandbox_copies` (default: false) copies inputs into the workspace; `input.*` points at those copies.
+  - `keep_temps`, `log_path`, `use_precomputed_knn` remain available.
 - `output.result_path`: where the plugin must write its `.npz` result.
 - `output.response_path`: where the plugin must write the final JSON response.
 
@@ -76,3 +66,42 @@ loads it via `numpy.load` to build the final `EmbedResult`.
 
 Using these helpers keeps every plugin aligned with the protocol and avoids
 copy/pasted serialization code.
+
+### Sample request (zero-copy)
+
+  {
+    "protocol": 1,
+    "method": "tsne",
+    "params": {
+      "dof": 0.7,
+      "initialization": "spectral"
+    },
+    "context": {
+      "dataset_name": "s1k",
+      "embed_method_name": "tsne",
+      "embed_method_variant": "",
+      "drnb_home": "/home/data/datasets",
+      "data_sub_dir": "data",
+      "nn_sub_dir": "nn",
+      "triplet_sub_dir": "triplets",
+      "experiment_name": "pipeline-20251116234807"
+    },
+    "input": {
+      "x_path": "/home/data/datasets/data/s1k-data.npy",
+      "init_path": null,
+      "neighbors": {
+        "idx_path": "/home/data/datasets/nn/s1k.151.euclidean.exact.faiss.idx.npy",
+        "dist_path": "/home/data/datasets/nn/s1k.151.euclidean.exact.faiss.dist.npy"
+      }
+    },
+    "options": {
+      "keep_temps": false,
+      "log_path": null,
+      "use_precomputed_knn": true,
+      "use_sandbox_copies": false
+    },
+    "output": {
+      "result_path": "/tmp/drnb-tsne-XXXX/result.npz",
+      "response_path": "/tmp/drnb-tsne-XXXX/response.json"
+    }
+  }

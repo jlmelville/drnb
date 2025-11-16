@@ -125,7 +125,7 @@ def _decode_request(raw: dict[str, Any]) -> PluginRequest:
     input_payload = raw.get("input") or {}
     options_payload = raw.get("options") or {}
     output_payload = raw.get("output") or {}
-    source_payload = input_payload.get("source_paths") or input_payload.get("source")
+    source_payload = input_payload.get("source_paths")
     source_paths = None
     if source_payload:
         source_paths = PluginSourcePaths(
