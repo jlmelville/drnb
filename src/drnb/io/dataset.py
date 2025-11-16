@@ -16,8 +16,6 @@ from drnb.io import (
 )
 from drnb.types import ActionConfig, DataSet
 from drnb.util import (
-    READABLE_DATETIME_FMT,
-    dts_to_str,
     get_method_and_args,
 )
 
@@ -106,7 +104,7 @@ def read_palette(
 class DatasetReader:
     """Class to read datasets from the data repository."""
 
-    drnb_home: Path | None = None
+    drnb_home: Path = get_drnb_home()
     sub_dir: str = "data"
     data_suffix: str = "data"
     target_suffix: str = "target"
@@ -118,12 +116,9 @@ class DatasetReader:
 
     def read_data(self, name: str) -> DataSet:
         """Read the data and target for the given dataset name."""
-        drnb_home = self.drnb_home
-        if drnb_home is None:
-            drnb_home = get_drnb_home()
         data, target = read_dataset(
             name,
-            drnb_home=drnb_home,
+            drnb_home=self.drnb_home,
             sub_dir=self.sub_dir,
             data_suffix=self.data_suffix,
             target_suffix=self.target_suffix,
