@@ -5,8 +5,8 @@ description = "PyMDE plugin runner for drnb"
 requires-python = ">=3.12"
 dependencies = [
     "numpy",
-    "pymde>=0.1.19",
-    "torch",
+    "pymde>=0.2.3",
+    "torch>=2.6,<2.7",
     "scipy",
     "drnb-plugin-sdk>=0.1.0",
 ]

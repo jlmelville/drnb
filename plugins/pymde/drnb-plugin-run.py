@@ -1,11 +1,6 @@
 #!/usr/bin/env python
 from __future__ import annotations
 
-import argparse
-import json
-import traceback
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -14,75 +9,12 @@ import scipy.sparse as sp
 import torch
 from drnb_plugin_sdk import protocol as sdk_protocol
 from drnb_plugin_sdk.helpers.logging import log
-from drnb_plugin_sdk.helpers.results import write_response_json
+from drnb_plugin_sdk.helpers.results import save_result_npz
+from drnb_plugin_sdk.helpers.runner import run_plugin
 from pymde import constraints, preprocess, problem, quadratic
 from pymde.functions import penalties
 from pymde.preprocess.graph import Graph
 from pymde.recipes import _remove_anchor_anchor_edges
-
-import drnb.embed
-import drnb.embed.base
-from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
-from drnb.embed.deprecated.pymde import (
-    embed_pymde_nbrs,
-    nn_to_graph,
-    pymde_n_neighbors,
-)
-from drnb.log import log
-from drnb.neighbors import NearestNeighbors
-from drnb.types import EmbedResult
-from drnb.yinit import spca
-
-
-@dataclass
-class Pymde(drnb.embed.base.Embedder):
-    """PyMDE embedder.
-
-    Attributes:
-        use_precomputed_knn: Whether to use precomputed knn.
-        drnb_init: DRNB initialization method, one of "spca" or None.
-        seed: Random seed.
-    """
-
-    use_precomputed_knn: bool = True
-    drnb_init: str = None
-    seed: int = None
-
-    def embed_impl(
-        self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
-    ) -> EmbedResult:
-        knn_params = {}
-        if isinstance(self.use_precomputed_knn, dict):
-            knn_params = dict(self.use_precomputed_knn)
-            self.use_precomputed_knn = True
-
-        graph = None
-        if self.use_precomputed_knn:
-            metric = params.get("distance", "euclidean")
-            default_n_neighbors = pymde_n_neighbors(x.shape[0])
-            n_neighbors = params.get("n_neighbors", default_n_neighbors) + 1
-            log.info("Using precomputed knn with n_neighbors = %d", n_neighbors)
-            precomputed_knn = get_neighbors_with_ctx(
-                x, metric, n_neighbors, knn_params=knn_params, ctx=ctx
-            )
-            graph = nn_to_graph(precomputed_knn)
-
-        if self.drnb_init is not None:
-            if not self.use_precomputed_knn:
-                raise ValueError("Must use precomputed knn with drnb_init")
-            if self.drnb_init == "spca":
-                params["init"] = spca(x)
-            else:
-                raise ValueError(f"Unknown drnb initialization '{self.drnb_init}'")
-
-        return embed_pymde_nbrs(x, self.seed, params, graph=graph)
-
-
-# from preserve_neighbors
-def pymde_n_neighbors(n: int) -> int:
-    """Calculate the default number of neighbors for PyMDE (between 5 and 15)."""
-    n_choose_2 = n * (n - 1) / 2
-    return int(max(min(15, n_choose_2 * 0.01 / n), 5))
 
 
 def embed_pymde_nbrs(
@@ -96,15 +28,15 @@ def embed_pymde_nbrs(
         pymde.seed(seed)
 
     if graph is not None:
-        log.info("Running preserve neighbors with knn")
+        log("Running preserve neighbors with knn")
         embedder = _preserve_neighbors_knn(
             graph, device=device, embedding_dim=2, **params
         )
     else:
-        log.info("Running PyMDE preserve neighbors")
+        log("Running PyMDE preserve neighbors")
         embedder = pymde.preserve_neighbors(x, device=device, embedding_dim=2, **params)
     embedded = embedder.embed().cpu().data.numpy()
-    log.info("Embedding completed")
+    log("Embedding completed")
 
     return embedded
 
@@ -135,13 +67,167 @@ def _edgelist_to_sparse(edgelist: np.ndarray) -> sp.csr_matrix:
     return graph.tocsr()
 
 
-def nn_to_graph(nn: NearestNeighbors) -> Graph:
-    """Convert NearestNeighbors to Graph."""
+def nn_to_graph(idx: np.ndarray) -> Graph:
+    """Convert neighbor index array to Graph."""
     # ignore self neighbor
-    idx = nn.idx[:, 1:]
+    idx = idx[:, 1:]
     edgelist = _idx_to_edgelist(idx)
     csr = _edgelist_to_sparse(edgelist)
     return Graph(csr)
+
+
+# Penalties that pymde explicitly recommends for repulsive (negative) weights.
+_ALLOWED_REPULSIVE = {"Log", "InvPower", "LogRatio"}
+
+
+def _resolve_penalty(value: Any, *, kind: str) -> Any:
+    """
+    Resolve a penalty specification to a pymde.functions.penalties class.
+
+    Rules:
+      - None        -> None
+      - callable    -> returned unchanged
+      - string name -> looked up in pymde.functions.penalties, case-insensitive
+
+    Examples:
+      "Quadratic"  -> penalties.Quadratic
+      "quadratic"  -> penalties.Quadratic
+      "LOG1P"      -> penalties.Log1p
+      "logratio"   -> penalties.LogRatio
+    """
+    if value is None:
+        return None
+
+    # If the user passed a class/callable already, leave it as-is.
+    if not isinstance(value, str):
+        return value
+
+    name = value
+    attr_name: str | None = None
+
+    # 1) Try direct attribute access first (exact name)
+    if hasattr(penalties, name):
+        attr_name = name
+    else:
+        # 2) Fallback: case-insensitive match against attributes in penalties
+        target = name.lower()
+        for candidate in dir(penalties):
+            if candidate.lower() == target:
+                attr_name = candidate
+                break
+
+    if attr_name is None:
+        raise ValueError(
+            f"Unknown {kind} '{value}'. "
+            "It must be the name (case-insensitive) of a class in "
+            "pymde.functions.penalties."
+        )
+
+    penalty_cls = getattr(penalties, attr_name)
+
+    # Optional safety: for repulsive penalties, only allow the three
+    # recommended ones from the pymde docstring.
+    if kind == "repulsive_penalty":
+        if attr_name.lower() not in _ALLOWED_REPULSIVE:
+            allowed_str = ", ".join(sorted(_ALLOWED_REPULSIVE))
+            raise ValueError(
+                f"Repulsive penalty '{value}' is not recommended. "
+                f"Use one of: {allowed_str}"
+            )
+
+    return penalty_cls
+
+
+def _normalize_penalty_params(params: dict[str, Any]) -> None:
+    """
+    In-place conversion of string penalty names in `params` to actual classes.
+
+    Expected strings are exact class names in pymde.functions.penalties,
+    e.g. 'Quadratic', 'Log1p', 'Log', 'InvPower', 'LogRatio'.
+    """
+    if "attractive_penalty" in params:
+        attractive_penalty = params["attractive_penalty"]
+        if isinstance(attractive_penalty, str):
+            log(f"attractive penalty: {attractive_penalty}")
+        attractive_penalty = _resolve_penalty(
+            attractive_penalty,
+            kind="attractive_penalty",
+        )
+        params["attractive_penalty"] = attractive_penalty
+
+    if "repulsive_penalty" in params:
+        repulsive_penalty = params["repulsive_penalty"]
+        if isinstance(repulsive_penalty, str):
+            log(f"repulsive penalty: {repulsive_penalty}")
+        params["repulsive_penalty"] = _resolve_penalty(
+            repulsive_penalty,
+            kind="repulsive_penalty",
+        )
+
+
+# Simple mapping from user-friendly names to zero-arg factories.
+_CONSTRAINT_FACTORIES: dict[str, callable] = {
+    "centered": constraints.Centered,
+    "standardized": constraints.Standardized,
+}
+
+
+def _resolve_constraint(value: Any) -> Any:
+    """
+    Resolve a constraint specification to a pymde.constraints.Constraint.
+
+    Allowed forms:
+      - None                    -> None
+      - instance of Constraint  -> returned unchanged
+      - string                  -> 'centered' / 'standardized' (case-insensitive)
+
+    Examples:
+      "centered"     -> constraints.Centered()
+      "Centered"     -> constraints.Centered()
+      "STANDARDIZED" -> constraints.Standardized()
+    """
+    if value is None:
+        return None
+
+    # Already a concrete constraint instance (or some custom object) – leave it.
+    if isinstance(value, constraints.Constraint):
+        return value
+
+    if not isinstance(value, str):
+        # e.g. someone passed a custom Constraint subclass instance or factory;
+        # don't get clever, just pass it through.
+        return value
+
+    key = value.strip().lower()
+
+    # Optional: treat explicit "none" as no constraint.
+    if key in {"none", "no", "null"}:
+        return None
+
+    try:
+        factory = _CONSTRAINT_FACTORIES[key]
+    except KeyError as exc:
+        valid = ", ".join(sorted(_CONSTRAINT_FACTORIES.keys()))
+        raise ValueError(
+            f"Unknown constraint '{value}'. Valid constraint names are: {valid}"
+        ) from exc
+
+    # Call the zero-arg factory to get the singleton constraint object.
+    return factory()
+
+
+def _normalize_constraint_param(params: dict[str, Any]) -> None:
+    """
+    In-place conversion of a string 'constraint' param to a Constraint instance.
+
+    If the caller doesn't provide 'constraint', we leave defaulting to
+    _preserve_neighbors_knn / pymde.preserve_neighbors.
+    """
+    if "constraint" in params:
+        constraint = params["constraint"]
+        if isinstance(constraint, str):
+            log(f"constraint: {constraint}")
+        params["constraint"] = _resolve_constraint(constraint)
 
 
 # hacked version of pymde.preserve_neighbors to allow a pre-calculated Graph
@@ -260,60 +346,39 @@ def _preserve_neighbors_knn(
     return mde
 
 
-def _load_request(path: Path) -> dict[str, Any]:
-    data = json.loads(path.read_text(encoding="utf-8"))
-    proto = data.get("protocol") or data.get("protocol_version")
-    if proto != sdk_protocol.PROTOCOL_VERSION:
-        raise RuntimeError(
-            f"protocol mismatch: expected {sdk_protocol.PROTOCOL_VERSION}, got {proto}"
-        )
-    return data
-
-
-def _load_init(req: dict[str, Any], params: dict[str, Any]) -> None:
-    init_path = (req.get("input") or {}).get("init_path")
+def _load_init(req: sdk_protocol.PluginRequest, params: dict[str, Any]) -> None:
+    init_path = req.input.init_path
     if init_path:
         params["init"] = np.load(init_path, allow_pickle=False)
 
 
-def _build_graph(
-    req: dict[str, Any],
-    params: dict[str, Any],
-    x: np.ndarray,
-    ctx,
-) -> Any | None:
-    options = req.get("options") or {}
-    use_knn = options.get("use_precomputed_knn")
-    if use_knn is None:
-        use_knn = True
-    if not use_knn:
+def _build_graph(req: sdk_protocol.PluginRequest) -> Graph | None:
+    if not req.options.use_precomputed_knn:
         return None
 
-    if ctx is None:
-        log("No EmbedContext supplied; PyMDE plugin cannot reuse neighbors")
-        return None
-
-    metric = params.get("distance", "euclidean")
-    default_neighbors = pymde_n_neighbors(x.shape[0])
-    n_neighbors = int(params.get("n_neighbors", default_neighbors)) + 1
-
-    pre = get_neighbors_with_ctx(x, metric, n_neighbors, ctx=ctx)
-    if pre is None:
+    neighbors = req.input.neighbors
+    if neighbors is None or not neighbors.idx_path:
         log("No precomputed knn available; PyMDE will use its internal graph")
         return None
-    return nn_to_graph(pre)
+
+    try:
+        idx = np.load(neighbors.idx_path, allow_pickle=False).astype(
+            np.int64, copy=False
+        )
+    except Exception as exc:  # noqa: BLE001
+        log(f"Failed to load precomputed knn: {exc}")
+        return None
+    return nn_to_graph(idx)
 
 
-def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
-    if method != "pymde-plugin":
-        raise RuntimeError(f"unknown method {method}")
-
-    ctx = sdk_protocol.context_from_payload(req.get("context"))
-    x = np.load(req["input"]["x_path"], allow_pickle=False)
-    params = dict(req.get("params") or {})
+def run_pymde(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
+    x = np.load(req.input.x_path, allow_pickle=False)
+    params = dict(req.params or {})
 
     _load_init(req, params)
-    graph = _build_graph(req, params, x, ctx)
+    _normalize_penalty_params(params)
+    _normalize_constraint_param(params)
+    graph = _build_graph(req)
 
     seed = params.pop("seed", None)
 
@@ -322,31 +387,8 @@ def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
         np.float32, copy=False
     )
 
-    result_path = Path(req["output"]["result_path"]).resolve()
-    np.savez_compressed(result_path, coords=coords)
-    return {"ok": True, "result_npz": str(result_path)}
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--method", required=True)
-    parser.add_argument("--request", required=True)
-    args = parser.parse_args()
-
-    req = _load_request(Path(args.request))
-    try:
-        resp = run_method(req, args.method)
-    except Exception:  # noqa: BLE001
-        tb = traceback.format_exc()
-        log(tb)
-        resp = {"ok": False, "message": tb}
-
-    response_path = (req.get("output") or {}).get("response_path")
-    if not response_path:
-        raise RuntimeError("Request missing output.response_path")
-    write_response_json(response_path, resp)
-    log(f"Wrote response to {response_path}")
+    return save_result_npz(req.output.result_path, coords)
 
 
 if __name__ == "__main__":
-    main()
+    run_plugin({"pymde-plugin": run_pymde})

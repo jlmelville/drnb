@@ -151,6 +151,14 @@ class ExternalEmbedder(Embedder):
                 "DRNB_LOG_PLAIN": "1",
             }
             env.pop("VIRTUAL_ENV", None)
+            # pymde couldn't run from a notebook in Cursor (probably a VS Code issue?)
+            # because MPLBACKEND was set to 'module://matplotlib_inline.backend_inline'
+            # and matplotlib doesn't know how to handle this without installing the
+            # `matplotlib-inline` package. As we don't want to use matplotlib
+            # functionality from pymde, just unset this environment variable when the
+            # subprocess is launched. This should be safe with other plugins as we are
+            # not looking for matplotlib functionality from them.
+            env.pop("MPLBACKEND", None)
             proc = subprocess.Popen(  # noqa: S603
                 cmd,
                 cwd=spec.plugin_dir,
