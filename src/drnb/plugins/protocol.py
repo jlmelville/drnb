@@ -5,7 +5,10 @@ from typing import Any
 
 import numpy as np
 from drnb_plugin_sdk import PluginRequest
-from drnb_plugin_sdk.protocol import context_from_payload
+from drnb_plugin_sdk.protocol import (
+    context_from_payload as sdk_context_from_payload,
+    request_to_dict as sdk_request_to_dict,
+)
 
 from drnb.embed.context import EmbedContext
 
@@ -40,7 +43,7 @@ def context_to_payload(ctx: EmbedContext | None) -> dict[str, JSONValue] | None:
 
 def context_from_payload(data: dict[str, Any] | None) -> EmbedContext | None:
     """Convert the SDK context payload back into EmbedContext."""
-    plugin_ctx = context_from_payload(data)
+    plugin_ctx = sdk_context_from_payload(data)
     if plugin_ctx is None:
         return None
     return EmbedContext(
@@ -100,12 +103,4 @@ def _sanitize_value(value: Any, path: str) -> JSONValue:
 
 def request_to_dict(req: PluginRequest) -> dict[str, Any]:
     """Convert a PluginRequest dataclass into the JSON dict written to disk."""
-    payload = req.__dict__.copy()
-    payload["input"] = {
-        **payload["input"].__dict__,
-    }
-    payload["input"]["neighbors"] = payload["input"]["neighbors"].__dict__
-    payload["options"] = payload["options"].__dict__
-    payload["output"] = payload["output"].__dict__
-    payload["protocol"] = payload["protocol_version"]
-    return payload
+    return sdk_request_to_dict(req)

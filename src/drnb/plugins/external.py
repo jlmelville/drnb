@@ -18,11 +18,13 @@ from drnb_plugin_sdk import (
     PluginOptions,
     PluginOutputPaths,
     PluginRequest,
+    PluginSourcePaths,
 )
 
 from drnb.embed.base import Embedder
 from drnb.embed.context import EmbedContext
 from drnb.log import log
+from drnb.neighbors.store import find_candidate_neighbors_info
 from drnb.plugins.protocol import (
     context_to_payload,
     env_flag,
@@ -46,6 +48,7 @@ class ExternalEmbedder(Embedder):
     use_precomputed_knn: bool | None = None
     use_precomputed_neighbors: bool | None = None
     drnb_init: str | None = None
+    use_sandbox_copies: bool | None = None
 
     def embed_impl(
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
@@ -71,53 +74,60 @@ class ExternalEmbedder(Embedder):
         params = dict(params or {})
         safe_params = sanitize_params(params)
         keep_tmp = env_flag("DRNB_PLUGIN_KEEP_TMP", False)
+        sandbox_env = env_flag("DRNB_PLUGIN_SANDBOX_INPUTS", False)
+        use_sandbox = (
+            sandbox_env if self.use_sandbox_copies is None else self.use_sandbox_copies
+        )
         tmpdir = Path(tempfile.mkdtemp(prefix=f"drnb-{self.method}-"))
         self._workspace_dir = tmpdir
         self._cleanup_workspace = not keep_tmp
 
         try:
-            x_path = tmpdir / "x.npy"
-            np.save(x_path, np.asarray(x, dtype=np.float32, order="C"))
-
-            # Pass precomputed KNN if ctx allows it; failure is soft (plugin can recompute)
-            idx_path = dist_path = None
-            if use_knn and ctx is not None:
-                try:
-                    from drnb.embed.context import get_neighbors_with_ctx
-
-                    metric = (
-                        params.get("metric") or params.get("distance") or "euclidean"
-                    )
-                    n_neighbors = int(params.get("n_neighbors", 15))
-                    pre = get_neighbors_with_ctx(x, metric, n_neighbors, ctx=ctx)
-                    if pre is not None and getattr(pre, "idx", None) is not None:
-                        idx_path = tmpdir / "knn_idx.npy"
-                        np.save(idx_path, pre.idx.astype(np.int32, copy=False))
-                        if getattr(pre, "dist", None) is not None:
-                            dist_path = tmpdir / "knn_dist.npy"
-                            np.save(dist_path, pre.dist.astype(np.float32, copy=False))
-                except Exception as e:  # noqa: BLE001
-                    log.warning(
-                        f"[external:{self.method}] KNN passthrough failed; plugin may compute: {e}"
-                    )
-
             result_path = tmpdir / "result.npz"
             response_path = tmpdir / "response.json"
-            input_paths = PluginInputPaths(
-                x_path=str(x_path),
-                neighbors=PluginNeighbors(
-                    idx_path=str(idx_path) if idx_path else None,
-                    dist_path=str(dist_path) if dist_path else None,
-                ),
-            )
 
-            if self.drnb_init is not None:
-                init_path = tmpdir / "init.npy"
-                np.save(
-                    init_path,
-                    np.asarray(self.drnb_init, dtype=np.float32, order="C"),
+            source_paths = _build_source_paths(ctx)
+            source_x = _find_source_data_path(ctx)
+            init_source = _init_source_path(self.drnb_init)
+            source_neighbors = _find_source_neighbors(ctx, params) if use_knn else None
+
+            input_paths = PluginInputPaths(
+                x_path="",
+                neighbors=PluginNeighbors(),
+                source_paths=source_paths,
+            )
+            if source_paths is not None:
+                source_paths.x_path = str(source_x) if source_x else None
+                source_paths.init_path = str(init_source) if init_source else None
+                source_paths.neighbors = source_neighbors or PluginNeighbors()
+
+            if use_sandbox:
+                x_path = tmpdir / "x.npy"
+                np.save(x_path, np.asarray(x, dtype=np.float32, order="C"))
+                input_paths.x_path = str(x_path)
+                input_paths.neighbors = _prepare_neighbor_paths(
+                    tmpdir,
+                    use_knn=use_knn,
+                    source_neighbors=source_neighbors,
+                    params=params,
+                    x=x,
+                    ctx=ctx,
+                    method=self.method,
                 )
-                input_paths.init_path = str(init_path)
+                init_path = _prepare_init_path(tmpdir, init_source, self.drnb_init)
+                input_paths.init_path = str(init_path) if init_path else None
+            else:
+                missing_inputs: list[str] = []
+                if source_x is None:
+                    missing_inputs.append("x")
+                if self.drnb_init is not None and init_source is None:
+                    missing_inputs.append("init")
+                if missing_inputs:
+                    missing = ", ".join(missing_inputs)
+                    self._fail(f"missing source inputs for zero-copy: {missing}")
+                input_paths.x_path = str(source_x)
+                input_paths.neighbors = source_neighbors or PluginNeighbors()
+                input_paths.init_path = str(init_source) if init_source else None
 
             request = PluginRequest(
                 protocol_version=PROTOCOL_VERSION,
@@ -128,6 +138,7 @@ class ExternalEmbedder(Embedder):
                 options=PluginOptions(
                     keep_temps=keep_tmp,
                     use_precomputed_knn=use_knn,
+                    use_sandbox_copies=use_sandbox,
                 ),
                 output=PluginOutputPaths(
                     result_path=str(result_path), response_path=str(response_path)
@@ -301,3 +312,169 @@ def _load_response(response_path: Path | str) -> dict[str, Any]:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"invalid plugin response at {path}: {exc}") from exc
+
+
+_DATA_EXTS: tuple[str, ...] = (
+    ".npy",
+    ".npz",
+    ".feather",
+    ".parquet",
+    ".pkl",
+    ".pkl.gz",
+    ".pkl.bz2",
+    ".csv",
+    ".csv.gz",
+)
+
+
+def _build_source_paths(ctx: EmbedContext | None) -> PluginSourcePaths | None:
+    if ctx is None:
+        return None
+    return PluginSourcePaths(
+        drnb_home=ctx.drnb_home,
+        dataset=ctx.dataset_name,
+        data_sub_dir=ctx.data_sub_dir,
+        nn_sub_dir=ctx.nn_sub_dir,
+        triplet_sub_dir=ctx.triplet_sub_dir,
+    )
+
+
+def _find_source_data_path(ctx: EmbedContext | None) -> Path | None:
+    if ctx is None or ctx.drnb_home is None:
+        return None
+    data_dir = Path(ctx.drnb_home) / (ctx.data_sub_dir or "data")
+    stems = [
+        f"{ctx.dataset_name}-data",
+        f"{ctx.dataset_name}_data",
+        ctx.dataset_name,
+    ]
+    for stem in stems:
+        for ext in _DATA_EXTS:
+            candidate = data_dir / f"{stem}{ext}"
+            if candidate.exists():
+                return candidate
+    return None
+
+
+def _init_source_path(drnb_init: str | None) -> Path | None:
+    if drnb_init is None:
+        return None
+    if isinstance(drnb_init, (str, Path)):
+        path = Path(drnb_init)
+        if path.exists():
+            return path
+    return None
+
+
+def _find_source_neighbors(
+    ctx: EmbedContext | None, params: dict[str, Any]
+) -> PluginNeighbors | None:
+    if ctx is None or ctx.drnb_home is None:
+        return None
+    metric = params.get("metric") or params.get("distance") or "euclidean"
+    names = []
+    try:
+        embed_nn = ctx.embed_nn_name
+    except Exception:
+        embed_nn = None
+    if embed_nn:
+        names.append(embed_nn)
+    if ctx.dataset_name not in names:
+        names.append(ctx.dataset_name)
+    for name in names:
+        # Note that we purposely set `n_neighbors=None` here so that the result with
+        # the maximum number of neighbors is returned. This is because the plugin
+        # embedder may ask for a larger number of neighbors based on any `n_neighbors`
+        # parameter and we have no way to know that here.
+        info = find_candidate_neighbors_info(
+            name=name,
+            drnb_home=ctx.drnb_home,
+            sub_dir=ctx.nn_sub_dir or "nn",
+            n_neighbors=None,
+            metric=metric,
+            return_distance=True,
+            verbose=False,
+        )
+        if info is not None:
+            return PluginNeighbors(
+                idx_path=str(info.idx_path) if info.idx_path else None,
+                dist_path=str(info.dist_path) if info.dist_path else None,
+            )
+    return None
+
+
+def _prepare_neighbor_paths(
+    tmpdir: Path,
+    *,
+    use_knn: bool,
+    source_neighbors: PluginNeighbors | None,
+    params: dict[str, Any],
+    x: np.ndarray,
+    ctx: EmbedContext | None,
+    method: str,
+) -> PluginNeighbors:
+    if not use_knn:
+        return PluginNeighbors()
+    if source_neighbors and source_neighbors.idx_path:
+        return _copy_neighbor_files(tmpdir, source_neighbors)
+    try:
+        from drnb.embed.context import get_neighbors_with_ctx
+
+        metric = params.get("metric") or params.get("distance") or "euclidean"
+        n_neighbors = int(params.get("n_neighbors", 15))
+        pre = get_neighbors_with_ctx(x, metric, n_neighbors, ctx=ctx)
+        if pre is None or getattr(pre, "idx", None) is None:
+            return PluginNeighbors()
+        return _write_neighbor_arrays(tmpdir, pre.idx, getattr(pre, "dist", None))
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "[external:%s] KNN passthrough failed; plugin may compute: %s", method, exc
+        )
+        return PluginNeighbors()
+
+
+def _prepare_init_path(
+    tmpdir: Path, init_source: Path | None, init_value: str | None
+) -> Path | None:
+    if init_source is not None:
+        target = tmpdir / Path(init_source).name
+        shutil.copy(init_source, target)
+        return target
+    if init_value is None:
+        return None
+    target = tmpdir / "init.npy"
+    np.save(target, np.asarray(init_value, dtype=np.float32, order="C"))
+    return target
+
+
+def _copy_neighbor_files(tmpdir: Path, neighbors: PluginNeighbors) -> PluginNeighbors:
+    idx_path = dist_path = None
+    if neighbors.idx_path:
+        src = Path(neighbors.idx_path)
+        if src.exists():
+            idx_path = tmpdir / src.name
+            shutil.copy(src, idx_path)
+    if neighbors.dist_path:
+        src = Path(neighbors.dist_path)
+        if src.exists():
+            dist_path = tmpdir / src.name
+            shutil.copy(src, dist_path)
+    return PluginNeighbors(
+        idx_path=str(idx_path) if idx_path else None,
+        dist_path=str(dist_path) if dist_path else None,
+    )
+
+
+def _write_neighbor_arrays(
+    tmpdir: Path, idx: np.ndarray, dist: np.ndarray | None
+) -> PluginNeighbors:
+    idx_path = tmpdir / "knn_idx.npy"
+    np.save(idx_path, np.asarray(idx, dtype=np.int32, order="C"))
+    dist_path = None
+    if dist is not None:
+        dist_path = tmpdir / "knn_dist.npy"
+        np.save(dist_path, np.asarray(dist, dtype=np.float32, order="C"))
+    return PluginNeighbors(
+        idx_path=str(idx_path),
+        dist_path=str(dist_path) if dist_path else None,
+    )

@@ -11,6 +11,7 @@ from .neighbors import (
     replace_n_neighbors_in_path,
     write_neighbors,
 )
+from .paths import resolve_init_path, resolve_neighbors, resolve_x_path
 from .results import save_result_npz, write_response_json
 from .runner import run_plugin
 
@@ -28,4 +29,7 @@ __all__ = [
     "read_neighbors",
     "replace_n_neighbors_in_path",
     "write_neighbors",
+    "resolve_x_path",
+    "resolve_neighbors",
+    "resolve_init_path",
 ]

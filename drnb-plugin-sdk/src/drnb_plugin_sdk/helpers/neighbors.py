@@ -3,7 +3,7 @@ from __future__ import annotations
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Sequence, Tuple, cast
+from typing import Sequence, cast
 
 import numpy as np
 
@@ -71,18 +71,32 @@ def find_candidate_neighbors_info(
     base_dir: Path,
     name: str,
     *,
-    n_neighbors: int,
+    n_neighbors: int | None = None,
     metric: str,
     method: str | None = None,
     exact: bool | None = None,
     require_distance: bool = True,
 ) -> NbrInfo | None:
+    """Find the candidate neighbors info for the given name, metric, method, and exact.
+    `exact`, `method`, and `require_distance` are optional filters. If they are not
+    None, then only those results that match all of them are returned.
+
+    If `n_neighbors` is specified then the result with the smallest number of neighbors
+    greater than or equal to `n_neighbors` is returned. If `n_neighbors` is None, the
+    result with the maximum number of neighbors is returned. The latter case is for
+    when we don't know how many neighbors to use at the point of providing the file
+    (e.g. with a plugin embedder with internal logic that will ask for a larger number
+    of neighbors based on the base `n_neighbors`.
+
+    If there are no results that match the filters, None is returned. Otherwise, the
+    best result is returned.
+    """
     base_dir = Path(base_dir)
     if not base_dir.exists():
         return None
     pattern = f"{name}.*.idx.*"
     files = list(base_dir.glob(pattern))
-    nn_infos: List[NbrInfo] = []
+    nn_infos: list[NbrInfo] = []
     for file in files:
         info = _nbr_info_from_path(file)
         if info is not None and info.metric == metric:
@@ -95,10 +109,15 @@ def find_candidate_neighbors_info(
         nn_infos = [info for info in nn_infos if info.method == method]
     if require_distance:
         nn_infos = [info for info in nn_infos if info.has_distances]
-    nn_infos = [info for info in nn_infos if info.n_nbrs >= n_neighbors]
+    if n_neighbors is None:
+        # get the result with the maximum number of neighbors
+        max_n_neighbors = max(info.n_nbrs for info in nn_infos)
+        nn_infos = [info for info in nn_infos if info.n_nbrs == max_n_neighbors]
+    else:
+        nn_infos = [info for info in nn_infos if info.n_nbrs >= n_neighbors]
     if not nn_infos:
         return None
-    nn_infos = cast(List[NbrInfo], nn_infos)
+    nn_infos = cast(list[NbrInfo], nn_infos)
     candidate_infos = sorted(nn_infos, key=lambda x: x.n_nbrs)
     preferred_exts = [".npy", ".pkl"]
     for info in candidate_infos:
@@ -140,7 +159,7 @@ def write_neighbors(
     neighbor_data: NearestNeighbors,
     *,
     file_types: Sequence[str] = ("npy",),
-) -> Tuple[List[Path], List[Path]]:
+) -> tuple[list[Path], list[Path]]:
     if neighbor_data.info is None:
         raise ValueError("Cannot write neighbors without metadata")
     idx_paths = _write_array(
@@ -150,7 +169,7 @@ def write_neighbors(
         neighbor_data.idx,
         file_types,
     )
-    dist_paths: List[Path] = []
+    dist_paths: list[Path] = []
     if neighbor_data.dist is not None:
         dist_paths = _write_array(
             base_dir,
@@ -210,10 +229,10 @@ def _write_array(
     suffix: str,
     array: np.ndarray,
     file_types: Sequence[str],
-) -> List[Path]:
+) -> list[Path]:
     base_dir = Path(base_dir)
     base_dir.mkdir(parents=True, exist_ok=True)
-    paths: List[Path] = []
+    paths: list[Path] = []
     array = np.asarray(array)
     for file_type in file_types:
         filename = f"{name}{suffix}.{file_type}"

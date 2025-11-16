@@ -21,7 +21,17 @@ and always contains:
   - `x_path`: NumPy `.npy` file with the feature matrix.
   - `init_path`: optional `.npy` initialization array.
   - `neighbors`: optional precomputed KNN arrays (`idx_path`, `dist_path`).
-- `options`: flags such as `use_precomputed_knn`. More keys may appear over time.
+- `input.source_paths` (optional): the original on-disk locations for the same
+  inputs, when known. Fields include:
+  - `drnb_home`: data root.
+  - `dataset`, `data_sub_dir`, `nn_sub_dir`, `triplet_sub_dir`: layout hints.
+  - `x_path`, `init_path`, and `neighbors.idx_path/dist_path`: canonical files
+    under `drnb_home` (e.g., `<drnb_home>/data/<dataset>-data.npy` or
+    `<drnb_home>/nn/<name>.<k>.<metric>.<exact|approximate>.<method>.idx.npy`).
+- `options`: flags such as `use_precomputed_knn`. More keys may appear over time:
+  - `use_sandbox_copies` (default: false) keeps the legacy behavior of copying
+    inputs into the plugin workspace. When false (the default), `x_path` and
+    neighbor paths point directly at the source files under `DRNB_HOME`.
 - `output.result_path`: where the plugin must write its `.npz` result.
 - `output.response_path`: where the plugin must write the final JSON response.
 
@@ -64,7 +74,7 @@ loads it via `numpy.load` to build the final `EmbedResult`.
 - `drnb_plugin_sdk.helpers.results.save_result_npz` – writes coords/snapshots as
   float32 and returns the correct response dict.
 - `drnb_plugin_sdk.helpers.neighbors.load_neighbors` – read serialized KNN
-  arrays without reimplementing `numpy.load` logic.
+   arrays without reimplementing `numpy.load` logic.
 
 Using these helpers keeps every plugin aligned with the protocol and avoids
 copy/pasted serialization code.

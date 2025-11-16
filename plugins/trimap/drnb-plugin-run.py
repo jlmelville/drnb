@@ -7,14 +7,18 @@ import numpy as np
 import trimap
 from drnb_plugin_sdk import protocol as sdk_protocol
 from drnb_plugin_sdk.helpers.logging import log, summarize_params
+from drnb_plugin_sdk.helpers.paths import (
+    resolve_init_path,
+    resolve_neighbors,
+    resolve_x_path,
+)
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
 
 
 def _neighbor_tuple(
-    req: sdk_protocol.PluginRequest,
+    neighbors: sdk_protocol.PluginNeighbors,
 ) -> tuple[np.ndarray, np.ndarray | None] | None:
-    neighbors = req.input.neighbors
     if neighbors is None or not neighbors.idx_path:
         return None
 
@@ -26,12 +30,18 @@ def _neighbor_tuple(
 
 
 def run_trimap(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
-    x = np.load(req.input.x_path, allow_pickle=False)
+    x = np.load(resolve_x_path(req), allow_pickle=False)
     params = dict(req.params or {})
 
-    init = params.pop("init", None)
+    init_path = resolve_init_path(req)
+    init = (
+        np.load(init_path, allow_pickle=False)
+        if init_path
+        else params.pop("init", None)
+    )
     return_every = params.pop("return_every", None)
-    knn_tuple = _neighbor_tuple(req)
+    neighbors = resolve_neighbors(req)
+    knn_tuple = _neighbor_tuple(neighbors)
     if knn_tuple is not None:
         params["knn_tuple"] = knn_tuple
         log("Using precomputed KNN data for TriMap")

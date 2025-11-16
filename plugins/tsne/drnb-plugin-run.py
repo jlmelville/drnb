@@ -10,6 +10,11 @@ import openTSNE
 import openTSNE.nearest_neighbors as tsnenn
 from drnb_plugin_sdk import protocol as sdk_protocol
 from drnb_plugin_sdk.helpers.logging import log, summarize_params
+from drnb_plugin_sdk.helpers.paths import (
+    resolve_init_path,
+    resolve_neighbors,
+    resolve_x_path,
+)
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
 from openTSNE import initialization as initialization_scheme
@@ -207,7 +212,7 @@ def get_tsne_affinities(
 
 
 def _load_initialization(req: sdk_protocol.PluginRequest) -> np.ndarray | str | None:
-    init_path = req.input.init_path
+    init_path = resolve_init_path(req)
     if init_path:
         return np.load(init_path, allow_pickle=False)
     params = req.params or {}
@@ -218,7 +223,7 @@ def _build_affinities(req: sdk_protocol.PluginRequest, x: np.ndarray) -> Any:
     if not req.options.use_precomputed_knn:
         return None
     params = req.params or {}
-    neighbors = req.input.neighbors
+    neighbors = resolve_neighbors(req)
     knn_index: tsnenn.PrecomputedNeighbors | None = None
     if neighbors and neighbors.idx_path:
         try:
@@ -249,7 +254,7 @@ def _build_affinities(req: sdk_protocol.PluginRequest, x: np.ndarray) -> Any:
 
 
 def run_tsne(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
-    x = np.load(req.input.x_path, allow_pickle=False)
+    x = np.load(resolve_x_path(req), allow_pickle=False)
     params = dict(req.params or {})
 
     init = _load_initialization(req)

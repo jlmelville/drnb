@@ -9,6 +9,11 @@ import scipy.sparse as sp
 import torch
 from drnb_plugin_sdk import protocol as sdk_protocol
 from drnb_plugin_sdk.helpers.logging import log, summarize_params
+from drnb_plugin_sdk.helpers.paths import (
+    resolve_init_path,
+    resolve_neighbors,
+    resolve_x_path,
+)
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
 from pymde import constraints, preprocess, problem, quadratic
@@ -347,7 +352,7 @@ def _preserve_neighbors_knn(
 
 
 def _load_init(req: sdk_protocol.PluginRequest, params: dict[str, Any]) -> None:
-    init_path = req.input.init_path
+    init_path = resolve_init_path(req)
     if init_path:
         params["init"] = np.load(init_path, allow_pickle=False)
 
@@ -356,7 +361,7 @@ def _build_graph(req: sdk_protocol.PluginRequest) -> Graph | None:
     if not req.options.use_precomputed_knn:
         return None
 
-    neighbors = req.input.neighbors
+    neighbors = resolve_neighbors(req)
     if neighbors is None or not neighbors.idx_path:
         log("No precomputed knn available; PyMDE will use its internal graph")
         return None
@@ -372,7 +377,7 @@ def _build_graph(req: sdk_protocol.PluginRequest) -> Graph | None:
 
 
 def run_pymde(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
-    x = np.load(req.input.x_path, allow_pickle=False)
+    x = np.load(resolve_x_path(req), allow_pickle=False)
     params = dict(req.params or {})
 
     _load_init(req, params)

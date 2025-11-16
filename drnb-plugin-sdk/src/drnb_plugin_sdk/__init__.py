@@ -12,8 +12,13 @@ from .protocol import (
     PluginInputPaths,
     PluginNeighbors,
     PluginOptions,
+    PluginSourcePaths,
     PluginOutputPaths,
     PluginRequest,
+    context_from_payload,
+    context_to_payload,
+    request_to_dict,
+    sanitize_params,
 )
 
 __all__ = [
@@ -22,6 +27,11 @@ __all__ = [
     "PluginInputPaths",
     "PluginNeighbors",
     "PluginOptions",
+    "PluginSourcePaths",
     "PluginOutputPaths",
     "PluginRequest",
+    "context_from_payload",
+    "context_to_payload",
+    "request_to_dict",
+    "sanitize_params",
 ]

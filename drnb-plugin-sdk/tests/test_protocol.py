@@ -9,6 +9,7 @@ from drnb_plugin_sdk.protocol import (
     PluginInputPaths,
     PluginNeighbors,
     PluginOptions,
+    PluginSourcePaths,
     PluginOutputPaths,
     PluginRequest,
     context_from_payload,
@@ -30,16 +31,28 @@ def test_sanitize_params_handles_numpy_and_paths(tmp_path: Path) -> None:
     sanitized = sanitize_params(params)
     assert sanitized["int"] == 4
     assert sanitized["float"] == pytest.approx(1.5)
+    assert sanitized["string"] == "ok"
     assert sanitized["path"].endswith("file.npy")
     assert sanitized["nested"]["values"][0] == 2
 
 
 def test_request_round_trip(tmp_path: Path) -> None:
-    ctx = PluginContext(dataset_name="toy", embed_method_name="pacmap")
+    ctx = PluginContext(
+        dataset_name="toy", embed_method_name="pacmap", drnb_home=tmp_path
+    )
     payload = context_to_payload(ctx)
     restored = context_from_payload(payload)
     assert restored == ctx
 
+    source_paths = PluginSourcePaths(
+        drnb_home=tmp_path,
+        dataset="toy",
+        data_sub_dir="data",
+        nn_sub_dir="nn",
+        triplet_sub_dir="triplets",
+        x_path=str(tmp_path / "store" / "toy-data.npy"),
+        neighbors=PluginNeighbors(idx_path="idx.npy", dist_path="dist.npy"),
+    )
     req = PluginRequest(
         protocol_version=PROTOCOL_VERSION,
         method="pacmap-plugin",
@@ -48,8 +61,9 @@ def test_request_round_trip(tmp_path: Path) -> None:
         input=PluginInputPaths(
             x_path=str(tmp_path / "x.npy"),
             neighbors=PluginNeighbors(idx_path="idx.npy", dist_path="dist.npy"),
+            source_paths=source_paths,
         ),
-        options=PluginOptions(),
+        options=PluginOptions(use_sandbox_copies=True),
         output=PluginOutputPaths(
             result_path="result.npz", response_path="response.json"
         ),
@@ -61,5 +75,9 @@ def test_request_round_trip(tmp_path: Path) -> None:
     assert loaded.method == req.method
     assert loaded.params == req.params
     assert loaded.input.x_path == req.input.x_path
+    assert loaded.input.source_paths is not None
+    assert loaded.input.source_paths.drnb_home == tmp_path
+    assert loaded.input.source_paths.dataset == "toy"
     assert loaded.output.result_path == "result.npz"
     assert loaded.output.response_path == "response.json"
+    assert loaded.options.use_sandbox_copies is True

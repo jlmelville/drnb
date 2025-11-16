@@ -7,6 +7,11 @@ import numpy as np
 import pacmap
 from drnb_plugin_sdk import protocol as sdk_protocol
 from drnb_plugin_sdk.helpers.logging import log, summarize_params
+from drnb_plugin_sdk.helpers.paths import (
+    resolve_init_path,
+    resolve_neighbors,
+    resolve_x_path,
+)
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
 from localscale import locally_scaled_neighbors
@@ -34,7 +39,7 @@ def _load_initialization(
     req: sdk_protocol.PluginRequest, params: dict[str, Any]
 ) -> Any:
     init = params.pop("init", None)
-    init_path = req.input.init_path
+    init_path = resolve_init_path(req)
     if init_path:
         array = np.load(init_path, allow_pickle=False)
         return array
@@ -54,11 +59,8 @@ def _needs_precomputed(
 
 
 def _load_neighbors(
-    req: sdk_protocol.PluginRequest,
-    metric: str,
-    n_neighbors: int,
+    neighbors: sdk_protocol.PluginNeighbors, metric: str, n_neighbors: int
 ) -> tuple[np.ndarray, np.ndarray] | tuple[None, None]:
-    neighbors = req.input.neighbors
     if neighbors and neighbors.idx_path:
         try:
             idx = np.load(neighbors.idx_path, allow_pickle=False)
@@ -78,6 +80,7 @@ def _prepare_pair_neighbors(
     req: sdk_protocol.PluginRequest,
     params: dict[str, Any],
     x: np.ndarray,
+    neighbors: sdk_protocol.PluginNeighbors,
     *,
     local_scale: bool,
     local_scale_kwargs: dict[str, Any] | None,
@@ -98,7 +101,7 @@ def _prepare_pair_neighbors(
     if local_scale_kwargs:
         scale_kwargs.update(local_scale_kwargs)
     knn_neighbors = scale_kwargs["m"] if local_scale else base_neighbors
-    idx, dist = _load_neighbors(req, metric, knn_neighbors)
+    idx, dist = _load_neighbors(neighbors, metric, knn_neighbors)
     if idx is None or dist is None or idx.shape[1] < base_neighbors:
         log("No usable precomputed knn available; plugin will rely on PaCMAP defaults")
         return None
@@ -167,10 +170,11 @@ def _extract_snapshot_arrays(
 
 
 def run_pacmap(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
-    x = np.load(req.input.x_path, allow_pickle=False)
+    x = np.load(resolve_x_path(req), allow_pickle=False)
     params = dict(req.params or {})
     init = _load_initialization(req, params)
     snapshots = _configure_snapshots(params)
+    neighbors = resolve_neighbors(req)
 
     local_scale = params.pop("local_scale", True)
     local_scale_kwargs = params.pop("local_scale_kwargs", None)
@@ -179,6 +183,7 @@ def run_pacmap(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
         req,
         params,
         x,
+        neighbors,
         local_scale=local_scale,
         local_scale_kwargs=local_scale_kwargs,
     )
@@ -195,16 +200,20 @@ def run_pacmap(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
 
 
 def run_localmap(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
-    x = np.load(req.input.x_path, allow_pickle=False)
+    x = np.load(resolve_x_path(req), allow_pickle=False)
     params = dict(req.params or {})
 
     init = _load_initialization(req, params)
     snapshots = _configure_snapshots(params)
+    neighbors = resolve_neighbors(req)
+    params.pop("local_scale", None)
+    params.pop("local_scale_kwargs", None)
 
     pair_neighbors = _prepare_pair_neighbors(
         req,
         params,
         x,
+        neighbors,
         local_scale=False,
         local_scale_kwargs=None,
     )

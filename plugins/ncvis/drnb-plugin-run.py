@@ -23,13 +23,24 @@ def _load_request(path: Path) -> dict[str, Any]:
     return data
 
 
+def _preferred_input_path(req: dict[str, Any], key: str) -> str:
+    options = req.get("options") or {}
+    if not options.get("use_sandbox_copies"):
+        source = (req.get("input") or {}).get("source_paths") or {}
+        candidate = source.get(key)
+        if candidate and Path(candidate).exists():
+            return candidate
+    return (req.get("input") or {}).get(key)
+
+
 def run_method(req: dict[str, Any], method: str) -> dict[str, Any]:
     if method != "ncvis-plugin":
         raise RuntimeError(f"unknown method {method}")
 
     sdk_protocol.context_from_payload(req.get("context"))
 
-    x = np.load(req["input"]["x_path"], allow_pickle=False)
+    x_path = _preferred_input_path(req, "x_path")
+    x = np.load(x_path, allow_pickle=False)
     params = dict(req.get("params") or {})
 
     log(f"Running NCVis with params={params}")

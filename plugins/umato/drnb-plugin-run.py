@@ -7,6 +7,7 @@ import numpy as np
 import umato
 from drnb_plugin_sdk import protocol as sdk_protocol
 from drnb_plugin_sdk.helpers.logging import log, summarize_params
+from drnb_plugin_sdk.helpers.paths import resolve_x_path
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
 
@@ -27,7 +28,7 @@ def _adjust_hub_num(x: np.ndarray, params: dict[str, Any]) -> None:
 def run_umato(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
     sdk_protocol.context_from_payload(req.context)
 
-    x = np.load(req.input.x_path, allow_pickle=False)
+    x = np.load(resolve_x_path(req), allow_pickle=False)
     params = dict(req.params or {})
 
     _adjust_hub_num(x, params)
