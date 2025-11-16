@@ -16,6 +16,8 @@ from drnb_plugin_sdk.helpers.results import write_response_json
 from drnb.embed.context import get_neighbors_with_ctx
 from drnb.embed.deprecated.pacmap import create_neighbor_pairs
 from drnb.neighbors.localscale import locally_scaled_neighbors
+
+
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")

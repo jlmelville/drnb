@@ -11,6 +11,8 @@ import ncvis
 import numpy as np
 import protocol_compat as sdk_protocol
 from drnb_plugin_sdk.helpers.logging import log
+
+
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")

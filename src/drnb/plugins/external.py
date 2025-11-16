@@ -236,6 +236,8 @@ def _path_within(path: Path, root: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
 def _default_runner(spec: PluginSpec) -> list[str]:
     uv_var = os.environ.get("UV", "uv")
     uv_path = shutil.which(uv_var)

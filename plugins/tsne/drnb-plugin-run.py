@@ -28,6 +28,8 @@ _PLUGIN_ONLY_PARAMS = {
     "final_momentum",
     "gradient_descent_params",
 }
+
+
 def _load_request(path: Path) -> dict[str, Any]:
     data = json.loads(path.read_text(encoding="utf-8"))
     proto = data.get("protocol") or data.get("protocol_version")
