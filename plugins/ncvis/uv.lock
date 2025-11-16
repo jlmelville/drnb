@@ -15,7 +15,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "drnb-plugin-sdk-310", directory = "../../drnb-plugin-sdk-310" },
+    { name = "drnb-plugin-sdk-310", directory = "../../plugin-sdks/drnb-plugin-sdk-310" },
     { name = "ncvis" },
     { name = "numpy", specifier = "<2" },
     { name = "scipy", specifier = ">=1.15.3" },
@@ -24,7 +24,7 @@ requires-dist = [
 [[package]]
 name = "drnb-plugin-sdk-310"
 version = "0.1.0"
-source = { directory = "../../drnb-plugin-sdk-310" }
+source = { directory = "../../plugin-sdks/drnb-plugin-sdk-310" }
 dependencies = [
     { name = "numpy" },
 ]

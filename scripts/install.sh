@@ -19,6 +19,7 @@ Options:
   --reinstall-sdk, -r  Pass `--reinstall-package drnb-plugin-sdk` to `uv sync`
                        so core/plugins pick up SDK changes without bumping the
                        version.
+                       When the 3.10 SDK is present, it will also be reinstalled.
 EOF
 }
 
@@ -46,23 +47,26 @@ done
 
 sync_dir() {
   local dir="$1"
+  local pkg="${2:-}"
   if [[ $FRESH -eq 1 && -d "$dir/.venv" ]]; then
     echo "[drnb-install] Removing existing virtualenv at $dir/.venv"
     rm -rf "$dir/.venv"
   fi
-  if [[ $REINSTALL_SDK -eq 1 ]]; then
-    (cd "$dir" && "$UV_BIN" sync --reinstall-package drnb-plugin-sdk)
+  if [[ $REINSTALL_SDK -eq 1 && -n "$pkg" ]]; then
+    (cd "$dir" && "$UV_BIN" sync --reinstall-package "$pkg")
   else
     (cd "$dir" && "$UV_BIN" sync)
   fi
 }
 
-echo "[drnb-install] Installing drnb-plugin-sdk from $ROOT_DIR/drnb-plugin-sdk"
-sync_dir "$ROOT_DIR/drnb-plugin-sdk"
+SDK_ROOT="$ROOT_DIR/plugin-sdks"
 
-if [[ -d "$ROOT_DIR/drnb-plugin-sdk-310" ]]; then
-  echo "[drnb-install] Installing drnb-plugin-sdk-310 from $ROOT_DIR/drnb-plugin-sdk-310"
-  sync_dir "$ROOT_DIR/drnb-plugin-sdk-310"
+echo "[drnb-install] Installing drnb-plugin-sdk from $SDK_ROOT/drnb-plugin-sdk"
+sync_dir "$SDK_ROOT/drnb-plugin-sdk" "drnb-plugin-sdk"
+
+if [[ -d "$SDK_ROOT/drnb-plugin-sdk-310" ]]; then
+  echo "[drnb-install] Installing drnb-plugin-sdk-310 from $SDK_ROOT/drnb-plugin-sdk-310"
+  sync_dir "$SDK_ROOT/drnb-plugin-sdk-310" "drnb-plugin-sdk-310"
 fi
 
 echo "[drnb-install] Installing drnb core package from $ROOT_DIR"

@@ -11,7 +11,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/07/38/e321b0e05d8cc068a
 [[package]]
 name = "drnb-plugin-sdk"
 version = "0.1.0"
-source = { directory = "../../drnb-plugin-sdk" }
+source = { directory = "../../plugin-sdks/drnb-plugin-sdk" }
 dependencies = [
     { name = "numpy" },
 ]
@@ -36,7 +36,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "drnb-plugin-sdk", directory = "../../drnb-plugin-sdk" },
+    { name = "drnb-plugin-sdk", directory = "../../plugin-sdks/drnb-plugin-sdk" },
     { name = "numpy" },
     { name = "setuptools", specifier = "<81" },
     { name = "trimap" },

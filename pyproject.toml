@@ -56,4 +56,4 @@ dev = [
 ]
 
 [tool.uv.sources]
-drnb-plugin-sdk = { path = "drnb-plugin-sdk" }
+drnb-plugin-sdk = { path = "plugin-sdks/drnb-plugin-sdk" }

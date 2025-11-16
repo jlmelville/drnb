@@ -5,7 +5,7 @@ requires-python = ">=3.12"
 [[package]]
 name = "drnb-plugin-sdk"
 version = "0.1.0"
-source = { directory = "../../drnb-plugin-sdk" }
+source = { directory = "../../plugin-sdks/drnb-plugin-sdk" }
 dependencies = [
     { name = "numpy" },
 ]
@@ -29,7 +29,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "drnb-plugin-sdk", directory = "../../drnb-plugin-sdk" },
+    { name = "drnb-plugin-sdk", directory = "../../plugin-sdks/drnb-plugin-sdk" },
     { name = "numpy" },
     { name = "umato", specifier = ">=0.1.3" },
 ]

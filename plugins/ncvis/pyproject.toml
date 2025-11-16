@@ -18,4 +18,4 @@ build-backend = "setuptools.build_meta"
 ncvis = ["numpy<2", "cython", "pybind11"]
 
 [tool.uv.sources]
-drnb-plugin-sdk-310 = { path = "../../drnb-plugin-sdk-310" }
+drnb-plugin-sdk-310 = { path = "../../plugin-sdks/drnb-plugin-sdk-310" }

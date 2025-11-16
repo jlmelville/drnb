@@ -51,9 +51,9 @@ repo (or any downstream checkout) install components in this order:
 
 ```bash
 # from repo root
-cd drnb-plugin-sdk && uv sync && cd ..
+cd plugin-sdks/drnb-plugin-sdk && uv sync && cd ../..
 # optional: for Python 3.10-only plugins (ncvis)
-cd drnb-plugin-sdk-310 && uv sync && cd ..
+cd plugin-sdks/drnb-plugin-sdk-310 && uv sync && cd ../..
 uv sync                                 # core drnb package
 # optional: install individual plugin runners under plugins/<name>
 cd plugins/pacmap && uv sync && cd ../..
