@@ -3,16 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from drnb_plugin_sdk.helpers.neighbors import (
-    find_candidate_neighbors_info as sdk_find_candidate_neighbors_info,
-)
-from drnb_plugin_sdk.helpers.neighbors import (
-    read_neighbors as sdk_read_neighbors,
-)
-
+import drnb.neighbors.nbrinfo as nbrinfo
 from drnb.io import data_relative_path, get_path, write_data
 from drnb.log import log
-from drnb.neighbors.nbrinfo import NbrInfo, NearestNeighbors
+from drnb.neighbors.nbrinfo import (
+    NbrInfo,
+    NearestNeighbors,
+)
 
 
 def find_candidate_neighbors_info(
@@ -33,7 +30,7 @@ def find_candidate_neighbors_info(
     base_dir = _resolve_base_dir(drnb_home, sub_dir, verbose=verbose)
     if base_dir is None:
         return None
-    info = sdk_find_candidate_neighbors_info(
+    info = nbrinfo.find_candidate_neighbors_info(
         base_dir,
         name,
         n_neighbors=n_neighbors,
@@ -42,13 +39,14 @@ def find_candidate_neighbors_info(
         exact=exact,
         require_distance=return_distance,
     )
-    if info is None and verbose:
-        log.info("No suitable pre-calculated neighbors available")
-    elif info is not None and verbose:
-        log.info(
-            "Found pre-calculated neighbors file: %s",
-            data_relative_path(info.idx_path),
-        )
+    if verbose:
+        if info is None:
+            log.info("No suitable pre-calculated neighbors available")
+        else:
+            log.info(
+                "Found pre-calculated neighbors file: %s",
+                data_relative_path(info.idx_path),
+            )
     return info
 
 
@@ -66,7 +64,7 @@ def read_neighbors(
     base_dir = _resolve_base_dir(drnb_home, sub_dir, verbose=verbose)
     if base_dir is None:
         return None
-    neighbors = sdk_read_neighbors(
+    neighbors = nbrinfo.read_neighbors(
         base_dir,
         name,
         n_neighbors=n_neighbors,
