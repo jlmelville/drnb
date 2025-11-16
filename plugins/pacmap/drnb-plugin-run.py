@@ -9,8 +9,7 @@ from drnb_plugin_sdk import protocol as sdk_protocol
 from drnb_plugin_sdk.helpers.logging import log, summarize_params
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
-
-from drnb.neighbors.localscale import locally_scaled_neighbors
+from localscale import locally_scaled_neighbors
 
 
 # See also:
