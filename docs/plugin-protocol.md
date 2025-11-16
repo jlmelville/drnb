@@ -12,7 +12,7 @@ and always contains:
 
 - `protocol_version`: currently `1`. Plugins must validate this integer before
   doing any work.
-- `method`: the registry key (e.g. `pacmap-plugin`). Use it to dispatch within a
+- `method`: the registry key (e.g. `pacmap`). Use it to dispatch within a
   multi-method runner.
 - `params`: the embedding parameters dictionary (JSON primitives only).
 - `context`: optional metadata (dataset name, experiment directories). Plugins

@@ -319,4 +319,4 @@ def run_tsne(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    run_plugin({"tsne-plugin": run_tsne})
+    run_plugin({"tsne": run_tsne})

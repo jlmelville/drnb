@@ -22,4 +22,4 @@ def run_ncvis(req: sdk_protocol.PluginRequest) -> dict[str, str]:
 
 
 if __name__ == "__main__":
-    run_plugin({"ncvis-plugin": run_ncvis})
+    run_plugin({"ncvis": run_ncvis})

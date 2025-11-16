@@ -230,4 +230,4 @@ def run_localmap(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    run_plugin({"pacmap-plugin": run_pacmap, "localmap-plugin": run_localmap})
+    run_plugin({"pacmap": run_pacmap, "localmap": run_localmap})

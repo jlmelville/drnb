@@ -54,18 +54,8 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
 
     if method == "pca":
         from drnb.embed.pca import Pca as ctor
-    # if method == "ncvis":
-    #     from drnb.embed.deprecated.ncvis import NCVis as ctor
-    # elif method == "pacmap":
-    #     from drnb.embed.deprecated.pacmap import Pacmap as ctor
-    # elif method == "pymde":
-    #     from drnb.embed.deprecated.pymde import Pymde as ctor
     elif method == "randproj":
         from drnb.embed.randproj import RandProj as ctor
-    # elif method == "trimap":
-    #     from drnb.embed.deprecated.trimap import Trimap as ctor
-    # elif method == "tsne":
-    #     from drnb.embed.deprecated.tsne import Tsne as ctor
     elif method == "umap":
         from drnb.embed.umap import Umap as ctor
     elif method == "negumap":
@@ -86,8 +76,6 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
         from drnb.embed.ivhd import Xvhd as ctor
     elif method == "pacumap":
         from drnb.embed.umap.pacumap import Pacumap as ctor
-    # elif method == "localmap":
-    #     from drnb.embed.deprecated.pacmap import Localmap as ctor
     elif method == "htumap":
         from drnb.embed.umap.htumap import Htumap as ctor
     elif method == "htnegumap":
@@ -98,16 +86,14 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
         from drnb.embed.smmds import Snmds as ctor
     elif method == "leopold":
         from drnb.embed.leopold import Leopold as ctor
-    # elif method == "spacemap":
-    #     from drnb.embed.deprecated.spacemap import Spacemap as ctor
+    elif method == "spacemap":
+        from drnb.embed.deprecated.spacemap import Spacemap as ctor
     elif method == "mmds":
         from drnb.embed.smmds import Mmds as ctor
     elif method == "rescale":
         from drnb.embed.rescale import Rescale as ctor
     elif method == "tsne-rescale":
         from drnb.embed.rescale import TsneRescale as ctor
-    # elif method == "umato":
-    #     from drnb.embed.deprecated.umato import Umato as ctor
     elif method == "sklearn-mmds":
         from drnb.embed.mmds import Mmds as ctor
     elif method == "sklearn-nmds":

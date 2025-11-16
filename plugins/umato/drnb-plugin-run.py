@@ -43,4 +43,4 @@ def run_umato(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    run_plugin({"umato-plugin": run_umato})
+    run_plugin({"umato": run_umato})

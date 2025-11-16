@@ -396,4 +396,4 @@ def run_pymde(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    run_plugin({"pymde-plugin": run_pymde})
+    run_plugin({"pymde": run_pymde})

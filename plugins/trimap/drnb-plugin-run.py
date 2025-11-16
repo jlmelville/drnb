@@ -76,4 +76,4 @@ def run_trimap(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    run_plugin({"trimap-plugin": run_trimap})
+    run_plugin({"trimap": run_trimap})
