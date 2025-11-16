@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import ncvis
 import numpy as np
-from drnb_plugin_sdk_310 import protocol as sdk_protocol
-from drnb_plugin_sdk_310.helpers.logging import log, summarize_params
-from drnb_plugin_sdk_310.helpers.paths import resolve_x_path
-from drnb_plugin_sdk_310.helpers.results import save_result_npz
-from drnb_plugin_sdk_310.helpers.runner import run_plugin
+from drnb_plugin_sdk import protocol as sdk_protocol
+from drnb_plugin_sdk.helpers.logging import log, summarize_params
+from drnb_plugin_sdk.helpers.paths import resolve_x_path
+from drnb_plugin_sdk.helpers.results import save_result_npz
+from drnb_plugin_sdk.helpers.runner import run_plugin
 
 
 def run_ncvis(req: sdk_protocol.PluginRequest) -> dict[str, str]:

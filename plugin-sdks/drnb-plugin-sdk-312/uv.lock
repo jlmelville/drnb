@@ -1,6 +1,6 @@
 version = 1
 revision = 3
-requires-python = ">=3.12"
+requires-python = "==3.12.*"
 
 [[package]]
 name = "colorama"
@@ -12,7 +12,7 @@ wheels = [
 ]
 
 [[package]]
-name = "drnb-plugin-sdk"
+name = "drnb-plugin-sdk-312"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

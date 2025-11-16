@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy",
     "openTSNE",
-    "drnb-plugin-sdk>=0.1.0",
+    "drnb-plugin-sdk-312>=0.1.0",
 ]
 
 [build-system]
@@ -14,4 +14,4 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.uv.sources]
-drnb-plugin-sdk = { path = "../../plugin-sdks/drnb-plugin-sdk" }
+drnb-plugin-sdk-312 = { path = "../../plugin-sdks/drnb-plugin-sdk-312" }

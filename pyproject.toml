@@ -13,11 +13,8 @@ dependencies = [
     "hnswlib>=0.8.0",
     "httpx>=0.28.1",
     "ipykernel>=6.29.5",
-    # "nbformat>=5.10.4",
     # dependency of numba 0.6.0 leaves us little room to manoeuvre with numpy
     "numpy>=1.22,<2.1",
-    # "opentsne>=1.0.2",
-    # "pacmap>=0.8.0",
     "pandas>=2.2.3",
     "plotly>=5.24.1",
     "pyarrow>=18.1.0",
@@ -25,9 +22,8 @@ dependencies = [
     "rich>=14.2.0",
     "scikit-learn>=1.6.0",
     "seaborn>=0.13.2",
-    # "trimap>=1.1.4",
     "umap-learn>=0.5.9.post2",
-    "drnb-plugin-sdk>=0.1.0",
+    "drnb-plugin-sdk-312>=0.1.0",
 ]
 
 
@@ -56,4 +52,4 @@ dev = [
 ]
 
 [tool.uv.sources]
-drnb-plugin-sdk = { path = "plugin-sdks/drnb-plugin-sdk" }
+drnb-plugin-sdk-312 = { path = "plugin-sdks/drnb-plugin-sdk-312" }

@@ -4,7 +4,7 @@ Version: 0.1.0
 Summary: Shared helpers for drnb plugin runners (Python 3.10 compatible)
 Author: James Melville
 License: MIT
-Requires-Python: >=3.10
+Requires-Python: ==3.10.14
 Description-Content-Type: text/markdown
 Requires-Dist: numpy<2.1,>=1.22
 Provides-Extra: dev

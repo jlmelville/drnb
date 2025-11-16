@@ -16,10 +16,10 @@ Usage: ./scripts/install.sh [--fresh] [--reinstall-sdk]
 
 Options:
   --fresh, -f          Delete each project's .venv before running `uv sync`.
-  --reinstall-sdk, -r  Pass `--reinstall-package drnb-plugin-sdk` to `uv sync`
+  --reinstall-sdk, -r  Pass `--reinstall-package drnb-plugin-sdk-312` to `uv sync`
                        so core/plugins pick up SDK changes without bumping the
-                       version.
-                       When the 3.10 SDK is present, it will also be reinstalled.
+                       version. When the 3.10 SDK is present, it will also be
+                       reinstalled.
 EOF
 }
 
@@ -61,8 +61,8 @@ sync_dir() {
 
 SDK_ROOT="$ROOT_DIR/plugin-sdks"
 
-echo "[drnb-install] Installing drnb-plugin-sdk from $SDK_ROOT/drnb-plugin-sdk"
-sync_dir "$SDK_ROOT/drnb-plugin-sdk" "drnb-plugin-sdk"
+echo "[drnb-install] Installing drnb-plugin-sdk-312 from $SDK_ROOT/drnb-plugin-sdk-312"
+sync_dir "$SDK_ROOT/drnb-plugin-sdk-312" "drnb-plugin-sdk-312"
 
 if [[ -d "$SDK_ROOT/drnb-plugin-sdk-310" ]]; then
   echo "[drnb-install] Installing drnb-plugin-sdk-310 from $SDK_ROOT/drnb-plugin-sdk-310"

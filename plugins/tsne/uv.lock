@@ -3,9 +3,9 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
-name = "drnb-plugin-sdk"
+name = "drnb-plugin-sdk-312"
 version = "0.1.0"
-source = { directory = "../../plugin-sdks/drnb-plugin-sdk" }
+source = { directory = "../../plugin-sdks/drnb-plugin-sdk-312" }
 dependencies = [
     { name = "numpy" },
 ]
@@ -22,14 +22,14 @@ name = "drnb-plugin-tsne"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
-    { name = "drnb-plugin-sdk" },
+    { name = "drnb-plugin-sdk-312" },
     { name = "numpy" },
     { name = "opentsne" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "drnb-plugin-sdk", directory = "../../plugin-sdks/drnb-plugin-sdk" },
+    { name = "drnb-plugin-sdk-312", directory = "../../plugin-sdks/drnb-plugin-sdk-312" },
     { name = "numpy" },
     { name = "opentsne" },
 ]

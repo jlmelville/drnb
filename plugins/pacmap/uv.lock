@@ -13,22 +13,22 @@ name = "drnb-plugin-pacmap"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
-    { name = "drnb-plugin-sdk" },
+    { name = "drnb-plugin-sdk-312" },
     { name = "numpy" },
     { name = "pacmap" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "drnb-plugin-sdk", directory = "../../plugin-sdks/drnb-plugin-sdk" },
+    { name = "drnb-plugin-sdk-312", directory = "../../plugin-sdks/drnb-plugin-sdk-312" },
     { name = "numpy" },
     { name = "pacmap", specifier = ">=0.8.0" },
 ]
 
 [[package]]
-name = "drnb-plugin-sdk"
+name = "drnb-plugin-sdk-312"
 version = "0.1.0"
-source = { directory = "../../plugin-sdks/drnb-plugin-sdk" }
+source = { directory = "../../plugin-sdks/drnb-plugin-sdk-312" }
 dependencies = [
     { name = "numpy" },
 ]
