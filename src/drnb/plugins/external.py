@@ -18,6 +18,9 @@ from drnb_plugin_sdk import (
     PluginOptions,
     PluginOutputPaths,
     PluginRequest,
+    env_flag,
+    request_to_dict,
+    sanitize_params,
 )
 
 from drnb.embed.base import Embedder
@@ -26,9 +29,6 @@ from drnb.log import log
 from drnb.neighbors.store import find_candidate_neighbors_info
 from drnb.plugins.protocol import (
     context_to_payload,
-    env_flag,
-    request_to_dict,
-    sanitize_params,
 )
 from drnb.plugins.registry import PluginSpec, get_registry, plugins_enabled
 from drnb.types import EmbedResult

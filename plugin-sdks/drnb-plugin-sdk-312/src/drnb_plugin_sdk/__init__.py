@@ -8,21 +8,24 @@ independently or be skipped entirely by non-Python implementations.
 
 from .protocol import (
     PROTOCOL_VERSION,
+    JSONValue,
     PluginContext,
     PluginInputPaths,
     PluginNeighbors,
     PluginOptions,
-    PluginSourcePaths,
     PluginOutputPaths,
     PluginRequest,
+    PluginSourcePaths,
     context_from_payload,
     context_to_payload,
+    env_flag,
     request_to_dict,
     sanitize_params,
 )
 
 __all__ = [
     "PROTOCOL_VERSION",
+    "JSONValue",
     "PluginContext",
     "PluginInputPaths",
     "PluginNeighbors",
@@ -32,6 +35,7 @@ __all__ = [
     "PluginRequest",
     "context_from_payload",
     "context_to_payload",
+    "env_flag",
     "request_to_dict",
     "sanitize_params",
 ]
