@@ -60,6 +60,8 @@ sync_dir() {
 }
 
 SDK_ROOT="$ROOT_DIR/plugin-sdks"
+SDK_MAIN="drnb-plugin-sdk-312"
+SDK_ALT="drnb-plugin-sdk-310"
 
 echo "[drnb-install] Installing drnb-plugin-sdk-312 from $SDK_ROOT/drnb-plugin-sdk-312"
 sync_dir "$SDK_ROOT/drnb-plugin-sdk-312" "drnb-plugin-sdk-312"
@@ -70,7 +72,7 @@ if [[ -d "$SDK_ROOT/drnb-plugin-sdk-310" ]]; then
 fi
 
 echo "[drnb-install] Installing drnb core package from $ROOT_DIR"
-sync_dir "$ROOT_DIR"
+sync_dir "$ROOT_DIR" "$SDK_MAIN"
 
 PLUGIN_ROOT="$ROOT_DIR/plugins"
 if [[ -d "$PLUGIN_ROOT" ]]; then
@@ -80,9 +82,13 @@ if [[ -d "$PLUGIN_ROOT" ]]; then
     if [[ ! -f "$plugin_dir/pyproject.toml" ]]; then
       continue
     fi
+    pkg_flag="$SDK_MAIN"
+    if rg -q "drnb-plugin-sdk-310" "$plugin_dir/pyproject.toml"; then
+      pkg_flag="$SDK_ALT"
+    fi
     plugin_name="${plugin_dir##*/}"
     echo "[drnb-install] -> plugins/$plugin_name"
-    if ! sync_dir "$plugin_dir"; then
+    if ! sync_dir "$plugin_dir" "$pkg_flag"; then
       echo "[drnb-install] !! Failed to install plugins/$plugin_name (continuing)" >&2
     fi
   done
