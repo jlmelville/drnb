@@ -14,6 +14,7 @@ from typing import Any, NoReturn
 import numpy as np
 from drnb_plugin_sdk import (
     PROTOCOL_VERSION,
+    DrnbPluginProtocolError,
     PluginInputPaths,
     PluginNeighbors,
     PluginOptions,
@@ -350,11 +351,13 @@ def _stream_pipe(pipe, logger, level: int) -> None:
 def _load_response(response_path: Path | str) -> dict[str, Any]:
     path = Path(response_path)
     if not path.exists():
-        raise RuntimeError(f"plugin response not written to {path}")
+        raise DrnbPluginProtocolError(f"plugin response not written to {path}")
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001
-        raise RuntimeError(f"invalid plugin response at {path}: {exc}") from exc
+        raise DrnbPluginProtocolError(
+            f"invalid plugin response at {path}: {exc}"
+        ) from exc
 
 
 _DATA_EXTS: tuple[str, ...] = (

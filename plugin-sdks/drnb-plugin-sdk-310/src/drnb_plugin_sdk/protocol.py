@@ -15,6 +15,10 @@ _TRUTHY = {"1", "true", "yes", "on"}
 _FALSY = {"0", "false", "no", "off", ""}
 
 
+class DrnbPluginProtocolError(RuntimeError):
+    """Error raised for protocol-level issues: version mismatches, malformed requests/responses, missing required fields."""
+
+
 @dataclass
 class PluginContext:
     dataset_name: str
@@ -100,7 +104,7 @@ def load_request(path: str | Path) -> PluginRequest:
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     proto = raw.get("protocol") or raw.get("protocol_version")
     if proto != PROTOCOL_VERSION:
-        raise RuntimeError(
+        raise DrnbPluginProtocolError(
             f"protocol mismatch: expected {PROTOCOL_VERSION}, got {proto}"
         )
     raw["protocol_version"] = proto

@@ -2,12 +2,12 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from drnb_plugin_sdk.protocol import context_to_payload
+from drnb_plugin_sdk import sanitize_params
 
 from drnb.embed.context import EmbedContext
 from drnb.plugins.protocol import (
     context_from_payload,
-    sanitize_params,
+    context_to_payload,
 )
 
 

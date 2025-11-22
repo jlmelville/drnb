@@ -6,6 +6,7 @@ from typing import Any
 import drnb_plugin_sdk as sdk
 from drnb_plugin_sdk import (
     JSONValue,
+    PluginContext,
 )
 
 from drnb.embed.context import EmbedContext
@@ -15,23 +16,22 @@ def context_to_payload(ctx: EmbedContext | None) -> dict[str, JSONValue] | None:
     """Serialize EmbedContext into the SDK-friendly payload."""
     if ctx is None:
         return None
-    payload: dict[str, JSONValue] = {}
-    for field in (
-        "dataset_name",
-        "embed_method_name",
-        "embed_method_variant",
-        "drnb_home",
-        "data_sub_dir",
-        "nn_sub_dir",
-        "triplet_sub_dir",
-        "experiment_name",
-    ):
-        value = getattr(ctx, field, None)
-        if isinstance(value, Path):
-            payload[field] = str(value)
-        else:
-            payload[field] = value
-    return payload
+    # Convert EmbedContext to PluginContext, handling defaults
+    # embed_method_variant: EmbedContext uses "" as default, PluginContext uses None
+    embed_method_variant = (
+        ctx.embed_method_variant if ctx.embed_method_variant else None
+    )
+    plugin_ctx = PluginContext(
+        dataset_name=ctx.dataset_name,
+        embed_method_name=ctx.embed_method_name,
+        embed_method_variant=embed_method_variant,
+        drnb_home=ctx.drnb_home,
+        data_sub_dir=ctx.data_sub_dir,
+        nn_sub_dir=ctx.nn_sub_dir,
+        triplet_sub_dir=ctx.triplet_sub_dir,
+        experiment_name=ctx.experiment_name,
+    )
+    return sdk.context_to_payload(plugin_ctx)
 
 
 def context_from_payload(data: dict[str, Any] | None) -> EmbedContext | None:

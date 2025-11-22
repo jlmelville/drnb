@@ -8,6 +8,7 @@ independently or be skipped entirely by non-Python implementations.
 
 from .protocol import (
     PROTOCOL_VERSION,
+    DrnbPluginProtocolError,
     JSONValue,
     PluginContext,
     PluginInputPaths,
@@ -24,6 +25,7 @@ from .protocol import (
 
 __all__ = [
     "PROTOCOL_VERSION",
+    "DrnbPluginProtocolError",
     "JSONValue",
     "PluginContext",
     "PluginInputPaths",
