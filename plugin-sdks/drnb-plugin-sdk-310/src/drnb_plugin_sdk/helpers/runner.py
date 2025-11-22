@@ -27,6 +27,11 @@ def run_plugin(
 
     try:
         request = load_request(args.request)
+    except Exception:  # noqa: BLE001
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)
+
+    try:
         response = handler(request)
     except Exception as exc:  # noqa: BLE001
         traceback.print_exc(file=sys.stderr)
