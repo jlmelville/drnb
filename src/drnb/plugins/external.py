@@ -32,7 +32,7 @@ from drnb.neighbors.store import find_candidate_neighbors_info
 from drnb.plugins.protocol import (
     context_to_payload,
 )
-from drnb.plugins.registry import PluginSpec, get_registry, plugins_enabled
+from drnb.plugins.registry import PluginSpec, get_registry
 from drnb.types import EmbedResult
 
 
@@ -107,11 +107,6 @@ class ExternalEmbedder(Embedder):
     ) -> EmbedResult:
         # Resolve precomputed-knn preference
         use_knn = True if self.use_precomputed_knn is None else self.use_precomputed_knn
-
-        if not plugins_enabled():
-            raise RuntimeError(
-                f"[external:{self.method}] plugins disabled via DRNB_PLUGINS"
-            )
 
         spec = get_registry().lookup(self.method)
         if spec is None or not spec.plugin_dir.exists():

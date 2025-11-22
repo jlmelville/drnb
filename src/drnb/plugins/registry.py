@@ -4,9 +4,6 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-from drnb_plugin_sdk import env_flag
-
-_PLUGINS_ENV = "DRNB_PLUGINS"
 _PLUGINS_ROOT_ENV = "DRNB_PLUGINS_ROOT"
 _DEFAULT_PLUGINS_ROOT = "plugins"
 
@@ -62,10 +59,6 @@ class Registry:
 
     def lookup(self, method: str) -> PluginSpec | None:
         return self._by_method.get(method.lower())
-
-
-def plugins_enabled() -> bool:
-    return env_flag(_PLUGINS_ENV, True)
 
 
 _registry: Registry | None = None

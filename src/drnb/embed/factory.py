@@ -3,7 +3,7 @@ from typing import Callable
 
 import drnb.embed.base
 from drnb.plugins.external import ExternalEmbedder
-from drnb.plugins.registry import get_registry, plugins_enabled
+from drnb.plugins.registry import get_registry
 from drnb.types import ActionConfig
 
 
@@ -41,16 +41,15 @@ def create_embedder(
 def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
     method = method.lower()
 
-    if plugins_enabled():
-        entry = get_registry().lookup(method)
-        if entry is not None:
-            allowed = {f.name for f in dataclass_fields(ExternalEmbedder)}
+    entry = get_registry().lookup(method)
+    if entry is not None:
+        allowed = {f.name for f in dataclass_fields(ExternalEmbedder)}
 
-            def _ctor(**embed_kwds):
-                normalized = _normalize_external_kwds(embed_kwds, allowed)
-                return ExternalEmbedder(method=method, **normalized)
+        def _ctor(**embed_kwds):
+            normalized = _normalize_external_kwds(embed_kwds, allowed)
+            return ExternalEmbedder(method=method, **normalized)
 
-            return _ctor
+        return _ctor
 
     if method == "pca":
         from drnb.embed.pca import Pca as ctor

@@ -15,7 +15,6 @@ def test_embed_impl_missing_init_path_retains_workspace(tmp_path, monkeypatch) -
         return str(ws_dir)
 
     monkeypatch.setattr(external.tempfile, "mkdtemp", fake_mkdtemp)
-    monkeypatch.setattr(external, "plugins_enabled", lambda: True)
 
     class FakeRegistry:
         def lookup(self, method: str) -> PluginSpec:
