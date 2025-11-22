@@ -100,7 +100,7 @@ class ExternalEmbedder(Embedder):
     # Accept both spellings; we'll resolve at runtime.
     use_precomputed_knn: bool | None = None
     use_precomputed_neighbors: bool | None = None
-    drnb_init: str | None = None
+    drnb_init: str | Path | None = None
     use_sandbox_copies: bool | None = None
 
     def embed_impl(
@@ -148,6 +148,9 @@ class ExternalEmbedder(Embedder):
             init_source = _init_source_path(self.drnb_init)
             source_neighbors = _find_source_neighbors(ctx, params) if use_knn else None
 
+            if self.drnb_init is not None and init_source is None:
+                workspace.fail(f"init path not found: {self.drnb_init}")
+
             input_paths = PluginInputPaths(
                 x_path="",
                 neighbors=PluginNeighbors(),
@@ -167,14 +170,12 @@ class ExternalEmbedder(Embedder):
                     ctx=ctx,
                     method=self.method,
                 )
-                init_path = _prepare_init_path(tmpdir, init_source, self.drnb_init)
+                init_path = _prepare_init_path(tmpdir, init_source)
                 input_paths.init_path = str(init_path) if init_path else None
             else:
                 missing_inputs: list[str] = []
                 if source_x is None:
                     missing_inputs.append("x")
-                if self.drnb_init is not None and init_source is None:
-                    missing_inputs.append("init")
                 if missing_inputs:
                     missing = ", ".join(missing_inputs)
                     workspace.fail(f"missing source inputs for zero-copy: {missing}")
@@ -378,7 +379,7 @@ def _find_source_data_path(ctx: EmbedContext | None) -> Path | None:
     return None
 
 
-def _init_source_path(drnb_init: str | None) -> Path | None:
+def _init_source_path(drnb_init: str | Path | None) -> Path | None:
     if drnb_init is None:
         return None
     if isinstance(drnb_init, (str, Path)):
@@ -455,17 +456,12 @@ def _prepare_neighbor_paths(
         return PluginNeighbors()
 
 
-def _prepare_init_path(
-    tmpdir: Path, init_source: Path | None, init_value: str | None
-) -> Path | None:
-    if init_source is not None:
-        target = tmpdir / Path(init_source).name
-        shutil.copy(init_source, target)
-        return target
-    if init_value is None:
+def _prepare_init_path(tmpdir: Path, init_source: Path | None) -> Path | None:
+    """Copy the provided init file into the workspace."""
+    if init_source is None:
         return None
-    target = tmpdir / "init.npy"
-    np.save(target, np.asarray(init_value, dtype=np.float32, order="C"))
+    target = tmpdir / Path(init_source).name
+    shutil.copy(init_source, target)
     return target
 
 
