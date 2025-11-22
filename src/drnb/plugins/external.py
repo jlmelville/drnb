@@ -99,7 +99,6 @@ class ExternalEmbedder(Embedder):
     method: str = field(default="", kw_only=True)
     # Accept both spellings; we'll resolve at runtime.
     use_precomputed_knn: bool | None = None
-    use_precomputed_neighbors: bool | None = None
     drnb_init: str | Path | None = None
     use_sandbox_copies: bool | None = None
 
@@ -107,15 +106,7 @@ class ExternalEmbedder(Embedder):
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
     ) -> EmbedResult:
         # Resolve precomputed-knn preference
-        use_knn = (
-            self.use_precomputed_knn
-            if self.use_precomputed_knn is not None
-            else (
-                self.use_precomputed_neighbors
-                if self.use_precomputed_neighbors is not None
-                else True
-            )
-        )
+        use_knn = True if self.use_precomputed_knn is None else self.use_precomputed_knn
 
         if not plugins_enabled():
             raise RuntimeError(

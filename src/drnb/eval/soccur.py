@@ -77,14 +77,14 @@ class SOccurrenceEval(EmbeddingEval):
     original and new embeddings.
 
     Attributes:
-        use_precomputed_neighbors: Whether to use precomputed neighbors.
+        use_precomputed_knn: Whether to use precomputed neighbors.
         metric: Distance metric.
         n_neighbors: Number of neighbors to use for the evaluation. Can also be a list.
         include_self: Whether to include the point itself in the neighbors.
         verbose: Whether to print verbose output.
     """
 
-    use_precomputed_neighbors: bool = True
+    use_precomputed_knn: bool = True
     metric: str = "euclidean"
     n_neighbors: int = 15  # can also be a list
     include_self: bool = False
@@ -118,7 +118,7 @@ class SOccurrenceEval(EmbeddingEval):
 
         x_nbrs = None
         y_nbrs = None
-        if self.use_precomputed_neighbors and ctx is not None:
+        if self.use_precomputed_knn and ctx is not None:
             n_nbrs = int(np.max(self.n_neighbors))
             if not self.include_self:
                 n_nbrs += 1

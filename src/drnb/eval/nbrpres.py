@@ -280,14 +280,14 @@ class NbrPreservationEval(EmbeddingEval):
     """Evaluate the preservation of nearest neighbors in the embedding.
 
     Attributes:
-    use_precomputed_neighbors: bool - use precomputed nearest neighbors if available
+    use_precomputed_knn: bool - use precomputed nearest neighbors if available
     metric: str - metric to use for nearest neighbor calculation
     n_neighbors: int | List[int] - number of neighbors to consider
     include_self: bool - include the item itself in the nearest neighbors
     verbose: bool - print verbose output
     """
 
-    use_precomputed_neighbors: bool = True
+    use_precomputed_knn: bool = True
     # this translates to the x-metric in the nbr_pres
     metric: str = "euclidean"
     n_neighbors: int = 15  # can also be a list
@@ -338,7 +338,7 @@ class NbrPreservationEval(EmbeddingEval):
 
         x_nbrs = None
         y_nbrs = None
-        if self.use_precomputed_neighbors and ctx is not None:
+        if self.use_precomputed_knn and ctx is not None:
             n_nbrs = int(np.max(self.n_neighbors))
             if not self.include_self:
                 n_nbrs += 1
