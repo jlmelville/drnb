@@ -4,37 +4,75 @@ from typing import Callable
 import drnb.embed.base
 from drnb.plugins.external import ExternalEmbedder
 from drnb.plugins.registry import get_registry
-from drnb.types import ActionConfig
+from drnb.types import ActionConfig, EmbedConfig
+
+
+def create_single_embedder(
+    embed_config: EmbedConfig | ActionConfig | Callable, embed_kwds: dict | None = None
+) -> drnb.embed.base.Embedder:
+    """Create a single embedder from an EmbedConfig, action configuration, or callable.
+
+    This is the core function that creates a single embedder instance.
+    For lists, use create_embedder() which handles dispatching.
+    """
+    # Handle EmbedConfig
+    if isinstance(embed_config, EmbedConfig):
+        # Merge embed_kwds with config's wrapper_kwds and params
+        if embed_kwds is None:
+            embed_kwds = {}
+        # Merge wrapper_kwds (embed_kwds overrides)
+        merged_wrapper_kwds = {**embed_config.wrapper_kwds, **embed_kwds}
+        # Merge params (embed_kwds["params"] overrides if present)
+        merged_params = embed_config.params.copy()
+        if "params" in embed_kwds:
+            merged_params.update(embed_kwds["params"])
+        final_kwds = {**merged_wrapper_kwds, "params": merged_params}
+        method_name = embed_config.name
+    # Handle tuple (backward compatibility)
+    elif isinstance(embed_config, tuple):
+        if len(embed_config) != 2:
+            raise ValueError("Unexpected format for method")
+        final_kwds = embed_config[1].copy()
+        if embed_kwds is not None:
+            # Merge embed_kwds
+            if "params" in embed_kwds:
+                final_kwds.setdefault("params", {}).update(embed_kwds["params"])
+            final_kwds.update({k: v for k, v in embed_kwds.items() if k != "params"})
+        method_name = embed_config[0]
+    # Handle callable
+    elif callable(embed_config):
+        if embed_kwds is None:
+            embed_kwds = {"params": {}}
+        if "params" not in embed_kwds or embed_kwds["params"] is None:
+            embed_kwds["params"] = {}
+        return embed_config(**embed_kwds)
+    # Handle string
+    else:
+        if embed_kwds is None:
+            embed_kwds = {"params": {}}
+        if "params" not in embed_kwds or embed_kwds["params"] is None:
+            embed_kwds["params"] = {}
+        final_kwds = embed_kwds
+        method_name = embed_config
+
+    # Get constructor and create embedder
+    ctor = _str_to_ctor(method_name)
+    return ctor(**final_kwds)
 
 
 def create_embedder(
-    method: ActionConfig | list | Callable, embed_kwds: dict | None = None
-) -> drnb.embed.base.Embedder:
-    """Create an embedder from an action configuration, a list of action configurations,
-    or a callable embedder factory/constructor."""
+    method: EmbedConfig | ActionConfig | list | Callable, embed_kwds: dict | None = None
+) -> drnb.embed.base.Embedder | list[drnb.embed.base.Embedder]:
+    """Create an embedder from an EmbedConfig, action configuration, a list of configurations,
+    or a callable embedder factory/constructor.
+
+    If method is a list, returns a list of embedders.
+    Otherwise, returns a single embedder.
+    """
     if isinstance(method, list):
-        return [create_embedder(m) for m in method]
+        return [create_single_embedder(m) for m in method]
 
-    if isinstance(method, tuple):
-        if len(method) != 2:
-            raise ValueError("Unexpected format for method")
-        embed_kwds = method[1]
-        method = method[0]
-
-    if embed_kwds is None:
-        embed_kwds = {"params": {}}
-
-    if "params" not in embed_kwds or embed_kwds["params"] is None:
-        embed_kwds["params"] = {}
-
-    # already created embedder factory
-    if callable(method):
-        ctor = method
-    else:
-        ctor = _str_to_ctor(method)
-
-    embedder = ctor(**embed_kwds)
-    return embedder
+    return create_single_embedder(method, embed_kwds)
 
 
 # pylint: disable=import-outside-toplevel,too-many-statements

@@ -29,7 +29,7 @@ from drnb.plot.scale.nbrpres import ColorByNbrPres
 from drnb.plot.scale.rte import ColorByRte
 from drnb.plot.scale.so import ColorBySo
 from drnb.triplets import create_triplets_request, find_triplet_files
-from drnb.types import ActionConfig
+from drnb.types import ActionConfig, EmbedConfig
 from drnb.util import dts_to_str
 
 
@@ -309,7 +309,7 @@ def create_exporter(
 
 
 def create_pipeline(
-    method: ActionConfig | list | Callable,
+    method: EmbedConfig | ActionConfig | list | Callable,
     data_config: dict | None = None,
     plot: bool | dict | str = True,
     eval_metrics: str | List[str] | None = None,
@@ -443,7 +443,7 @@ def standard_metrics() -> List[ActionConfig]:
 
 # Automatically adds usual eval and plotting
 def standard_pipeline(
-    method: str | list | tuple,
+    method: EmbedConfig | str | list | tuple,
     *,
     params: dict | None = None,
     verbose: bool = False,
