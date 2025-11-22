@@ -6,7 +6,7 @@ import pandas as pd
 import seaborn as sns
 
 from drnb.plot.util import rgb_to_hex
-from drnb.util import evenly_spaced, islisty
+from drnb.util import evenly_spaced
 
 
 # use glasbey to extend a categorical palette if possible (or necessary)
@@ -41,7 +41,7 @@ def palettize(
 
     # we must have a list of colors at this point
     # pylint: disable=protected-access
-    if not (isinstance(palette, sns.palettes._ColorPalette) or islisty(palette)):
+    if not (isinstance(palette, sns.palettes._ColorPalette) or isinstance(palette, (list, tuple))):
         raise ValueError(f"Unknown palette {palette}")
 
     n_colors = len(palette)

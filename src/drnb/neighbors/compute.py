@@ -16,7 +16,7 @@ from drnb.neighbors.nbrinfo import NbrInfo, NearestNeighbors
 from drnb.neighbors.store import read_neighbors, write_neighbors
 from drnb.preprocess import numpyfy
 from drnb.types import DataSet
-from drnb.util import FromDict, islisty
+from drnb.util import FromDict
 
 
 def n_connected_components(graph: scipy.sparse.coo_matrix) -> int:
@@ -388,7 +388,7 @@ class NeighborsRequest(FromDict):
         if suffix:
             nbrs_name = f"{nbrs_name}-{suffix}"
 
-        if not islisty(self.metric):
+        if not isinstance(self.metric, (list, tuple)):
             self.metric = [self.metric]
         self.metric = cast(List[str], self.metric)
 
@@ -428,7 +428,7 @@ def create_neighbors_request(neighbors_kwds: dict | None) -> NeighborsRequest | 
     if neighbors_kwds is None:
         return None
     for key in ["metric", "n_neighbors"]:
-        if key in neighbors_kwds and not islisty(neighbors_kwds[key]):
+        if key in neighbors_kwds and not isinstance(neighbors_kwds[key], (list, tuple)):
             neighbors_kwds[key] = [neighbors_kwds[key]]
     if "verbose" not in neighbors_kwds:
         neighbors_kwds["verbose"] = True

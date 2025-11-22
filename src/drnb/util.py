@@ -1,4 +1,3 @@
-import collections.abc
 import datetime
 import json
 from typing import Any
@@ -27,11 +26,6 @@ def get_method_and_args(
         kwds = method[1]
         method = method[0]
     return method, kwds
-
-
-def islisty(o: Any) -> bool:
-    """Check if the object is a non-string iterable."""
-    return not isinstance(o, str) and isinstance(o, collections.abc.Iterable)
 
 
 # pylint: disable=too-few-public-methods

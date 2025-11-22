@@ -1,6 +1,6 @@
 from typing import List
 
-from drnb.util import get_method_and_args, islisty
+from drnb.util import get_method_and_args
 
 from .astress import ApproxStressEval
 from .base import EmbeddingEval
@@ -35,7 +35,7 @@ def create_evaluators(
     if eval_metrics is None:
         return []
 
-    if not islisty(eval_metrics):
+    if not isinstance(eval_metrics, (list, tuple)):
         eval_metrics = [eval_metrics]
 
     evaluators = []

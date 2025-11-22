@@ -5,7 +5,6 @@ from typing import List
 import numpy as np
 
 from drnb.io import FileExporter, ensure_suffix
-from drnb.util import islisty
 
 
 class NoEmbedExporter:
@@ -51,7 +50,7 @@ class FileEmbedExporter:
         if suffix is None:
             suffix = self.file_exporter.suffix
         suffix = ensure_suffix(suffix, self.file_exporter.sub_dir)
-        if not islisty(suffix):
+        if not isinstance(suffix, (list, tuple)):
             suffix = [suffix]
         for extra_data_name, extra_data in embedded.items():
             if extra_data_name == "coords":
@@ -78,7 +77,7 @@ def create_embed_exporter(
 
     if suffix is None:
         suffix = embed_method_label
-    if not islisty(out_type):
+    if not isinstance(out_type, (list, tuple)):
         out_type = [out_type]
 
     exporters = []

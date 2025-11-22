@@ -10,7 +10,6 @@ from drnb.eval.base import EmbeddingEval, EvalResult
 from drnb.eval.nbrpres import get_xy_nbr_idxs
 from drnb.neighbors import NearestNeighbors, read_neighbors
 from drnb.neighbors.hubness import s_occurrences
-from drnb.util import islisty
 
 
 def soccur(
@@ -91,7 +90,7 @@ class SOccurrenceEval(EmbeddingEval):
     verbose: bool = False
 
     def _listify_n_neighbors(self):
-        if not islisty(self.n_neighbors):
+        if not isinstance(self.n_neighbors, (list, tuple)):
             self.n_neighbors = [self.n_neighbors]
 
     def requires(self):

@@ -30,7 +30,7 @@ from drnb.plot.scale.rte import ColorByRte
 from drnb.plot.scale.so import ColorBySo
 from drnb.triplets import create_triplets_request, find_triplet_files
 from drnb.types import ActionConfig
-from drnb.util import dts_to_str, islisty
+from drnb.util import dts_to_str
 
 
 @dataclass
@@ -293,7 +293,7 @@ def create_exporter(
     If `export` is None, no exporter is created. If `export` is True, the default file
     type is used (pkl)."""
     if export is not None:
-        if not islisty(export):
+        if not isinstance(export, (list, tuple)):
             if isinstance(export, bool):
                 if export:
                     export = ["pkl"]

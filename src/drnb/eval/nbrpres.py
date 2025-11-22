@@ -13,7 +13,6 @@ from drnb.neighbors import (
     get_neighbors,
     read_neighbors,
 )
-from drnb.util import islisty
 
 
 def nn_accv(
@@ -296,7 +295,7 @@ class NbrPreservationEval(EmbeddingEval):
 
     def _listify_n_neighbors(self):
         """Ensure that n_neighbors is a list."""
-        if not islisty(self.n_neighbors):
+        if not isinstance(self.n_neighbors, (list, tuple)):
             self.n_neighbors = [self.n_neighbors]
 
     def requires(self) -> dict:

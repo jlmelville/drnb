@@ -7,7 +7,6 @@ import numpy as np
 from drnb.embed import get_coords
 from drnb.embed.context import EmbedContext
 from drnb.log import log
-from drnb.util import islisty
 
 
 @dataclass
@@ -60,7 +59,7 @@ def evaluate_embedding(
     for evaluator in evaluators:
         log.info(evaluator)
         eval_result = evaluator.evaluate(X, coords, ctx=ctx)
-        if islisty(eval_result):
+        if isinstance(eval_result, (list, tuple)):
             eval_results += eval_result
         else:
             eval_results.append(eval_result)

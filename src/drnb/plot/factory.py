@@ -6,7 +6,7 @@ from drnb.plot.protocol import PlotterProtocol
 from drnb.plot.rpdscatterplot import RandomPairDistanceScatterplot
 from drnb.plot.rthistogram import RandomTripletHistogram
 from drnb.plot.seaborn import SeabornPlotter
-from drnb.util import get_method_and_args, islisty
+from drnb.util import get_method_and_args
 
 
 def create_plotters(
@@ -40,7 +40,7 @@ def create_plotters(
     color_by = []
     if "color_by" in plot_kwargs:
         color_by = plot_kwargs["color_by"]
-        if not islisty(color_by):
+        if not isinstance(color_by, (list, tuple)):
             color_by = [color_by]
         del plot_kwargs["color_by"]
 

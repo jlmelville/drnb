@@ -4,8 +4,6 @@ import matplotlib
 import numpy as np
 import pandas as pd
 
-from drnb.util import islisty
-
 
 def rgb_to_hex(rgb: Tuple[float, float, float]) -> str:
     """Convert an RGB tuple of floats in (0, 1) to a hex code."""
@@ -37,7 +35,7 @@ def is_string_series(s: pd.Series) -> bool:
 
 def is_hex(col: list | pd.Series | range | None) -> bool:
     """Check if a column is a hex color column."""
-    if islisty(col):
+    if isinstance(col, (list, tuple)):
         col = pd.Series(col)
     if not isinstance(col, pd.Series):
         return False

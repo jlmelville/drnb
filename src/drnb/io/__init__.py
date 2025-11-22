@@ -15,7 +15,6 @@ from numpy.typing import DTypeLike
 
 from drnb.log import log
 from drnb.preprocess import numpyfy
-from drnb.util import islisty
 
 DRNB_HOME_ENV_VAR = "DRNB_HOME"
 DEBUG = False
@@ -99,7 +98,7 @@ def ensure_suffix(
         suffix = default_suffix
     if suffix == "":
         return suffix
-    if islisty(suffix):
+    if isinstance(suffix, (list, tuple)):
         return "".join(s if s[0] in (".", "-", "_") else f"-{s}" for s in suffix)
     if not suffix[0] in (".", "-", "_"):
         suffix = f"-{suffix}"

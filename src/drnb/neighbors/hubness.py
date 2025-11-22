@@ -16,7 +16,6 @@ from drnb.neighbors import NearestNeighbors, read_neighbors
 from drnb.neighbors.localscale import locally_scaled_neighbors
 from drnb.neighbors.nbrinfo import replace_n_neighbors_in_path
 from drnb.neighbors.random import random_sample_nbrs
-from drnb.util import islisty
 
 
 def k_occurrences(idx: np.ndarray, n_neighbors: int | None = None) -> np.ndarray:
@@ -133,7 +132,7 @@ def nn_to_sparse(
     if isinstance(nbrs, np.ndarray):
         idx = nbrs
         dist = None
-    elif islisty(nbrs):
+    elif isinstance(nbrs, (list, tuple)):
         idx = nbrs[0]
         dist = nbrs[1]
     else:
@@ -553,7 +552,7 @@ def nbr_stats_summary(
     """
     if names is None:
         names = list_available_datasets()
-    if not islisty(names):
+    if not isinstance(names, (list, tuple)):
         names = [names]
 
     summaries = []

@@ -8,7 +8,6 @@ import pandas as pd
 from drnb.io import (
     FileExporter,
     get_drnb_home,
-    islisty,
     log,
     read_data,
     read_json,
@@ -151,7 +150,7 @@ def create_dataset_exporters(
     configuration, or None. If None, an empty list is returned."""
     if export_configs is None:
         return []
-    if not islisty(export_configs):
+    if not isinstance(export_configs, (list, tuple)):
         export_configs = [export_configs]
     return [create_dataset_exporter(export_config) for export_config in export_configs]
 
@@ -198,7 +197,7 @@ def get_dataset_info(
     - updated_on: the last update date of the dataset
     - url: the URL of the dataset
     """
-    if not islisty(names):
+    if not isinstance(names, (list, tuple)):
         return _get_dataset_info(names, drnb_home=drnb_home, sub_dir=sub_dir)
 
     df = pd.concat(

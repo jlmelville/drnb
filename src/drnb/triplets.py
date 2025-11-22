@@ -9,7 +9,7 @@ import drnb.io as nbio
 from drnb.distances import distance_function
 from drnb.log import log
 from drnb.types import DistanceFunc
-from drnb.util import FromDict, islisty
+from drnb.util import FromDict
 
 
 def calculate_triplets(
@@ -318,7 +318,7 @@ class TripletsRequest(FromDict):
     ) -> List[Path]:
         """Create triplets for a dataset. Returns a list of paths to the idx and dist
         files."""
-        if not islisty(self.metric):
+        if not isinstance(self.metric, (list, tuple)):
             metrics = [self.metric]
         else:
             metrics = self.metric

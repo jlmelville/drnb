@@ -9,7 +9,6 @@ from drnb.eval.base import EmbeddingEval, EvalResult
 from drnb.neighbors import read_neighbors
 from drnb.neighbors.hubness import nn_to_sparse
 from drnb.neighbors.nbrinfo import NearestNeighbors
-from drnb.util import islisty
 
 from .nbrpres import get_xy_nbr_idxs
 
@@ -212,7 +211,7 @@ class UndirectedNbrPreservationEval(EmbeddingEval):
     verbose: bool = False
 
     def _listify_n_neighbors(self):
-        if not islisty(self.n_neighbors):
+        if not isinstance(self.n_neighbors, (list, tuple)):
             self.n_neighbors = [self.n_neighbors]
 
     def requires(self):
