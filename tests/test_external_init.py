@@ -4,7 +4,12 @@ import numpy as np
 import pytest
 
 from drnb.plugins import external
-from drnb.plugins.external import ExternalEmbedder, PluginSpec, _prepare_init_path
+from drnb.plugins.external import (
+    ExternalEmbedder,
+    PluginSpec,
+    PluginWorkspaceError,
+    _prepare_init_path,
+)
 
 
 def test_embed_impl_missing_init_path_retains_workspace(tmp_path, monkeypatch) -> None:
@@ -24,7 +29,7 @@ def test_embed_impl_missing_init_path_retains_workspace(tmp_path, monkeypatch) -
 
     embedder = ExternalEmbedder(method="demo", drnb_init="nonexistent-init-path")
 
-    with pytest.raises(RuntimeError, match="init path not found"):
+    with pytest.raises(PluginWorkspaceError, match="init path not found"):
         embedder.embed_impl(np.zeros((2, 2), dtype=np.float32), params={}, ctx=None)
 
     # Workspace should be retained on failure for inspection.
