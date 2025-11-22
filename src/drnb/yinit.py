@@ -1,7 +1,6 @@
 from typing import List, Literal, Tuple, cast
 
 import numpy as np
-import openTSNE.initialization
 import scipy.sparse
 import scipy.sparse.csgraph
 import scipy.sparse.linalg
@@ -21,7 +20,12 @@ from drnb.neighbors.random import logn_neighbors
 
 def tsne_scale_coords(coords: np.ndarray, target_std: float = 1e-4) -> np.ndarray:
     """Rescale coordinates to a fixed standard deviation, t-SNE style."""
-    return openTSNE.initialization.rescale(coords, inplace=False, target_std=target_std)
+
+    # Copied from the openTSNE initialization module to avoid dependency
+    x = np.array(coords, copy=True)
+    x /= np.std(x[:, 0]) / target_std
+
+    return x
 
 
 def scale_coords(
@@ -53,13 +57,34 @@ def add_noise(
     return coords + rng.normal(scale=noise, size=coords.shape).astype(np.float32)
 
 
+def add_scaled_noise(
+    coords: NDArray[np.float32], scale: float = 0.01, seed: int | None = None
+) -> NDArray[np.float32]:
+    """
+    Add Gaussian noise to the coordinates using relative scaling. Matches openTSNE
+    logic for the `jitter` function.
+    """
+    rng = np.random.default_rng(seed=seed)
+
+    # standard deviation is based on the first dimension
+    data_std = np.std(coords[:, 0])
+    target_std = data_std * scale
+
+    return coords + rng.normal(scale=target_std, size=coords.shape).astype(np.float32)
+
+
 def spca(data: NDArray[np.float32], stdev: float = None) -> NDArray[np.float32]:
     """Initialize the embedding using PCA, scaling the coordinates by `stdev` divided by
     1e-4. If `stdev` is None, the coordinates are not scaled after PCA."""
-    log.info("Initializing via openTSNE (scaled) PCA")
-    coords = openTSNE.initialization.pca(data)
+    log.info("Initializing via openTSNE-style (scaled) PCA")
+    coords = sklearn.decomposition.PCA(n_components=2).fit_transform(data)
+
+    # rescale
     if stdev is not None:
         coords *= stdev / 1e-4
+
+    # jitter
+    coords = add_scaled_noise(coords)
     return coords
 
 
