@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import os
@@ -35,6 +37,58 @@ from drnb.types import EmbedResult
 
 
 @dataclass
+class PluginWorkspace:
+    """Workspace for a plugin run.
+
+    Args:
+        path: The path to the workspace.
+        remove_on_exit: Whether to remove the workspace on exit.
+        method: The method name.
+
+    In practice, `remove_on_exit` is set by the value of the `DRNB_PLUGIN_KEEP_TMP`
+    environment variable.
+    """
+
+    path: Path
+    remove_on_exit: bool
+    method: str
+
+    @property
+    def prefix(self) -> str:
+        return f"[external:{self.method}]"
+
+    def fail(self, message: str) -> NoReturn:
+        """Raise with context and retain the workspace even if remove_on_exit is
+        True."""
+        self.remove_on_exit = False
+        log.error(
+            "%s failure occurred; workspace retained at %s",
+            self.prefix,
+            self.path,
+        )
+        raise RuntimeError(f"{self.prefix} {message} (workspace: {self.path})")
+
+    def __enter__(self) -> PluginWorkspace:
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        # Preserve workspace on unexpected errors unless remove_on_exit explicitly
+        # asked to remove.
+        if exc_type is not None and self.remove_on_exit:
+            self.remove_on_exit = False
+            log.error(
+                "%s unexpected error; workspace retained at %s",
+                self.prefix,
+                self.path,
+            )
+
+        if self.remove_on_exit:
+            shutil.rmtree(self.path, ignore_errors=True)
+        else:
+            log.info("%s kept plugin workspace at %s", self.prefix, self.path)
+
+
+@dataclass
 class ExternalEmbedder(Embedder):
     """
     Out-of-process embedder for conflict-heavy methods. Returns the same
@@ -64,11 +118,13 @@ class ExternalEmbedder(Embedder):
         )
 
         if not plugins_enabled():
-            self._fail("plugins disabled via DRNB_PLUGINS")
+            raise RuntimeError(
+                f"[external:{self.method}] plugins disabled via DRNB_PLUGINS"
+            )
 
         spec = get_registry().lookup(self.method)
         if spec is None or not spec.plugin_dir.exists():
-            self._fail("plugin not found")
+            raise RuntimeError(f"[external:{self.method}] plugin not found")
 
         params = dict(params or {})
         safe_params = sanitize_params(params)
@@ -77,11 +133,14 @@ class ExternalEmbedder(Embedder):
         use_sandbox = (
             sandbox_env if self.use_sandbox_copies is None else self.use_sandbox_copies
         )
-        tmpdir = Path(tempfile.mkdtemp(prefix=f"drnb-{self.method}-"))
-        self._workspace_dir = tmpdir
-        self._cleanup_workspace = not keep_tmp
+        workspace = PluginWorkspace(
+            path=Path(tempfile.mkdtemp(prefix=f"drnb-{self.method}-")),
+            remove_on_exit=not keep_tmp,
+            method=self.method,
+        )
+        tmpdir = workspace.path
 
-        try:
+        with workspace:
             result_path = tmpdir / "result.npz"
             response_path = tmpdir / "response.json"
 
@@ -118,7 +177,7 @@ class ExternalEmbedder(Embedder):
                     missing_inputs.append("init")
                 if missing_inputs:
                     missing = ", ".join(missing_inputs)
-                    self._fail(f"missing source inputs for zero-copy: {missing}")
+                    workspace.fail(f"missing source inputs for zero-copy: {missing}")
                 input_paths.x_path = str(source_x)
                 input_paths.neighbors = source_neighbors or PluginNeighbors()
                 input_paths.init_path = str(init_source) if init_source else None
@@ -147,7 +206,7 @@ class ExternalEmbedder(Embedder):
             cmd = list(spec.runner or _default_runner(spec))
             cmd += ["--method", self.method, "--request", str(req_path)]
 
-            log.info(f"[external:{self.method}] launching: {' '.join(cmd)}")
+            log.info(f"{workspace.prefix} launching: {' '.join(cmd)}")
 
             # Stream plugin logs from stdout/stderr, let response JSON be written to disk.
             env = {
@@ -192,17 +251,17 @@ class ExternalEmbedder(Embedder):
             stderr_thread.join()
 
             if code != 0:
-                self._fail(f"plugin exit {code}")
+                workspace.fail(f"plugin exit {code}")
 
             resp = _load_response(response_path)
 
             if not resp.get("ok", False):
-                self._fail(f"plugin error: {resp.get('message', 'unknown')}")
+                workspace.fail(f"plugin error: {resp.get('message', 'unknown')}")
 
             npz_hint = resp.get("result_npz") or request.output.result_path
             npz_path = Path(npz_hint).resolve()
             if not _path_within(npz_path, tmpdir):
-                self._fail("plugin wrote results outside of workspace")
+                workspace.fail("plugin wrote results outside of workspace")
 
             with np.load(npz_path, allow_pickle=False) as z:
                 coords = z["coords"].astype(np.float32, copy=False)
@@ -220,27 +279,8 @@ class ExternalEmbedder(Embedder):
                 result["snapshots"] = snaps
             return result
 
-        finally:
-            cleanup = getattr(self, "_cleanup_workspace", True)
-            if cleanup:
-                shutil.rmtree(tmpdir, ignore_errors=True)
-            else:
-                log.info(f"[external:{self.method}] kept plugin workspace at {tmpdir}")
-            self._workspace_dir = None
-            self._cleanup_workspace = True
-
     def embed(self, x: np.ndarray, ctx: EmbedContext | None = None) -> EmbedResult:
         return self.embed_impl(x, self.params, ctx)
-
-    def _fail(self, message: str) -> NoReturn:
-        workspace = getattr(self, "_workspace_dir", None)
-        if workspace is not None:
-            log.error(
-                f"[external:{self.method}] failure occurred; workspace retained at {workspace}"
-            )
-            message = f"{message} (workspace: {workspace})"
-            self._cleanup_workspace = False
-        raise RuntimeError(f"[external:{self.method}] {message}")
 
 
 def _path_within(path: Path, root: Path) -> bool:
