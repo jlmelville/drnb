@@ -5,7 +5,6 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 import threading
 from dataclasses import dataclass, field
@@ -337,35 +336,9 @@ def _default_runner(spec: PluginSpec) -> list[str]:
     uv_path = shutil.which(uv_var)
     if uv_path:
         return [uv_path, "run", "--color", "never", "--quiet", "drnb-plugin-run.py"]
-
-    plugin_python = _find_plugin_python(spec.plugin_dir)
-    if plugin_python:
-        log.warning(
-            "[external:%s] uv executable '%s' not found; using plugin-local interpreter %s",
-            spec.method,
-            uv_var,
-            plugin_python,
-        )
-        return [plugin_python, "-u", "drnb-plugin-run.py"]
-
-    log.warning(
-        "[external:%s] uv executable '%s' not found and plugin .venv is missing; using host interpreter",
-        spec.method,
-        uv_var,
+    raise PluginWorkspaceError(
+        f"[external:{spec.method}] uv executable '{uv_var}' not found in PATH; set UV to override"
     )
-    return [sys.executable, "-u", "drnb-plugin-run.py"]
-
-
-def _find_plugin_python(plugin_dir: Path) -> str | None:
-    candidates = [
-        plugin_dir / ".venv" / "bin" / "python",
-        plugin_dir / ".venv" / "Scripts" / "python.exe",
-        plugin_dir / ".venv" / "Scripts" / "python",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return str(candidate)
-    return None
 
 
 def _stream_pipe(pipe, logger, level: int) -> None:
