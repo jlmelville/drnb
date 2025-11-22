@@ -135,7 +135,6 @@ class ExternalEmbedder(Embedder):
             result_path = tmpdir / "result.npz"
             response_path = tmpdir / "response.json"
 
-            source_x = _find_source_data_path(ctx)
             init_source = _init_source_path(self.drnb_init)
             source_neighbors = _find_source_neighbors(ctx, params) if use_knn else None
 
@@ -164,6 +163,7 @@ class ExternalEmbedder(Embedder):
                 input_paths.init_path = str(init_path) if init_path else None
             else:
                 missing_inputs: list[str] = []
+                source_x = _find_source_data_path(ctx)
                 if source_x is None:
                     missing_inputs.append("x")
                 if missing_inputs:
