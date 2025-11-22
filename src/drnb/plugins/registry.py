@@ -39,17 +39,15 @@ class Registry:
     def _load(self) -> None:
         cfg = self.root / "plugins.toml"
         if cfg.exists():
-            data = tomllib.loads(cfg.read_text(encoding="utf-8"))
+            with cfg.open("rb") as f:
+                data = tomllib.load(f)
             for m, entry in (data.get("plugins") or {}).items():
-                folder = entry.get("folder", m)
-                runner = entry.get("runner")
-                key = m.lower()
-                if key in self._by_method:
-                    raise ValueError(f"Duplicate plugin registration for '{m}'")
-                self._by_method[key] = PluginSpec(
+                self._by_method[m.lower()] = PluginSpec(
                     method=m,
-                    plugin_dir=(self.root / folder).resolve(),
-                    runner=shlex.split(runner) if runner else None,
+                    plugin_dir=(self.root / entry.get("folder", m)).resolve(),
+                    runner=shlex.split(entry.get("runner"))
+                    if entry.get("runner")
+                    else None,
                 )
         else:
             # fallback: autodiscover folders that contain the runner file
