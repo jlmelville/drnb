@@ -311,7 +311,7 @@ def _run_plugin_process(
     )
     stderr_thread = threading.Thread(
         target=_stream_pipe,
-        args=(proc.stderr, stderr_logger, logging.INFO),
+        args=(proc.stderr, stderr_logger, logging.WARNING),
         daemon=True,
     )
     stdout_thread.start()

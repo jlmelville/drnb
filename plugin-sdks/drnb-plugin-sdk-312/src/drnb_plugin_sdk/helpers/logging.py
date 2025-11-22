@@ -7,8 +7,8 @@ import numpy as np
 
 
 def log(*parts: Any) -> None:
-    """Print a message to stderr immediately."""
-    print(*parts, file=sys.stderr, flush=True)
+    """Print a message to stdout immediately."""
+    print(*parts, file=sys.stdout, flush=True)
 
 
 def summarize_params(params: Mapping[str, Any]) -> dict[str, Any]:
