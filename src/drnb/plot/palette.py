@@ -41,7 +41,10 @@ def palettize(
 
     # we must have a list of colors at this point
     # pylint: disable=protected-access
-    if not (isinstance(palette, sns.palettes._ColorPalette) or isinstance(palette, (list, tuple))):
+    if not (
+        isinstance(palette, sns.palettes._ColorPalette)
+        or isinstance(palette, (list, tuple))
+    ):
         raise ValueError(f"Unknown palette {palette}")
 
     n_colors = len(palette)
