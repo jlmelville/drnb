@@ -36,7 +36,9 @@ def test_sanitize_params_handles_numpy_and_paths(tmp_path: Path) -> None:
 
 
 def test_request_round_trip(tmp_path: Path) -> None:
-    ctx = PluginContext(dataset_name="toy", embed_method_name="pacmap", drnb_home=tmp_path)
+    ctx = PluginContext(
+        dataset_name="toy", embed_method_name="pacmap", drnb_home=tmp_path
+    )
     payload = context_to_payload(ctx)
     restored = context_from_payload(payload)
     assert restored == ctx
@@ -51,7 +53,9 @@ def test_request_round_trip(tmp_path: Path) -> None:
             neighbors=PluginNeighbors(idx_path="idx.npy", dist_path="dist.npy"),
         ),
         options=PluginOptions(use_sandbox_copies=True),
-        output=PluginOutputPaths(result_path="result.npz", response_path="response.json"),
+        output=PluginOutputPaths(
+            result_path="result.npz", response_path="response.json"
+        ),
     )
     req_path = tmp_path / "request.json"
     req_path.write_text(json.dumps(request_to_dict(req)), encoding="utf-8")
@@ -76,7 +80,9 @@ def test_request_without_optional_paths(tmp_path: Path) -> None:
             neighbors=PluginNeighbors(idx_path=None, dist_path=None),
         ),
         options=PluginOptions(use_sandbox_copies=False),
-        output=PluginOutputPaths(result_path="result.npz", response_path="response.json"),
+        output=PluginOutputPaths(
+            result_path="result.npz", response_path="response.json"
+        ),
     )
     req_path = tmp_path / "request.json"
     req_path.write_text(json.dumps(request_to_dict(req)), encoding="utf-8")
