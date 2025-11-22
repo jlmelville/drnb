@@ -34,23 +34,10 @@ class PluginNeighbors:
 
 
 @dataclass
-class PluginSourcePaths:
-    drnb_home: Path | None = None
-    dataset: str | None = None
-    data_sub_dir: str | None = None
-    nn_sub_dir: str | None = None
-    triplet_sub_dir: str | None = None
-    x_path: str | None = None
-    init_path: str | None = None
-    neighbors: PluginNeighbors = field(default_factory=PluginNeighbors)
-
-
-@dataclass
 class PluginInputPaths:
     x_path: str
     init_path: str | None = None
     neighbors: PluginNeighbors = field(default_factory=PluginNeighbors)
-    source_paths: PluginSourcePaths | None = None
 
 
 @dataclass
@@ -125,21 +112,6 @@ def _decode_request(raw: dict[str, Any]) -> PluginRequest:
     input_payload = raw.get("input") or {}
     options_payload = raw.get("options") or {}
     output_payload = raw.get("output") or {}
-    source_payload = input_payload.get("source_paths")
-    source_paths = None
-    if source_payload:
-        source_paths = PluginSourcePaths(
-            drnb_home=Path(source_payload["drnb_home"])
-            if source_payload.get("drnb_home")
-            else None,
-            dataset=source_payload.get("dataset") or source_payload.get("dataset_name"),
-            data_sub_dir=source_payload.get("data_sub_dir"),
-            nn_sub_dir=source_payload.get("nn_sub_dir"),
-            triplet_sub_dir=source_payload.get("triplet_sub_dir"),
-            x_path=source_payload.get("x_path"),
-            init_path=source_payload.get("init_path"),
-            neighbors=PluginNeighbors(**(source_payload.get("neighbors") or {})),
-        )
     request = PluginRequest(
         protocol_version=raw["protocol_version"],
         method=raw["method"],
@@ -149,7 +121,6 @@ def _decode_request(raw: dict[str, Any]) -> PluginRequest:
             x_path=input_payload["x_path"],
             init_path=input_payload.get("init_path"),
             neighbors=PluginNeighbors(**(input_payload.get("neighbors") or {})),
-            source_paths=source_paths,
         ),
         options=PluginOptions(**options_payload),
         output=PluginOutputPaths(
@@ -233,14 +204,4 @@ def _input_to_dict(input_paths: PluginInputPaths) -> dict[str, Any]:
         "init_path": input_paths.init_path,
         "neighbors": input_paths.neighbors.__dict__.copy(),
     }
-    if input_paths.source_paths is not None:
-        data["source_paths"] = _source_to_dict(input_paths.source_paths)
-    return data
-
-
-def _source_to_dict(source_paths: PluginSourcePaths) -> dict[str, Any]:
-    data = source_paths.__dict__.copy()
-    data["neighbors"] = source_paths.neighbors.__dict__.copy()
-    if isinstance(source_paths.drnb_home, Path):
-        data["drnb_home"] = str(source_paths.drnb_home)
     return data

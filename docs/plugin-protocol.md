@@ -18,7 +18,6 @@ and always contains:
   - `x_path`: required feature matrix path.
   - `init_path`: optional initialization path (may be `null`).
   - `neighbors`: optional precomputed KNN (`idx_path`, `dist_path`, either may be `null`).
-  - `source_paths`: optional and omitted when identical to `input`; include only when runtime paths differ from their originals (e.g., sandbox copies) and mirror `input` plus layout hints.
 - `options`: flags such as `use_precomputed_knn`. Current keys:
   - `use_sandbox_copies` (default: false) copies inputs into the workspace; `input.*` points at those copies.
   - `keep_temps`, `log_path`, `use_precomputed_knn` remain available.

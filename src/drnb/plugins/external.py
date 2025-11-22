@@ -20,7 +20,6 @@ from drnb_plugin_sdk import (
     PluginOptions,
     PluginOutputPaths,
     PluginRequest,
-    PluginSourcePaths,
     env_flag,
     request_to_dict,
     sanitize_params,
@@ -152,23 +151,9 @@ class ExternalEmbedder(Embedder):
             if self.drnb_init is not None and init_source is None:
                 workspace.fail(f"init path not found: {self.drnb_init}")
 
-            source_paths = None
-            if ctx is not None and ctx.drnb_home is not None:
-                source_paths = PluginSourcePaths(
-                    drnb_home=Path(ctx.drnb_home),
-                    dataset=ctx.dataset_name,
-                    data_sub_dir=ctx.data_sub_dir,
-                    nn_sub_dir=ctx.nn_sub_dir,
-                    triplet_sub_dir=ctx.triplet_sub_dir,
-                    x_path=str(source_x) if source_x else None,
-                    init_path=str(init_source) if init_source else None,
-                    neighbors=source_neighbors or PluginNeighbors(),
-                )
-
             input_paths = PluginInputPaths(
                 x_path="",
                 neighbors=PluginNeighbors(),
-                source_paths=source_paths,
             )
 
             if use_sandbox:

@@ -52,7 +52,6 @@ def test_run_plugin_writes_error_response_on_handler_exception(
         input=PluginInputPaths(
             x_path=str(tmp_path / "x.npy"),
             neighbors=PluginNeighbors(),
-            source_paths=None,
         ),
         options=PluginOptions(),
         output=PluginOutputPaths(
