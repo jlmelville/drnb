@@ -4,31 +4,17 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+# Env var to look if the plugins folder has been moved
 _PLUGINS_ROOT_ENV = "DRNB_PLUGINS_ROOT"
+# Otherwise, expect a folder called "plugins" in the repo root
 _DEFAULT_PLUGINS_ROOT = "plugins"
 
 
-def _validate_directory(
-    path: Path, context: str, not_found_msg: str | None = None
-) -> Path:
-    """Validate that a path exists and is a directory, raising appropriate errors.
-
-    Args:
-        path: The path to validate
-        context: Descriptive context for error messages (e.g., "from DRNB_PLUGINS_ROOT")
-        not_found_msg: Optional custom message for FileNotFoundError. If None, uses
-            default format: "{context} does not exist: {path}"
-
-    Returns:
-        The validated path
-
-    Raises:
-        FileNotFoundError: If the path does not exist
-        NotADirectoryError: If the path exists but is not a directory
-    """
+def _validate_directory(path: Path, context: str) -> Path:
+    """Validate that a path exists and is a directory. `context` is used to specify
+    what path has failed to validate in the error message."""
     if not path.exists():
-        msg = not_found_msg or f"{context} does not exist: {path}"
-        raise FileNotFoundError(msg)
+        raise FileNotFoundError(f"{context} does not exist: {path}")
     if not path.is_dir():
         raise NotADirectoryError(f"{context} is not a directory: {path}")
     return path
@@ -53,14 +39,7 @@ class Registry:
             # default to the plugins folder in the repo root
             repo_root = Path(__file__).resolve().parents[3]
             default_root = repo_root / _DEFAULT_PLUGINS_ROOT
-            _validate_directory(
-                default_root,
-                "Plugin root",
-                not_found_msg=(
-                    f"Plugin root directory does not exist at {default_root}. "
-                    f"Set {_PLUGINS_ROOT_ENV} to point to your plugins directory."
-                ),
-            )
+            _validate_directory(default_root, "Plugin root")
             root = default_root
         self.root = root
         self._by_method: dict[str, PluginSpec] = {}
