@@ -5,9 +5,9 @@ import gzip
 import json
 import os
 import pickle
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Iterable, List, Literal, cast
+from typing import Any, Iterable, List, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -15,7 +15,7 @@ from numpy.typing import DTypeLike
 
 from drnb.log import log
 from drnb.preprocess import numpyfy
-from drnb.util import Jsonizable, islisty
+from drnb.util import islisty
 
 DRNB_HOME_ENV_VAR = "DRNB_HOME"
 DEBUG = False
@@ -474,7 +474,7 @@ def write_pickle(
 
 
 def write_json(
-    x: dict | Jsonizable,
+    x: dict | Any,
     name: str,
     suffix: str | List[str] | None = None,
     drnb_home: Path | str | None = None,
@@ -483,7 +483,7 @@ def write_json(
     verbose: bool = False,
 ) -> Path:
     """Write data to a JSON file in the data repository. Success is not guaranteed
-    unless the object is a dictionary or implements the Jsonizable mixin class.
+    unless the object is a dictionary or a dataclass instance.
     The data is written to a file with the given name, suffix, and extension. The file
     is located in the subdirectory of the data repository specified by sub_dir. If the
     subdirectory does not exist, it is created if create_sub_dir is True, otherwise an
@@ -495,8 +495,8 @@ def write_json(
         log.info("Writing JSON format to %s", data_relative_path(output_path))
 
     with open(output_path, "w", encoding="utf-8") as f:
-        if hasattr(x, "to_json"):
-            f.write(x.to_json(indent=2))
+        if is_dataclass(x):
+            f.write(json.dumps(asdict(x), indent=2, ensure_ascii=False))
         else:
             # here goes nothing
             f.write(json.dumps(x, indent=2, ensure_ascii=False))

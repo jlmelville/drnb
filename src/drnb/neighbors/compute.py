@@ -16,7 +16,7 @@ from drnb.neighbors.nbrinfo import NbrInfo, NearestNeighbors
 from drnb.neighbors.store import read_neighbors, write_neighbors
 from drnb.preprocess import numpyfy
 from drnb.types import DataSet
-from drnb.util import FromDict, Jsonizable, islisty
+from drnb.util import FromDict, islisty
 
 
 def n_connected_components(graph: scipy.sparse.coo_matrix) -> int:
@@ -361,7 +361,7 @@ def _slice_neighbors(
 
 
 @dataclass
-class NeighborsRequest(FromDict, Jsonizable):
+class NeighborsRequest(FromDict):
     """Request for creating neighbors."""
 
     n_neighbors: List[int] = field(default_factory=lambda: [15])

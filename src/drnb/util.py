@@ -1,7 +1,6 @@
 import collections.abc
 import datetime
 import json
-from dataclasses import asdict
 from typing import Any
 
 # pylint: disable=unused-import
@@ -33,21 +32,6 @@ def get_method_and_args(
 def islisty(o: Any) -> bool:
     """Check if the object is a non-string iterable."""
     return not isinstance(o, str) and isinstance(o, collections.abc.Iterable)
-
-
-class Jsonizable:
-    """Mixin class to create a JSON serializable object."""
-
-    @property
-    def __dict__(self) -> dict:
-        return asdict(self)
-
-    def to_json(self, indent=None) -> str:
-        """Return a JSON string representation of the object."""
-        return json.dumps(self.__dict__, indent=indent, ensure_ascii=False)
-
-    def __json__(self) -> dict:
-        return self.__dict__
 
 
 # pylint: disable=too-few-public-methods

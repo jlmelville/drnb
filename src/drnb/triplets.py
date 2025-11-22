@@ -9,7 +9,7 @@ import drnb.io as nbio
 from drnb.distances import distance_function
 from drnb.log import log
 from drnb.types import DistanceFunc
-from drnb.util import FromDict, Jsonizable, islisty
+from drnb.util import FromDict, islisty
 
 
 def calculate_triplets(
@@ -301,7 +301,7 @@ def find_precomputed_triplets(
 
 
 @dataclass
-class TripletsRequest(FromDict, Jsonizable):
+class TripletsRequest(FromDict):
     """Request for creating triplets."""
 
     n_triplets_per_point: int = 5

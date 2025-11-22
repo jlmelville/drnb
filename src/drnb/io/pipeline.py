@@ -13,12 +13,12 @@ from drnb.neighbors import NeighborsRequest, create_neighbors_request
 from drnb.preprocess import filter_columns, numpyfy, scale_data
 from drnb.triplets import TripletsRequest, create_triplets_request
 from drnb.types import ActionConfig
-from drnb.util import Jsonizable, dts_to_str
+from drnb.util import dts_to_str
 
 
 @dataclass
 # pylint: disable=too-many-instance-attributes
-class DatasetPipeline(Jsonizable):
+class DatasetPipeline:
     """Data class to store and run a data pipeline."""
 
     convert_args: dict | None = field(
@@ -339,7 +339,7 @@ class DatasetPipeline(Jsonizable):
 
 @dataclass
 # pylint: disable=too-many-instance-attributes
-class DatasetPipelineResult(Jsonizable):
+class DatasetPipelineResult:
     """Data class to store the results of a data pipeline run."""
 
     pipeline: DatasetPipeline
