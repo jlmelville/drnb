@@ -8,6 +8,32 @@ _PLUGINS_ROOT_ENV = "DRNB_PLUGINS_ROOT"
 _DEFAULT_PLUGINS_ROOT = "plugins"
 
 
+def _validate_directory(
+    path: Path, context: str, not_found_msg: str | None = None
+) -> Path:
+    """Validate that a path exists and is a directory, raising appropriate errors.
+
+    Args:
+        path: The path to validate
+        context: Descriptive context for error messages (e.g., "from DRNB_PLUGINS_ROOT")
+        not_found_msg: Optional custom message for FileNotFoundError. If None, uses
+            default format: "{context} does not exist: {path}"
+
+    Returns:
+        The validated path
+
+    Raises:
+        FileNotFoundError: If the path does not exist
+        NotADirectoryError: If the path exists but is not a directory
+    """
+    if not path.exists():
+        msg = not_found_msg or f"{context} does not exist: {path}"
+        raise FileNotFoundError(msg)
+    if not path.is_dir():
+        raise NotADirectoryError(f"{context} is not a directory: {path}")
+    return path
+
+
 @dataclass
 class PluginSpec:
     method: str
@@ -22,15 +48,21 @@ class Registry:
         env_root = os.environ.get(_PLUGINS_ROOT_ENV)
         if env_root:
             root = Path(os.path.expandvars(env_root)).expanduser()
+            _validate_directory(root, f"Plugin root directory from {_PLUGINS_ROOT_ENV}")
         else:
             # default to the plugins folder in the repo root
             repo_root = Path(__file__).resolve().parents[3]
             default_root = repo_root / _DEFAULT_PLUGINS_ROOT
-            if default_root.exists():
-                root = default_root
-            else:
-                root = Path(__file__).resolve().parent
-        self.root = Path(root)
+            _validate_directory(
+                default_root,
+                "Plugin root",
+                not_found_msg=(
+                    f"Plugin root directory does not exist at {default_root}. "
+                    f"Set {_PLUGINS_ROOT_ENV} to point to your plugins directory."
+                ),
+            )
+            root = default_root
+        self.root = root
         self._by_method: dict[str, PluginSpec] = {}
         self._load()
 
@@ -54,14 +86,7 @@ class Registry:
                 raise ValueError(f"Duplicate plugin registration for '{m}'")
 
             plugin_dir = (self.root / entry.get("folder", m)).resolve()
-            if not plugin_dir.exists():
-                raise FileNotFoundError(
-                    f"Plugin folder for '{m}' not found at {plugin_dir}"
-                )
-            if not plugin_dir.is_dir():
-                raise NotADirectoryError(
-                    f"Plugin path for '{m}' is not a directory: {plugin_dir}"
-                )
+            _validate_directory(plugin_dir, f"Plugin folder for '{m}'")
 
             self._by_method[key] = PluginSpec(
                 method=m,
