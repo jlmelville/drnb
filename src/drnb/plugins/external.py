@@ -328,14 +328,9 @@ def _find_plugin_python(plugin_dir: Path) -> str | None:
 
 
 def _stream_pipe(pipe, logger, level: int) -> None:
-    try:
-        for line in pipe:
-            logger.log(level, line.rstrip())
-    finally:
-        try:
-            pipe.close()
-        except Exception:
-            pass
+    for line in pipe:
+        logger.log(level, line.rstrip())
+    pipe.close()
 
 
 def _load_response(response_path: Path | str) -> dict[str, Any]:
@@ -395,10 +390,7 @@ def _find_source_neighbors(
         return None
     metric = params.get("metric") or params.get("distance") or "euclidean"
     names = []
-    try:
-        embed_nn = ctx.embed_nn_name
-    except Exception:
-        embed_nn = None
+    embed_nn = getattr(ctx, "embed_nn_name", None)
     if embed_nn:
         names.append(embed_nn)
     if ctx.dataset_name not in names:
