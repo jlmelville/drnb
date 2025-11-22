@@ -1,10 +1,9 @@
 import logging
-import os
-import sys
 from contextlib import contextmanager
 from typing import Any, Generator
 
 import rich
+from drnb_plugin_sdk import env_flag
 from rich.console import Console
 from rich.logging import RichHandler
 
@@ -14,17 +13,9 @@ rich.jupyter.JUPYTER_HTML_FORMAT = """\
 """
 FORMAT = "%(message)s"
 
-
-def _env_flag(name: str, default: bool = False) -> bool:
-    val = os.environ.get(name)
-    if val is None:
-        return default
-    return val.strip().lower() not in ("0", "false", "no", "")
-
-
 # we need to not emit any fancy formatting if we are reading from a pipe -- the main
 # process is already formatting the logs for us
-_plain_logs = _env_flag("DRNB_LOG_PLAIN")
+_plain_logs = env_flag("DRNB_LOG_PLAIN")
 
 if _plain_logs:
     handler = logging.StreamHandler()
@@ -38,7 +29,7 @@ logging.basicConfig(
     datefmt="[%X]",
     handlers=[handler],
 )
-log = logging.getLogger("rich")
+log = logging.getLogger("drnb")
 
 
 def set_verbosity(verbose: bool = False) -> int:
