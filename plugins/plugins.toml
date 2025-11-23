@@ -19,3 +19,7 @@ runner = "uv run --color never --quiet --preview-features extra-build-dependenci
 
 [plugins."pymde"]
 folder = "pymde"
+
+
+[plugins."topometry"]
+folder = "topometry"
