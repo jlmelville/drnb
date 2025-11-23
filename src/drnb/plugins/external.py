@@ -22,7 +22,6 @@ from drnb_plugin_sdk import (
     PluginRequest,
     env_flag,
     request_to_dict,
-    sanitize_params,
 )
 
 from drnb.embed.base import Embedder
@@ -156,7 +155,6 @@ class ExternalEmbedder(Embedder):
         keep_tmp: bool,
     ) -> tuple[PluginRequest, Path]:
         tmpdir = workspace.path
-        safe_params = sanitize_params(params)
 
         result_path = tmpdir / "result.npz"
         response_path = tmpdir / "response.json"
@@ -202,7 +200,7 @@ class ExternalEmbedder(Embedder):
         request = PluginRequest(
             protocol_version=PROTOCOL_VERSION,
             method=self.method,
-            params=safe_params,
+            params=params,
             context=context_to_payload(ctx),
             input=input_paths,
             options=PluginOptions(

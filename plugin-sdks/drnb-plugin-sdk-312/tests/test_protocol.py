@@ -26,6 +26,8 @@ def test_sanitize_params_handles_numpy_and_paths(tmp_path: Path) -> None:
         "string": "ok",
         "path": tmp_path / "file.npy",
         "nested": {"values": [np.int32(2), "x"]},
+        "tuple": (np.int16(1), "b"),
+        "set": {np.float64(2.5), "a"},
     }
     sanitized = sanitize_params(params)
     assert sanitized["int"] == 4
@@ -33,6 +35,17 @@ def test_sanitize_params_handles_numpy_and_paths(tmp_path: Path) -> None:
     assert sanitized["string"] == "ok"
     assert sanitized["path"].endswith("file.npy")
     assert sanitized["nested"]["values"][0] == 2
+    assert sanitized["tuple"] == [1, "b"]
+    assert "a" in sanitized["set"]
+    assert any(val == pytest.approx(2.5) for val in sanitized["set"])
+
+
+def test_sanitize_params_rejects_unsupported_types() -> None:
+    class Foo:
+        pass
+
+    with pytest.raises(TypeError, match="params.bad"):
+        sanitize_params({"bad": Foo()})
 
 
 def test_request_round_trip(tmp_path: Path) -> None:

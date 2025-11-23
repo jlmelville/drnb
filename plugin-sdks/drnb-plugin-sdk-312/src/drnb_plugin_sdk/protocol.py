@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -122,15 +123,11 @@ def _decode_request(raw: dict[str, Any]) -> PluginRequest:
         params=raw.get("params") or {},
         context=raw.get("context"),
         input=PluginInputPaths(
-            x_path=input_payload["x_path"],
-            init_path=input_payload.get("init_path"),
             neighbors=PluginNeighbors(**(input_payload.get("neighbors") or {})),
+            **{k: v for k, v in input_payload.items() if k != "neighbors"},
         ),
         options=PluginOptions(**options_payload),
-        output=PluginOutputPaths(
-            result_path=output_payload["result_path"],
-            response_path=output_payload.get("response_path"),
-        ),
+        output=PluginOutputPaths(**output_payload),
     )
     return request
 
@@ -168,44 +165,37 @@ def sanitize_params(params: dict[str, Any] | None) -> dict[str, JSONValue]:
     """Serialize params into JSON-safe values before constructing the request."""
     if params is None:
         return {}
-    return {
-        str(key): _sanitize_value(value, path=str(key)) for key, value in params.items()
-    }
-
-
-def _sanitize_value(value: Any, path: str) -> JSONValue:
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return value
-    if isinstance(value, np.generic):
-        return value.item()
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, dict):
-        return {
-            str(key): _sanitize_value(val, path=f"{path}.{key}")
-            for key, val in value.items()
-        }
-    if isinstance(value, (list, tuple, set)):
-        return [
-            _sanitize_value(v, path=f"{path}[{idx}]") for idx, v in enumerate(value)
-        ]
-    raise TypeError(f"Unsupported parameter type at {path}: {type(value).__name__}")
+    return _convert_json_value(params, path="params")
 
 
 def request_to_dict(req: PluginRequest) -> dict[str, Any]:
     """Convert a PluginRequest dataclass into the JSON dict written to disk."""
-    payload = req.__dict__.copy()
-    payload["input"] = _input_to_dict(req.input)
-    payload["options"] = req.options.__dict__.copy()
-    payload["output"] = req.output.__dict__.copy()
+    payload = asdict(req)
+    payload["params"] = _convert_json_value(req.params, path="params")
+    if payload.get("context") is not None:
+        payload["context"] = _convert_json_value(req.context, path="context")
     payload["protocol"] = payload.pop("protocol_version")
     return payload
 
 
-def _input_to_dict(input_paths: PluginInputPaths) -> dict[str, Any]:
-    data = {
-        "x_path": input_paths.x_path,
-        "init_path": input_paths.init_path,
-        "neighbors": input_paths.neighbors.__dict__.copy(),
-    }
-    return data
+def _convert_json_value(value: Any, path: str | None = None) -> JSONValue:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, np.generic):
+        return _convert_json_value(value.item(), path=path)
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        result: dict[str, JSONValue] = {}
+        for key, val in value.items():
+            key_str = str(key)
+            child_path = f"{path}.{key_str}" if path else key_str
+            result[key_str] = _convert_json_value(val, path=child_path)
+        return result
+    if isinstance(value, (list, tuple, set)):
+        return [
+            _convert_json_value(v, path=f"{path}[{idx}]" if path else f"[{idx}]")
+            for idx, v in enumerate(value)
+        ]
+    location = path or "<root>"
+    raise TypeError(f"Unsupported parameter type at {location}: {type(value).__name__}")

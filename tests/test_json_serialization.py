@@ -1,10 +1,8 @@
 """Tests for JSON serialization of dataclasses, verifying behavior before and after removing Jsonizable mixin."""
 
 import json
-from pathlib import Path
-
-import pytest
 from dataclasses import asdict, is_dataclass
+from pathlib import Path
 
 from drnb.eval.globalscore import GlobalScore
 from drnb.io import write_json
@@ -108,4 +106,3 @@ def test_write_json_nested_dataclass(tmp_path: Path):
     assert isinstance(data["pipeline"], dict)
     assert data["pipeline"]["verbose"] is True
     assert data["started_on"] == "2024-01-01"
-
