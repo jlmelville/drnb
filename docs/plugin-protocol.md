@@ -104,3 +104,15 @@ copy/pasted serialization code.
       "response_path": "/tmp/drnb-tsne-XXXX/response.json"
     }
   }
+
+## Exploring plugins via notebooks
+
+Directly using plugin packages in the main drnb core is no longer possible, so if you like playing
+with them directly, you will want to:
+
+- activate the plugin virtual environment `source .venv/bin/activate` in the plugin folder
+- `uv add ipykernel`
+- register the env as kernel e.g. for PyMDE: `python -m ipykernel install --user --name drnb-pymde --display-name "drnb: PyMDE"`
+
+You should then be able to pick the kernel from however you interact with notebooks (this should
+work with e.g. VSCode notebook support too).
