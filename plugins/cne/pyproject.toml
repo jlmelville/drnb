@@ -1,0 +1,18 @@
+[project]
+name = "drnb-plugin-cne"
+version = "0.0.1"
+description = "cne plugin runner for drnb"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "drnb-plugin-sdk-312>=0.1.0",
+    "contrastive-ne>=0.4.0",
+    "torch>=2.6,<2.7",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv.sources]
+drnb-plugin-sdk-312 = { path = "../../plugin-sdks/drnb-plugin-sdk-312" }

@@ -23,3 +23,7 @@ folder = "pymde"
 
 [plugins."topometry"]
 folder = "topometry"
+
+
+[plugins."cne"]
+folder = "cne"
