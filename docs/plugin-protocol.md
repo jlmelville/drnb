@@ -20,7 +20,7 @@ and always contains:
   - `neighbors`: optional precomputed KNN (`idx_path`, `dist_path`, either may be `null`).
 - `options`: flags such as `use_precomputed_knn`. Current keys:
   - `use_sandbox_copies` (default: false) copies inputs into the workspace; `input.*` points at those copies.
-  - `keep_temps`, `log_path`, `use_precomputed_knn` remain available.
+- `keep_temps`, `use_precomputed_knn`, `use_sandbox_copies` remain available.
 - `output.result_path`: where the plugin must write its `.npz` result.
 - `output.response_path`: where the plugin must write the final JSON response.
 
@@ -95,7 +95,6 @@ copy/pasted serialization code.
     },
     "options": {
       "keep_temps": false,
-      "log_path": null,
       "use_precomputed_knn": true,
       "use_sandbox_copies": false
     },

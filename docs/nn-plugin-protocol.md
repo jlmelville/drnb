@@ -12,7 +12,7 @@ This document describes the contract between `drnb` (the host) and every nearest
 - `n_neighbors`: maximum number of neighbors the plugin should compute. The host may later slice down when writing cache files.
 - `params`: method parameters (JSON primitives only) using the same names/defaults as the in-process implementation.
 - `input.x_path`: required feature matrix path. Absolute paths are provided. No other inputs are required for NN plugins.
-- `options`: flags such as `use_sandbox_copies` (default: false) and `keep_temps`; `log_path` is reserved.
+- `options`: flags such as `use_sandbox_copies` (default: false) and `keep_temps`.
 - `output.result_path`: where the plugin must write its `.npz` result (containing `idx` and `dist`).
 - `output.response_path`: where the plugin must write the final JSON response.
 
@@ -48,7 +48,6 @@ The host will launch each plugin with `uv run --quiet --color never drnb-nn-plug
     },
     "options": {
       "keep_temps": false,
-      "log_path": null,
       "use_sandbox_copies": false
     },
     "output": {

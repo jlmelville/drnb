@@ -48,7 +48,6 @@ class PluginInputPaths:
 @dataclass
 class PluginOptions:
     keep_temps: bool = False
-    log_path: str | None = None
     use_precomputed_knn: bool | None = None
     use_sandbox_copies: bool | None = False
 

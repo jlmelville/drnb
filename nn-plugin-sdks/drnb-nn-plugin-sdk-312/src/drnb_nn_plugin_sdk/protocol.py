@@ -27,7 +27,6 @@ class NNPluginInputPaths:
 @dataclass
 class NNPluginOptions:
     keep_temps: bool = False
-    log_path: str | None = None
     use_sandbox_copies: bool | None = False
 
 
