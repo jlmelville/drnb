@@ -4,7 +4,7 @@ import itertools
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, cast
+from typing import Callable, cast
 
 import numpy as np
 import scipy.sparse
@@ -40,12 +40,8 @@ def dmat(x: DataSet | np.ndarray) -> np.ndarray:
     return sklearn.metrics.pairwise_distances(x)
 
 
-def create_nn_func(method: str) -> Tuple[Callable, Dict]:
+def create_nn_func(method: str) -> tuple[Callable, dict]:
     """Create a nearest neighbor function and default keyword arguments."""
-    # if method == "annoy":
-    #     raise ValueError(
-    #         "annoy neighbors must be provided by the NN plugin (no in-process support)"
-    #     )
     if method == "sklearn":
         from . import sklearn as sknbrs
 
@@ -360,7 +356,7 @@ def calculate_exact_neighbors(
     return_distance: bool = True,
     include_self: bool = True,
     verbose: bool = False,
-    method_kwds: Optional[dict] = None,
+    method_kwds: dict | None = None,
     name: str = "",
 ) -> NearestNeighbors:
     """Convenience wrapper for exact neighbors."""
@@ -446,11 +442,11 @@ def _slice_neighbors(
 class NeighborsRequest(FromDict):
     """Request for creating neighbors."""
 
-    n_neighbors: List[int] = field(default_factory=lambda: [15])
+    n_neighbors: list[int] = field(default_factory=lambda: [15])
     method: str = "exact"
-    metric: str | List[str] = field(default_factory=lambda: ["euclidean"])
-    file_types: List[str] = field(default_factory=lambda: ["pkl"])
-    params: Dict = field(default_factory=dict)
+    metric: str | list[str] = field(default_factory=lambda: ["euclidean"])
+    file_types: list[str] = field(default_factory=lambda: ["pkl"])
+    params: dict = field(default_factory=dict)
     verbose: bool = False
 
     def create_neighbors(
@@ -459,7 +455,7 @@ class NeighborsRequest(FromDict):
         dataset_name: str,
         nbr_dir: str = "nn",
         suffix: str | None = None,
-    ) -> List[Path]:
+    ) -> list[Path]:
         """Create neighbors for a given dataset."""
         if not self.n_neighbors:
             log.info("Neighbor request but no n_neighbors specified")
@@ -472,7 +468,7 @@ class NeighborsRequest(FromDict):
 
         if not isinstance(self.metric, (list, tuple)):
             self.metric = [self.metric]
-        self.metric = cast(List[str], self.metric)
+        self.metric = cast(list[str], self.metric)
 
         neighbors_output_paths: list[Path] = []
         for metric in self.metric:
