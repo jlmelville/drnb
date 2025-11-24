@@ -62,7 +62,9 @@ def _handler(req: NNPluginRequest) -> dict:
     else:
         from joblib import Parallel, delayed  # pylint: disable=import-outside-toplevel
 
-        Parallel(n_jobs=n_jobs, require="sharedmem")(delayed(getnns)(i) for i in range(X.shape[0]))
+        Parallel(n_jobs=n_jobs, require="sharedmem")(
+            delayed(getnns)(i) for i in range(X.shape[0])
+        )
 
     result = save_neighbors_npz(req.output.result_path, indices, distances)  # type: ignore[arg-type]
     return result

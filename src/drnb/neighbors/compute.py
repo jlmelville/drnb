@@ -29,6 +29,8 @@ NN_PLUGIN_DEFAULTS: dict[str, dict[str, int]] = {
     "annoy": {"n_trees": 50, "search_k": -1, "random_state": 42, "n_jobs": -1},
 }
 
+_ANNOY_METRICS = ("dot", "cosine", "manhattan", "euclidean")
+
 
 def dmat(x: DataSet | np.ndarray) -> np.ndarray:
     """Calculate the pairwise distance matrix for a given data set."""
@@ -40,6 +42,10 @@ def dmat(x: DataSet | np.ndarray) -> np.ndarray:
 
 def create_nn_func(method: str) -> Tuple[Callable, Dict]:
     """Create a nearest neighbor function and default keyword arguments."""
+    # if method == "annoy":
+    #     raise ValueError(
+    #         "annoy neighbors must be provided by the NN plugin (no in-process support)"
+    #     )
     if method == "sklearn":
         from . import sklearn as sknbrs
 
@@ -65,11 +71,6 @@ def create_nn_func(method: str) -> Tuple[Callable, Dict]:
 
         nn_func = hnsw_mod.hnsw_neighbors
         default_method_kwds = hnsw_mod.HNSW_DEFAULTS
-    elif method == "annoy":
-        from . import annoy as annoy_mod
-
-        nn_func = annoy_mod.annoy_neighbors
-        default_method_kwds = annoy_mod.ANNOY_DEFAULTS
     else:
         raise ValueError(f"Unknown nearest neighbor method '{method}'")
 
@@ -393,7 +394,6 @@ def _find_fast_method(metric):
 
 
 def _preferred_fast_methods():
-    from . import annoy as annoy_mod
     from . import faiss as faiss_mod
     from . import hnsw as hnsw_mod
     from . import pynndescent as pynndescent_mod
@@ -403,7 +403,7 @@ def _preferred_fast_methods():
         _zip_algs(faiss_mod.faiss_metrics(), "faiss")
         + _zip_algs(pynndescent_mod.PYNNDESCENT_METRICS.keys(), "pynndescent")
         + _zip_algs(hnsw_mod.HNSW_METRICS.keys(), "hnsw")
-        + _zip_algs(annoy_mod.ANNOY_METRICS.keys(), "annoy")
+        + _zip_algs(_ANNOY_METRICS, "annoy")
     ):
         metric_algs[metric].append(method)
 
