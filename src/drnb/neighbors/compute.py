@@ -27,9 +27,11 @@ def n_connected_components(graph: scipy.sparse.coo_matrix) -> int:
 
 NN_PLUGIN_DEFAULTS: dict[str, dict[str, int]] = {
     "annoy": {"n_trees": 50, "search_k": -1, "random_state": 42, "n_jobs": -1},
+    "hnsw": {"M": 16, "ef_construction": 200, "random_state": 42, "n_jobs": -1},
 }
 
 _ANNOY_METRICS = ("dot", "cosine", "manhattan", "euclidean")
+_HNSW_METRICS = ("cosine", "dot", "euclidean", "l2")
 
 
 def dmat(x: DataSet | np.ndarray) -> np.ndarray:
@@ -62,11 +64,6 @@ def create_nn_func(method: str) -> tuple[Callable, dict]:
 
         nn_func = pynndescent_mod.pynndescent_exact_neighbors
         default_method_kwds = {}
-    elif method == "hnsw":
-        from . import hnsw as hnsw_mod
-
-        nn_func = hnsw_mod.hnsw_neighbors
-        default_method_kwds = hnsw_mod.HNSW_DEFAULTS
     else:
         raise ValueError(f"Unknown nearest neighbor method '{method}'")
 
@@ -391,14 +388,13 @@ def _find_fast_method(metric):
 
 def _preferred_fast_methods():
     from . import faiss as faiss_mod
-    from . import hnsw as hnsw_mod
     from . import pynndescent as pynndescent_mod
 
     metric_algs = defaultdict(list)
     for metric, method in (
         _zip_algs(faiss_mod.faiss_metrics(), "faiss")
         + _zip_algs(pynndescent_mod.PYNNDESCENT_METRICS.keys(), "pynndescent")
-        + _zip_algs(hnsw_mod.HNSW_METRICS.keys(), "hnsw")
+        + _zip_algs(_HNSW_METRICS, "hnsw")
         + _zip_algs(_ANNOY_METRICS, "annoy")
     ):
         metric_algs[metric].append(method)

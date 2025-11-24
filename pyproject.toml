@@ -9,7 +9,6 @@ license = {text = "MIT"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dependencies = [
     "glasbey>=0.2.1",
-    "hnswlib>=0.8.0",
     "httpx>=0.28.1",
     "ipykernel>=6.29.5",
     # dependency of numba 0.6.0 leaves us little room to manoeuvre with numpy

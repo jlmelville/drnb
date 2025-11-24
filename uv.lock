@@ -158,7 +158,6 @@ dependencies = [
     { name = "drnb-nn-plugin-sdk-312" },
     { name = "drnb-plugin-sdk-312" },
     { name = "glasbey" },
-    { name = "hnswlib" },
     { name = "httpx" },
     { name = "ipykernel" },
     { name = "numpy" },
@@ -183,7 +182,6 @@ requires-dist = [
     { name = "drnb-nn-plugin-sdk-312", directory = "nn-plugin-sdks/drnb-nn-plugin-sdk-312" },
     { name = "drnb-plugin-sdk-312", directory = "plugin-sdks/drnb-plugin-sdk-312" },
     { name = "glasbey", specifier = ">=0.2.1" },
-    { name = "hnswlib", specifier = ">=0.8.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "numpy", specifier = ">=1.22,<2.1" },
@@ -283,15 +281,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/f5/38/3af3d3633a34a3316
 wheels = [
     { url = "https://files.pythonhosted.org/packages/95/04/ff642e65ad6b90db43e668d70ffb6736436c7ce41fcc549f4e9472234127/h11-0.14.0-py3-none-any.whl", hash = "sha256:e3fe4ac4b851c468cc8363d500db52c2ead036020723024a109d37346efaa761", size = 58259, upload-time = "2022-09-25T15:39:59.68Z" },
 ]
-
-[[package]]
-name = "hnswlib"
-version = "0.8.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cf/7a/1a9b1405f2eb59515f06c3074750b03e0e96edf7fee0f6dd6df81d9c21d7/hnswlib-0.8.0.tar.gz", hash = "sha256:cb6d037eedebb34a7134e7dc78966441dfd04c9cf5ee93911be911ced951c44c", size = 36206, upload-time = "2023-12-03T04:16:17.55Z" }
 
 [[package]]
 name = "httpcore"

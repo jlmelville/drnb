@@ -1,2 +1,5 @@
 [plugins."annoy"]
 folder = "annoy"
+
+[plugins."hnsw"]
+folder = "hnsw"
