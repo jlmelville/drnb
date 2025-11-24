@@ -15,11 +15,9 @@ import numpy as np
 from drnb.log import log
 from drnb.neighbors.nbrinfo import NbrInfo, NearestNeighbors
 from drnb.nnplugins.registry import NNPluginSpec
-from drnb.nnplugins.protocol import context_to_payload
 from drnb.util import FromDict
 from drnb_nn_plugin_sdk import (
     NN_PLUGIN_PROTOCOL_VERSION,
-    NNPluginContext,
     NNPluginInputPaths,
     NNPluginOptions,
     NNPluginOutputPaths,
@@ -91,6 +89,7 @@ def run_external_neighbors(
     params: dict[str, Any],
     return_distance: bool = True,
     ctx: NNPluginContextInfo | None = None,
+    neighbor_name: str | None = None,
 ) -> NearestNeighbors:
     keep_tmp = env_flag("DRNB_NN_PLUGIN_KEEP_TMP", False)
     use_sandbox = env_flag("DRNB_NN_PLUGIN_SANDBOX_INPUTS", False)
@@ -113,7 +112,13 @@ def run_external_neighbors(
             keep_tmp=keep_tmp,
         )
         response = _launch_plugin(spec, workspace, req_path)
-        return _decode_result(workspace, request, response, return_distance)
+        return _decode_result(
+            workspace,
+            request,
+            response,
+            return_distance,
+            neighbor_name=neighbor_name,
+        )
 
 
 def _build_request(
@@ -142,15 +147,12 @@ def _build_request(
     else:
         input_paths = NNPluginInputPaths(x_path=str(source_x))
 
-    plugin_ctx = _context_to_plugin(ctx)
     request = NNPluginRequest(
         protocol_version=NN_PLUGIN_PROTOCOL_VERSION,
         method=method,
         metric=metric,
         n_neighbors=int(n_neighbors),
         params=params,
-        return_distance=return_distance,
-        context=context_to_payload(plugin_ctx),
         input=input_paths,
         options=NNPluginOptions(
             keep_temps=keep_tmp,
@@ -185,6 +187,7 @@ def _decode_result(
     request: NNPluginRequest,
     response: dict[str, Any],
     return_distance: bool,
+    neighbor_name: str | None = None,
 ) -> NearestNeighbors:
     if not response.get("ok", False):
         workspace.fail(f"plugin error: {response.get('message', 'unknown')}")
@@ -200,8 +203,10 @@ def _decode_result(
         if "dist" in z.files:
             dist = z["dist"].astype(np.float32, copy=False)
 
+    nn_name = neighbor_name or ""
+
     nn_info = NbrInfo(
-        name=workspace.method,
+        name=nn_name,
         n_nbrs=request.n_neighbors,
         metric=request.metric,
         exact=False,
@@ -329,14 +334,3 @@ def _default_runner(spec: NNPluginSpec) -> list[str]:
         f"[nn-plugin:{spec.method}] uv executable '{uv_var}' not found in PATH; set UV to override"
     )
 
-
-def _context_to_plugin(ctx: NNPluginContextInfo | None) -> NNPluginContext | None:
-    if ctx is None or ctx.dataset_name is None:
-        return None
-    return NNPluginContext(
-        dataset_name=ctx.dataset_name,
-        drnb_home=ctx.drnb_home,
-        data_sub_dir=ctx.data_sub_dir,
-        nn_sub_dir=ctx.nn_sub_dir,
-        experiment_name=ctx.experiment_name,
-    )

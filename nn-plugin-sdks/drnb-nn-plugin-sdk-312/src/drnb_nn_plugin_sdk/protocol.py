@@ -20,15 +20,6 @@ class DrnbNNPluginProtocolError(RuntimeError):
 
 
 @dataclass
-class NNPluginContext:
-    dataset_name: str
-    drnb_home: Path | None = None
-    data_sub_dir: str | None = None
-    nn_sub_dir: str | None = None
-    experiment_name: str | None = None
-
-
-@dataclass
 class NNPluginInputPaths:
     x_path: str
 
@@ -53,36 +44,9 @@ class NNPluginRequest:
     metric: str
     n_neighbors: int
     params: dict[str, JSONValue] = field(default_factory=dict)
-    return_distance: bool = True
-    context: dict[str, JSONValue] | None = None
     input: NNPluginInputPaths | None = None
     options: NNPluginOptions = field(default_factory=NNPluginOptions)
     output: NNPluginOutputPaths | None = None
-
-
-_CONTEXT_FIELDS = (
-    "dataset_name",
-    "drnb_home",
-    "data_sub_dir",
-    "nn_sub_dir",
-    "experiment_name",
-)
-
-
-def context_from_payload(data: dict[str, Any] | None) -> NNPluginContext | None:
-    """Deserialize a raw payload into a lightweight NNPluginContext."""
-    if not data:
-        return None
-    kwargs: dict[str, Any] = {}
-    for field in _CONTEXT_FIELDS:
-        value = data.get(field)
-        if field == "drnb_home" and value:
-            kwargs[field] = Path(value)
-        else:
-            kwargs[field] = value
-    if not kwargs.get("dataset_name"):
-        raise ValueError("Serialized context missing dataset_name")
-    return NNPluginContext(**kwargs)
 
 
 def load_request(path: str | Path) -> NNPluginRequest:
@@ -113,26 +77,10 @@ def _decode_request(raw: dict[str, Any]) -> NNPluginRequest:
         metric=raw["metric"],
         n_neighbors=int(raw["n_neighbors"]),
         params=raw.get("params") or {},
-        return_distance=bool(raw.get("return_distance", True)),
-        context=raw.get("context"),
         input=NNPluginInputPaths(**input_payload),
         options=NNPluginOptions(**(raw.get("options") or {})),
         output=NNPluginOutputPaths(**output_payload),
     )
-
-
-def context_to_payload(ctx: NNPluginContext | None) -> dict[str, JSONValue] | None:
-    """Serialize NNPluginContext into JSON-friendly payload."""
-    if ctx is None:
-        return None
-    payload: dict[str, JSONValue] = {}
-    for field in _CONTEXT_FIELDS:
-        value = getattr(ctx, field, None)
-        if isinstance(value, Path):
-            payload[field] = str(value)
-        else:
-            payload[field] = value
-    return payload
 
 
 def env_flag(var_name: str, default: bool = False) -> bool:
@@ -161,8 +109,6 @@ def request_to_dict(req: NNPluginRequest) -> dict[str, Any]:
     """Convert an NNPluginRequest dataclass into the JSON dict written to disk."""
     payload = asdict(req)
     payload["params"] = _convert_json_value(req.params, path="params")
-    if payload.get("context") is not None:
-        payload["context"] = _convert_json_value(req.context, path="context")
     payload["protocol"] = payload.pop("protocol_version")
     return payload
 

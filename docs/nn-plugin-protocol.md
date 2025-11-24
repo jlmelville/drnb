@@ -11,8 +11,6 @@ This document describes the contract between `drnb` (the host) and every nearest
 - `metric`: distance metric string. Must match the core/in-process naming (e.g., `euclidean`, `cosine`).
 - `n_neighbors`: maximum number of neighbors the plugin should compute. The host may later slice down when writing cache files.
 - `params`: method parameters (JSON primitives only) using the same names/defaults as the in-process implementation.
-- `return_distance`: boolean, usually `true`. The host always expects distances today.
-- `context`: metadata for logging; typically `dataset_name`, optional `drnb_home`, `data_sub_dir`, `nn_sub_dir`, `experiment_name`.
 - `input.x_path`: required feature matrix path. Absolute paths are provided. No other inputs are required for NN plugins.
 - `options`: flags such as `use_sandbox_copies` (default: false) and `keep_temps`; `log_path` is reserved.
 - `output.result_path`: where the plugin must write its `.npz` result (containing `idx` and `dist`).
@@ -39,19 +37,11 @@ The host will launch each plugin with `uv run --quiet --color never drnb-nn-plug
     "method": "annoy",
     "metric": "euclidean",
     "n_neighbors": 16,
-    "return_distance": true,
     "params": {
       "n_trees": 50,
       "search_k": -1,
       "random_state": 42,
       "n_jobs": -1
-    },
-    "context": {
-      "dataset_name": "s1k",
-      "drnb_home": "/home/data/datasets",
-      "data_sub_dir": "data",
-      "nn_sub_dir": "nn",
-      "experiment_name": "nn-20251123235900"
     },
     "input": {
       "x_path": "/home/data/datasets/data/s1k-data.npy"

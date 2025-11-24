@@ -27,7 +27,6 @@ def n_connected_components(graph: scipy.sparse.coo_matrix) -> int:
 
 NN_PLUGIN_DEFAULTS: dict[str, dict[str, int]] = {
     "annoy": {"n_trees": 50, "search_k": -1, "random_state": 42, "n_jobs": -1},
-    "annoy-plugin": {"n_trees": 50, "search_k": -1, "random_state": 42, "n_jobs": -1},
 }
 
 
@@ -163,6 +162,7 @@ def calculate_neighbors(
             params=params,
             return_distance=return_distance,
             ctx=ctx,
+            neighbor_name=name or None,
         )
         idx = nn.idx
         dist = nn.dist
