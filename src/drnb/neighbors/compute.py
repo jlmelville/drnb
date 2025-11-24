@@ -25,13 +25,15 @@ def n_connected_components(graph: scipy.sparse.coo_matrix) -> int:
     return scipy.sparse.csgraph.connected_components(graph)[0]
 
 
-NN_PLUGIN_DEFAULTS: dict[str, dict[str, int]] = {
+NN_PLUGIN_DEFAULTS: dict[str, dict[str, int | bool]] = {
     "annoy": {"n_trees": 50, "search_k": -1, "random_state": 42, "n_jobs": -1},
     "hnsw": {"M": 16, "ef_construction": 200, "random_state": 42, "n_jobs": -1},
+    "faiss": {"use_gpu": True},
 }
 
 _ANNOY_METRICS = ("dot", "cosine", "manhattan", "euclidean")
 _HNSW_METRICS = ("cosine", "dot", "euclidean", "l2")
+_FAISS_METRICS = ("cosine", "euclidean")
 
 
 def dmat(x: DataSet | np.ndarray) -> np.ndarray:
@@ -49,11 +51,6 @@ def create_nn_func(method: str) -> tuple[Callable, dict]:
 
         nn_func = sknbrs.sklearn_neighbors
         default_method_kwds = sknbrs.SKLEARN_DEFAULTS
-    elif method == "faiss":
-        from . import faiss as faiss_mod
-
-        nn_func = faiss_mod.faiss_neighbors
-        default_method_kwds = faiss_mod.FAISS_DEFAULTS
     elif method == "pynndescent":
         from . import pynndescent as pynndescent_mod
 
@@ -78,6 +75,10 @@ def _lookup_nn_plugin(method: str):
         return get_registry().lookup(method)
     except (FileNotFoundError, NotADirectoryError):
         return None
+
+
+def _plugin_available(method: str) -> bool:
+    return _lookup_nn_plugin(method) is not None
 
 
 def _plugin_default_params(method: str) -> dict:
@@ -196,33 +197,13 @@ def calculate_neighbors(
             method_kwds,
         )
 
-    try:
-        nn = nn_func(
-            data,
-            n_neighbors=eff_n_neighbors,
-            metric=metric,
-            return_distance=return_distance,
-            **method_kwds,
-        )
-    except RuntimeError as exc:
-        if method == "faiss":
-            log.warning(
-                "faiss neighbors failed (out of memory?), falling back to pynndescent"
-            )
-            method = "pynndescent"
-            from . import pynndescent as pynndescent_mod
-
-            nn_func = pynndescent_mod.pynndescent_neighbors
-            default_method_kwds = pynndescent_mod.PYNNDESCENT_DEFAULTS
-            nn = nn_func(
-                data,
-                n_neighbors=eff_n_neighbors,
-                metric=metric,
-                return_distance=return_distance,
-                **method_kwds,
-            )
-        else:
-            raise exc
+    nn = nn_func(
+        data,
+        n_neighbors=eff_n_neighbors,
+        metric=metric,
+        return_distance=return_distance,
+        **method_kwds,
+    )
 
     if not include_self:
         if return_distance:
@@ -387,31 +368,37 @@ def _find_fast_method(metric):
 
 
 def _preferred_fast_methods():
-    from . import faiss as faiss_mod
     from . import pynndescent as pynndescent_mod
 
     metric_algs = defaultdict(list)
-    for metric, method in (
-        _zip_algs(faiss_mod.faiss_metrics(), "faiss")
-        + _zip_algs(pynndescent_mod.PYNNDESCENT_METRICS.keys(), "pynndescent")
-        + _zip_algs(_HNSW_METRICS, "hnsw")
-        + _zip_algs(_ANNOY_METRICS, "annoy")
+    if _plugin_available("faiss"):
+        for metric, method in _zip_algs(_FAISS_METRICS, "faiss"):
+            metric_algs[metric].append(method)
+    for metric, method in _zip_algs(
+        pynndescent_mod.PYNNDESCENT_METRICS.keys(), "pynndescent"
     ):
         metric_algs[metric].append(method)
-
+    if _plugin_available("hnsw"):
+        for metric, method in _zip_algs(_HNSW_METRICS, "hnsw"):
+            metric_algs[metric].append(method)
+    if _plugin_available("annoy"):
+        for metric, method in _zip_algs(_ANNOY_METRICS, "annoy"):
+            metric_algs[metric].append(method)
     return metric_algs
 
 
 def _preferred_exact_methods():
-    from . import faiss as faiss_mod
     from . import pynndescent as pynndescent_mod
     from . import sklearn as sknbrs
 
     metric_algs = defaultdict(list)
-    for metric, method in (
-        _zip_algs(faiss_mod.faiss_metrics(), "faiss")
-        + _zip_algs(sknbrs.SKLEARN_METRICS.keys(), "sklearn")
-        + _zip_algs(pynndescent_mod.PYNNDESCENT_METRICS.keys(), "pynndescentbf")
+    if _plugin_available("faiss"):
+        for metric, method in _zip_algs(_FAISS_METRICS, "faiss"):
+            metric_algs[metric].append(method)
+    for metric, method in _zip_algs(sknbrs.SKLEARN_METRICS.keys(), "sklearn"):
+        metric_algs[metric].append(method)
+    for metric, method in _zip_algs(
+        pynndescent_mod.PYNNDESCENT_METRICS.keys(), "pynndescentbf"
     ):
         metric_algs[metric].append(method)
 

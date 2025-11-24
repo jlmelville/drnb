@@ -3,3 +3,6 @@ folder = "annoy"
 
 [plugins."hnsw"]
 folder = "hnsw"
+
+[plugins."faiss"]
+folder = "faiss"
