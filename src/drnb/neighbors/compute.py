@@ -14,6 +14,7 @@ import sklearn.metrics
 from drnb.log import log
 from drnb.neighbors.nbrinfo import NbrInfo, NearestNeighbors
 from drnb.neighbors.store import read_neighbors, write_neighbors
+from drnb.nnplugins.external import NNPluginContextInfo, run_external_neighbors
 from drnb.preprocess import numpyfy
 from drnb.types import DataSet
 from drnb.util import FromDict
@@ -22,6 +23,12 @@ from drnb.util import FromDict
 def n_connected_components(graph: scipy.sparse.coo_matrix) -> int:
     """Return the number of connected components in a graph."""
     return scipy.sparse.csgraph.connected_components(graph)[0]
+
+
+NN_PLUGIN_DEFAULTS: dict[str, dict[str, int]] = {
+    "annoy": {"n_trees": 50, "search_k": -1, "random_state": 42, "n_jobs": -1},
+    "annoy-plugin": {"n_trees": 50, "search_k": -1, "random_state": 42, "n_jobs": -1},
+}
 
 
 def dmat(x: DataSet | np.ndarray) -> np.ndarray:
@@ -70,6 +77,22 @@ def create_nn_func(method: str) -> Tuple[Callable, Dict]:
     return nn_func, default_method_kwds
 
 
+def _lookup_nn_plugin(method: str):
+    """Return plugin spec if a neighbor plugin is registered for the method."""
+    try:
+        from drnb.nnplugins.registry import get_registry
+
+        return get_registry().lookup(method)
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+
+
+def _plugin_default_params(method: str) -> dict:
+    if method not in NN_PLUGIN_DEFAULTS:
+        raise ValueError(f"Unknown NN plugin method '{method}'")
+    return NN_PLUGIN_DEFAULTS[method]
+
+
 def calculate_neighbors(
     data: np.ndarray,
     n_neighbors: int = 15,
@@ -80,6 +103,10 @@ def calculate_neighbors(
     verbose: bool = False,
     method_kwds: dict | None = None,
     name: str = "",
+    drnb_home: Path | str | None = None,
+    data_sub_dir: str = "data",
+    nn_sub_dir: str = "nn",
+    experiment_name: str | None = None,
 ) -> NearestNeighbors:
     """Calculate nearest neighbors for a given data set."""
     n_neighbors = int(n_neighbors)
@@ -106,6 +133,58 @@ def calculate_neighbors(
             log.info("Using '%s' to find nearest neighbors", method)
     if verbose and method != "faiss" and (n_items > 10000 or data.shape[1] > 10000):
         log.warning("Exact nearest neighbors search with %s might take a while", method)
+
+    plugin_spec = _lookup_nn_plugin(method)
+    if plugin_spec is not None:
+        params = _plugin_default_params(method)
+        if method_kwds is not None:
+            params = params | method_kwds
+        if verbose:
+            log.info(
+                "Finding %d neighbors using plugin %s with %s metric and params: %s",
+                eff_n_neighbors,
+                method,
+                metric,
+                params,
+            )
+        ctx = NNPluginContextInfo(
+            dataset_name=name or None,
+            drnb_home=Path(drnb_home) if drnb_home else None,
+            data_sub_dir=data_sub_dir or "data",
+            nn_sub_dir=nn_sub_dir or "nn",
+            experiment_name=experiment_name,
+        )
+        nn = run_external_neighbors(
+            method=method,
+            spec=plugin_spec,
+            data=data,
+            n_neighbors=eff_n_neighbors,
+            metric=metric,
+            params=params,
+            return_distance=return_distance,
+            ctx=ctx,
+        )
+        idx = nn.idx
+        dist = nn.dist
+        if not include_self:
+            if return_distance:
+                idx = idx[:, 1:]
+                dist = dist[:, 1:] if dist is not None else None
+            else:
+                idx = idx[:, 1:]
+        nn_info = NbrInfo(
+            name=name,
+            n_nbrs=n_neighbors,
+            metric=metric,
+            exact=_is_exact_method(method),
+            method=method,
+            has_distances=return_distance and dist is not None,
+            idx_path=None,
+            dist_path=None,
+        )
+        if return_distance:
+            return NearestNeighbors(idx=idx, dist=dist, info=nn_info)
+        return NearestNeighbors(idx=idx, dist=None, info=nn_info)
 
     nn_func, default_method_kwds = create_nn_func(method)
 
@@ -227,6 +306,9 @@ def get_neighbors(
         verbose=verbose,
         method_kwds=method_kwds,
         name=name or "",
+        drnb_home=drnb_home,
+        data_sub_dir="data",
+        nn_sub_dir=sub_dir,
     )
     if cache and name:
         write_neighbors(

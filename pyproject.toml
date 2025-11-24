@@ -24,6 +24,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "umap-learn>=0.5.9.post2",
     "drnb-plugin-sdk-312>=0.1.0",
+    "drnb-nn-plugin-sdk-312>=0.1.0",
 ]
 
 
@@ -53,3 +54,4 @@ dev = [
 
 [tool.uv.sources]
 drnb-plugin-sdk-312 = { path = "plugin-sdks/drnb-plugin-sdk-312" }
+drnb-nn-plugin-sdk-312 = { path = "nn-plugin-sdks/drnb-nn-plugin-sdk-312" }
