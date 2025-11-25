@@ -1,7 +1,16 @@
+import importlib.util
+from pathlib import Path
+
 import numpy as np
 import pytest
 
-from drnb.embed.deprecated.pacmap import create_neighbor_pairs
+# because the script has hyphen in the filename, importing it is not straightforward
+plugin_path = Path(__file__).parent.parent / "drnb-plugin-run.py"
+spec = importlib.util.spec_from_file_location("drnb_plugin_run", plugin_path)
+drnb_plugin_run = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(drnb_plugin_run)
+
+create_neighbor_pairs = drnb_plugin_run.create_neighbor_pairs
 
 
 def test_create_neighbor_pairs():

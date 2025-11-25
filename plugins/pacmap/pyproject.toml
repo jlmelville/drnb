@@ -15,3 +15,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.uv.sources]
 drnb-plugin-sdk-312 = { path = "../../plugin-sdks/drnb-plugin-sdk-312" }
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
