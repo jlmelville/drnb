@@ -28,8 +28,6 @@ def _handler(req: NNPluginRequest) -> dict:
 
     x_path = resolve_x_path(req)
     X = np.load(x_path, allow_pickle=False)
-    if X.dtype != np.float32:
-        X = X.astype(np.float32, copy=False)
 
     metric = req.metric
     n_neighbors = int(req.n_neighbors)
