@@ -10,24 +10,27 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UV_BIN="${UV:-uv}"
 FRESH=0
 REINSTALL_SDK=0
+REINSTALL_ALL=0
 REINSTALL_PLUGINS=()
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/install.sh [--fresh] [--reinstall-sdk]
+Usage: ./scripts/install.sh [--fresh] [--reinstall-sdk|-s] [--reinstall-all|-a] [--reinstall|-r <name>...]
 
 Options:
-  --fresh, -f          Delete each project's .venv before running `uv sync`.
-  --reinstall-sdk, -r  Pass `--reinstall-package` flags so core/plugins pick up SDK
-                       changes without bumping versions. Applies to both embedder
-                       and NN SDKs. When the 3.10 SDK is present, it will also be
-                       reinstalled.
+  --fresh, -f           Delete each project's .venv before running `uv sync`.
+  --reinstall-sdk, -s   Pass `--reinstall-package` flags so core/plugins pick up SDK
+                        changes without bumping versions. Applies to both embedder
+                        and NN SDKs. When the 3.10 SDK is present, it will also be
+                        reinstalled.
+  --reinstall-all, -a   Reinstall all plugins (embedder and NN) to pick up SDK changes
+                        without bumping versions.
   --reinstall <name>, -r <name>
-                       Reinstall a specific plugin by name (e.g., topometry). Can
-                       be repeated to target multiple plugins. Applies to both
-                       embedder plugins (plugins/<name>) and NN plugins
-                       (nn-plugins/<name>). SDK reinstall is not affected when a
-                       name is supplied.
+                        Reinstall a specific plugin by name (e.g., topometry). Can
+                        be repeated to target multiple plugins. Applies to both
+                        embedder plugins (plugins/<name>) and NN plugins
+                        (nn-plugins/<name>). SDK reinstall is not affected when a
+                        name is supplied.
 EOF
 }
 
@@ -37,8 +40,12 @@ while [[ $# -gt 0 ]]; do
       FRESH=1
       shift
       ;;
-    --reinstall-sdk)
+    --reinstall-sdk|-s)
       REINSTALL_SDK=1
+      shift
+      ;;
+    --reinstall-all|-a)
+      REINSTALL_ALL=1
       shift
       ;;
     --reinstall|-r)
@@ -46,8 +53,9 @@ while [[ $# -gt 0 ]]; do
         REINSTALL_PLUGINS+=("$2")
         shift 2
       else
-        REINSTALL_SDK=1
-        shift
+        echo "--reinstall|-r requires a plugin name" >&2
+        usage
+        exit 1
       fi
       ;;
     -h|--help)
@@ -61,6 +69,18 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+declare -A REQUESTED_PLUGINS=()
+if [[ ${#REINSTALL_PLUGINS[@]} -gt 0 ]]; then
+  for name in "${REINSTALL_PLUGINS[@]}"; do
+    REQUESTED_PLUGINS["$name"]=0
+  done
+fi
+
+if ! command -v "$UV_BIN" >/dev/null 2>&1; then
+  echo "[drnb-install] uv binary not found (looked for '$UV_BIN'); set UV=/path/to/uv or install uv." >&2
+  exit 1
+fi
 
 sync_dir() {
   local dir="$1"
@@ -112,15 +132,17 @@ if [[ -d "$PLUGIN_ROOT" ]]; then
       continue
     fi
     plugin_name="${plugin_dir##*/}"
-    if [[ ${#REINSTALL_PLUGINS[@]} -gt 0 ]]; then
-      skip=true
-      for target in "${REINSTALL_PLUGINS[@]}"; do
-        if [[ "$plugin_name" == "$target" ]]; then
-          skip=false
-          break
-        fi
-      done
-      if [[ "$skip" == true ]]; then
+    reinstall_plugin=0
+    if [[ $REINSTALL_ALL -eq 1 ]]; then
+      reinstall_plugin=1
+      if [[ -n "${REQUESTED_PLUGINS[$plugin_name]+_}" ]]; then
+        REQUESTED_PLUGINS["$plugin_name"]=1
+      fi
+    elif [[ ${#REINSTALL_PLUGINS[@]} -gt 0 ]]; then
+      if [[ -n "${REQUESTED_PLUGINS[$plugin_name]+_}" ]]; then
+        REQUESTED_PLUGINS["$plugin_name"]=1
+        reinstall_plugin=1
+      else
         continue
       fi
     fi
@@ -129,13 +151,6 @@ if [[ -d "$PLUGIN_ROOT" ]]; then
     if grep -q "drnb-plugin-sdk-310" "$plugin_dir/pyproject.toml"; then
       pkg_flag="$SDK_ALT"
     fi
-    reinstall_plugin=0
-    for target in "${REINSTALL_PLUGINS[@]}"; do
-      if [[ "$plugin_name" == "$target" ]]; then
-        reinstall_plugin=1
-        break
-      fi
-    done
 
     echo "[drnb-install] -> plugins/$plugin_name"
     if ! sync_dir "$plugin_dir" "$pkg_flag" "$reinstall_plugin"; then
@@ -155,26 +170,20 @@ if [[ -d "$NN_PLUGIN_ROOT" ]]; then
       continue
     fi
     plugin_name="${plugin_dir##*/}"
-    if [[ ${#REINSTALL_PLUGINS[@]} -gt 0 ]]; then
-      skip=true
-      for target in "${REINSTALL_PLUGINS[@]}"; do
-        if [[ "$plugin_name" == "$target" ]]; then
-          skip=false
-          break
-        fi
-      done
-      if [[ "$skip" == true ]]; then
+    reinstall_plugin=0
+    if [[ $REINSTALL_ALL -eq 1 ]]; then
+      reinstall_plugin=1
+      if [[ -n "${REQUESTED_PLUGINS[$plugin_name]+_}" ]]; then
+        REQUESTED_PLUGINS["$plugin_name"]=1
+      fi
+    elif [[ ${#REINSTALL_PLUGINS[@]} -gt 0 ]]; then
+      if [[ -n "${REQUESTED_PLUGINS[$plugin_name]+_}" ]]; then
+        REQUESTED_PLUGINS["$plugin_name"]=1
+        reinstall_plugin=1
+      else
         continue
       fi
     fi
-
-    reinstall_plugin=0
-    for target in "${REINSTALL_PLUGINS[@]}"; do
-      if [[ "$plugin_name" == "$target" ]]; then
-        reinstall_plugin=1
-        break
-      fi
-    done
 
     echo "[drnb-install] -> nn-plugins/$plugin_name"
     if ! sync_dir "$plugin_dir" "$NN_SDK_MAIN" "$reinstall_plugin"; then
@@ -183,6 +192,14 @@ if [[ -d "$NN_PLUGIN_ROOT" ]]; then
   done
 else
   echo "[drnb-install] No NN plugins directory found at $NN_PLUGIN_ROOT; skipping NN plugin installs"
+fi
+
+if [[ ${#REINSTALL_PLUGINS[@]} -gt 0 ]]; then
+  for name in "${!REQUESTED_PLUGINS[@]}"; do
+    if [[ ${REQUESTED_PLUGINS[$name]} -eq 0 ]]; then
+      echo "[drnb-install] !! Requested plugin '$name' not found under plugins/ or nn-plugins/" >&2
+    fi
+  done
 fi
 
 echo "[drnb-install] Done"
