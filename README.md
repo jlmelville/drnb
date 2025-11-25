@@ -14,22 +14,32 @@ various datasets and that might be of interest to others.
 
 ## Installing
 
+*November 24 2025* The Plugin Update
+
+The problem that has bedeviled this repo has been too many dependencies. I have taken the nuclear
+option and created a "plugin" architecture: instead of one project, there is now one "core"
+project that does most of the work, and then several separate projects, one for each embedding
+method and nearest neighbor package. Communication between the core and the plugins is just by IPC,
+i.e. shelling out and running a python script in each plugin folder. There are also plugin SDKs
+to provide useful helper functions for reading and writing the request and responses.
+
 ### Setup
 
-*January 11 2025* Now using Python 3.12 and [uv](https://docs.astral.sh/uv/). Trying to use too
-many dependencies makes things way too brittle, so fewer embedding methods are supported.
+You will need [uv](https://docs.astral.sh/uv/) and [pyenv](https://github.com/pyenv/pyenv) to
+handle installation.
 
-Long term, trying to keep multiple Numba-using projects together just won't work if they are not
-being updated. We end up locked to older versions of numba, which means older versions of llvmlite,
-which means older versions of llvm and python. For now, we limp along with the following
-requirements:
+Run the script:
 
-1. Make sure LLVM version 14 is installed: `sudo apt-get install llvm-14`
-2. `export LLVM_CONFIG=/usr/bin/llvm-config-14`
-3. You must use python 3.12.
+```bash
+./scripts/install.sh
+```
 
-I will be deprecating packages that are giving trouble. Probably PaCMAP, UMAP and openTSNE will
-stick around. openTSNE doesn't rely on numba so doesn't cause trouble.
+to install everything. This will go through all the different projects and install them into
+virtual environments. Most packages should install ok but some are troublesome, so it shouldn't be
+a failure if some packages fail to install. Some may require different versions of python from the
+drnb core, which is where pyenv comes in.
+
+After installing, you can just usually work with the core of drnb (and the notebooks) with:
 
 ```bash
 uv venv
@@ -43,55 +53,7 @@ The `dev` extra identifier just installs some linting tools for use when develop
 are using VSCode then the `.vscode/settings.json` sets those tools up. I am trying to see how far
 I can get with just [ruff](https://docs.astral.sh/ruff/).
 
-### Plugin SDK and plugin runners
-
-Plugins now live in separate workspaces and share code via the `drnb-plugin-sdk-312` (Python 3.12) or,
-for the ncvis runner, the Python 3.10–compatible `drnb-plugin-sdk-310`. When working inside this
-repo (or any downstream checkout) install components in this order:
-
-```bash
-# from repo root
-cd plugin-sdks/drnb-plugin-sdk-312 && uv sync && cd ../..
-# optional: for Python 3.10-only plugins (ncvis)
-cd plugin-sdks/drnb-plugin-sdk-310 && uv sync && cd ../..
-uv sync                                 # core drnb package
-# optional: install individual plugin runners under plugins/<name>
-cd plugins/pacmap && uv sync && cd ../..
-cd plugins/tsne && uv sync && cd ../..
-# ...repeat for whichever plugins you need
-```
-
-Because the SDK is a standalone package, each plugin virtualenv can stay lightweight: install the
-SDK editable inside that venv first, then install the plugin runner itself. The host package no
-longer exposes `drnb_plugin_sdk` via a symlink, so skipping the first command will result in import
-errors.
-
-`uv sync` reads the existing `pyproject.toml`/`uv.lock` and installs the project in
-editable mode while honoring the locked dependency versions. This is preferable to
-`uv pip install -e .`, which ignores the lock file and can drift from the expected
-environment.
-
-To automate the same workflow, run:
-
-```bash
-./scripts/install.sh
-```
-
-This script runs `uv sync` inside the SDK, the core repo, and then every plugin under
-`plugins/`. Plugin installs are best-effort—failures are logged but do not abort the
-script. Pass `--fresh` (or `-f`) if you want to delete each project's `.venv` before
-syncing (useful when switching Python versions). Pass `--reinstall-sdk` (or `-r`) to
-force `uv sync` to reinstall the `drnb-plugin-sdk-312` (and `drnb-plugin-sdk-310` when present)
-dependency in each project without bumping its version—handy while iterating on the SDKs.
-
-When `ExternalEmbedder` launches a plugin it runs `uv run drnb-plugin-run.py` inside that
-plugin's directory, so the `.venv` created by `uv sync` is picked up automatically (no manual
-activation required). Keep `uv` on your `PATH` or set the `UV` environment variable; if you
-need a bespoke invocation you can override the `runner` field for that plugin in
-`plugins/plugins.toml`.
-
-See `docs/plugin-protocol.md` for the complete request/response contract that every plugin runner
-must follow.
+See the `docs` folder for more details on the different plugins and the SDK they follow.
 
 ### Optional packages
 

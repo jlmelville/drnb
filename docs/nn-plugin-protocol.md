@@ -2,6 +2,14 @@
 
 This document describes the contract between `drnb` (the host) and every nearest-neighbor (NN) plugin runner. The protocol mirrors the embedder plugin flow: the host writes a JSON request plus serialized inputs into a temporary workspace, the plugin writes its outputs and a final JSON response, and the host loads the result. Zero-copy is the default; sandbox copies are opt-in.
 
+## Location
+
+The nearest neighbor plugins all live under the `nn-plugins` folder. The SDK that supports the
+protocol for sharing data between a plugin and the drnb core is in `nn-plugin-sdks`. There is one
+SDK per python version, so as and when I decide to migrate to newer versions of python new SDKs
+will appear with the python version at the end e.g. `drnb-nn-plugin-sdk-312` is for Python 3.12.
+This allows both the drnb core and the plugins to vary the version of python they support.
+
 ## Request layout
 
 `ExternalNeighbors` writes a JSON request file alongside the serialized inputs in a temporary workspace. The payload mirrors `drnb_nn_plugin_sdk.protocol.NNPluginRequest` and contains:

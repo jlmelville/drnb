@@ -4,6 +4,14 @@ This document describes the contract between `drnb` (the host) and every externa
 plugin runner. All plugins must follow these rules so
 `src/drnb/plugins/external.py` can launch them safely.
 
+## Location
+
+The embedder plugins all live under the `plugins` folder. The SDK that supports the
+protocol for sharing data between a plugin and the drnb core is in `plugin-sdks`. There is one
+SDK per python version, so as and when I decide to migrate to newer versions of python new SDKs
+will appear with the python version at the end e.g. `drnb-plugin-sdk-312` is for Python 3.12.
+This allows both the drnb core and the plugins to vary the version of python they support.
+
 ## Request layout
 
 `ExternalEmbedder` writes a JSON request file alongside the serialized inputs in a
