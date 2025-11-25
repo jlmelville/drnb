@@ -126,7 +126,7 @@ if [[ -d "$PLUGIN_ROOT" ]]; then
     fi
 
     pkg_flag="$SDK_MAIN"
-    if rg -q "drnb-plugin-sdk-310" "$plugin_dir/pyproject.toml"; then
+    if grep -q "drnb-plugin-sdk-310" "$plugin_dir/pyproject.toml"; then
       pkg_flag="$SDK_ALT"
     fi
     reinstall_plugin=0
