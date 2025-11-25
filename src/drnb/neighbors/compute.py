@@ -35,7 +35,7 @@ NN_PLUGIN_DEFAULTS: dict[str, dict[str, int | bool]] = {
 _ANNOY_METRICS = ("dot", "cosine", "manhattan", "euclidean")
 _HNSW_METRICS = ("cosine", "dot", "euclidean", "l2")
 _FAISS_METRICS = ("cosine", "euclidean")
-_TORCHKNN_METRICS = ("euclidean",)
+_TORCHKNN_METRICS = ("euclidean", "cosine")
 
 
 def dmat(x: DataSet | np.ndarray) -> np.ndarray:
