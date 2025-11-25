@@ -24,11 +24,13 @@ ArrayI64 = npt.NDArray[np.int64]
 def exact_knn_pytorch_batched(
     data: ArrayF32,
     k: int,
-    batch_size: int | None = None,
+    batch_size: int,
     device: str | None = None,
 ) -> tuple[ArrayI64, ArrayF32]:
     """
     Compute exact k-nearest neighbors with Euclidean distance using PyTorch.
+    Note: indices[i, 0] will usually be i (self), but if there are exact duplicates,
+    any of the zero-distance neighbors may appear first.
 
     Parameters
     ----------
@@ -52,9 +54,12 @@ def exact_knn_pytorch_batched(
     if data.ndim != 2:
         raise ValueError("Input must be a 2D array")
 
-    N, D = data.shape
+    N = data.shape[0]
     if not (1 <= k <= N):
         raise ValueError("k must be between 1 and N (inclusive)")
+
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than 0")
 
     # ----- Choose device -----
     if device is None:
@@ -68,7 +73,7 @@ def exact_knn_pytorch_batched(
     log(f"[torchknn] Using device: {device}")
 
     # Move data to chosen device – all heavy ops will follow it there.
-    x = torch.from_numpy(data.astype(np.float32, copy=False)).to(device)  # (N, D)
+    x = torch.from_numpy(data.astype(np.float32, copy=False)).to(device)
 
     # Precompute ||x_j||^2 for all database points
     x_norm = (x**2).sum(dim=1)  # (N,)
@@ -78,7 +83,6 @@ def exact_knn_pytorch_batched(
 
     for start in range(0, N, batch_size):
         end = min(start + batch_size, N)
-        B = end - start
 
         # Query batch: (B, D) on device
         batch = x[start:end]
