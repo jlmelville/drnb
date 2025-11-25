@@ -29,11 +29,13 @@ NN_PLUGIN_DEFAULTS: dict[str, dict[str, int | bool]] = {
     "annoy": {"n_trees": 50, "search_k": -1, "random_state": 42, "n_jobs": -1},
     "hnsw": {"M": 16, "ef_construction": 200, "random_state": 42, "n_jobs": -1},
     "faiss": {"use_gpu": True},
+    "torchknn": {},
 }
 
 _ANNOY_METRICS = ("dot", "cosine", "manhattan", "euclidean")
 _HNSW_METRICS = ("cosine", "dot", "euclidean", "l2")
 _FAISS_METRICS = ("cosine", "euclidean")
+_TORCHKNN_METRICS = ("euclidean",)
 
 
 def dmat(x: DataSet | np.ndarray) -> np.ndarray:
@@ -356,7 +358,7 @@ def _zip_algs(metrics, method_name):
 
 
 def _is_exact_method(method):
-    return method in ("faiss", "sklearn")
+    return method in ("faiss", "torchknn", "sklearn")
 
 
 def _find_exact_method(metric):
@@ -374,6 +376,11 @@ def _preferred_fast_methods():
     if _plugin_available("faiss"):
         for metric, method in _zip_algs(_FAISS_METRICS, "faiss"):
             metric_algs[metric].append(method)
+
+    if _plugin_available("torchknn"):
+        for metric, method in _zip_algs(_TORCHKNN_METRICS, "torchknn"):
+            metric_algs[metric].append(method)
+
     for metric, method in _zip_algs(
         pynndescent_mod.PYNNDESCENT_METRICS.keys(), "pynndescent"
     ):
