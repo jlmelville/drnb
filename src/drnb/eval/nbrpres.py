@@ -7,12 +7,9 @@ import numpy as np
 from drnb.embed.context import EmbedContext
 from drnb.eval.base import EmbeddingEval, EvalResult
 from drnb.log import log
-from drnb.neighbors import (
-    NearestNeighbors,
-    calculate_neighbors,
-    get_neighbors,
-    read_neighbors,
-)
+from drnb.neighbors.compute import calculate_neighbors, get_neighbors
+from drnb.neighbors.nbrinfo import NearestNeighbors
+from drnb.neighbors.store import read_neighbors
 
 
 def nn_accv(
@@ -98,6 +95,7 @@ def get_xy_nbr_idxs(
             return_distance=False,
             method_kwds=y_method_kwds,
             verbose=verbose,
+            quiet_plugin_failures=True,
         )
 
     if verbose:

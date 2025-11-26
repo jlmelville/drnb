@@ -6,9 +6,9 @@ import numpy as np
 
 from drnb.embed.context import EmbedContext
 from drnb.eval.base import EmbeddingEval, EvalResult
-from drnb.neighbors import read_neighbors
 from drnb.neighbors.hubness import nn_to_sparse
 from drnb.neighbors.nbrinfo import NearestNeighbors
+from drnb.neighbors.store import read_neighbors
 
 from .nbrpres import get_xy_nbr_idxs
 

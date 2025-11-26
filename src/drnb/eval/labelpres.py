@@ -10,7 +10,8 @@ from drnb.embed.context import EmbedContext
 from drnb.eval.base import EmbeddingEval, EvalResult
 from drnb.io.dataset import read_target
 from drnb.log import log
-from drnb.neighbors import NearestNeighbors, calculate_neighbors
+from drnb.neighbors.compute import calculate_neighbors
+from drnb.neighbors.nbrinfo import NearestNeighbors
 
 
 def label_pres(

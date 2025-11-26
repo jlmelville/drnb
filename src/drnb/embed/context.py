@@ -5,7 +5,9 @@ import numpy as np
 
 import drnb.io as nbio
 import drnb.io.dataset as dataio
-from drnb.neighbors import NearestNeighbors, get_neighbors, read_neighbors
+from drnb.neighbors.compute import get_neighbors
+from drnb.neighbors.nbrinfo import NearestNeighbors
+from drnb.neighbors.store import read_neighbors
 from drnb.types import DataSet
 
 
@@ -60,8 +62,9 @@ def get_neighbors_with_ctx(
     knn_params: dict | None = None,
     ctx: EmbedContext | None = None,
     return_distance: bool = True,
+    quiet_failures: bool = False,
 ) -> NearestNeighbors:
-    """Get nearest neighbors using the provided context."""
+    """Read or compute nearest neighbors using the provided context."""
     if knn_params is None:
         knn_params = {}
     knn_defaults = {"method": "exact", "cache": False, "verbose": True, "name": None}
@@ -85,6 +88,7 @@ def get_neighbors_with_ctx(
         metric=metric,
         return_distance=return_distance,
         **full_knn_params,
+        quiet_plugin_failures=quiet_failures,
     )
     # let's just make sure we get the dist member
     if return_distance and result.dist is None:

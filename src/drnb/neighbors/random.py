@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 from sklearn.utils import check_random_state
 
-from . import NearestNeighbors
+from .nbrinfo import NearestNeighbors
 from .distances import neighbor_distances
 
 

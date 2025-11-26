@@ -8,10 +8,10 @@ from scipy.sparse import coo_matrix
 
 import drnb.embed
 import drnb.embed.base
-import drnb.neighbors as nbrs
+import drnb.neighbors.compute as nbrs
 from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.log import log
-from drnb.neighbors import n_connected_components
+from drnb.neighbors.compute import n_connected_components
 from drnb.types import EmbedResult
 from drnb.util import get_method_and_args
 from drnb.yinit import (

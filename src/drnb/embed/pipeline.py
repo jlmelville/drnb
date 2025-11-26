@@ -17,14 +17,13 @@ from drnb.eval.base import EmbeddingEval, EvalResult, evaluate_embedding
 from drnb.eval.factory import create_evaluators
 from drnb.io.embed import create_embed_exporter
 from drnb.log import log, log_verbosity
-from drnb.neighbors import (
-    create_neighbors_request,
-    find_candidate_neighbors_info,
-)
+from drnb.neighbors.compute import create_neighbors_request
+from drnb.neighbors.store import find_candidate_neighbors_info
 from drnb.plot.factory import create_plotters
 from drnb.plot.protocol import PlotterProtocol
 from drnb.plot.scale import ColorScale
 from drnb.plot.scale.ko import ColorByKo
+from drnb.plot.scale.lid import ColorByLid
 from drnb.plot.scale.nbrpres import ColorByNbrPres
 from drnb.plot.scale.rte import ColorByRte
 from drnb.plot.scale.so import ColorBySo
@@ -380,6 +379,25 @@ def color_by_so(
     )
 
 
+def color_by_lid(
+    n_neighbors: int,
+    metric: str = "euclidean",
+    color_scale: dict | None = None,
+    remove_self: bool = True,
+    eps: float = 1.0e-10,
+    knn_params: dict | None = None,
+) -> ColorByLid:
+    """Create a Color by Local Intrinsic Dimensionality plotter."""
+    return ColorByLid(
+        n_neighbors=n_neighbors,
+        metric=metric,
+        scale=ColorScale.new(color_scale),
+        remove_self=remove_self,
+        eps=eps,
+        knn_params=knn_params,
+    )
+
+
 def color_by_nbr_pres(
     n_neighbors: int,
     normalize: bool = True,
@@ -415,6 +433,7 @@ def diag_plots(metric: str = "euclidean") -> List[PlotterProtocol]:
     return [
         color_by_ko(15, color_scale={"palette": "Spectral"}),
         color_by_so(15, color_scale={"palette": "Spectral"}),
+        color_by_lid(15, metric=metric, color_scale={"palette": "Spectral"}),
         color_by_nbr_pres(15, color_scale={"palette": "Spectral"}, metric=metric),
         color_by_rte(5, color_scale={"palette": "Spectral"}, metric=metric),
     ]

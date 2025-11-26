@@ -9,11 +9,11 @@ import umap
 from numpy.typing import NDArray
 from sklearn.utils import check_random_state
 
-import drnb.neighbors as nbrs
+import drnb.neighbors.compute as nbrs
 import drnb.neighbors.random
 from drnb.graph import umap_graph_binary
 from drnb.log import log
-from drnb.neighbors import n_connected_components
+from drnb.neighbors.compute import n_connected_components
 from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.neighbors.random import logn_neighbors
 

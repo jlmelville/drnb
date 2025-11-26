@@ -9,7 +9,7 @@ import sklearn.decomposition
 from drnb.io import FileExporter, stringify_paths, write_json, write_pickle
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
-from drnb.neighbors import NeighborsRequest, create_neighbors_request
+from drnb.neighbors.compute import NeighborsRequest, create_neighbors_request
 from drnb.preprocess import filter_columns, numpyfy, scale_data
 from drnb.triplets import TripletsRequest, create_triplets_request
 from drnb.types import ActionConfig

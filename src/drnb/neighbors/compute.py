@@ -14,7 +14,6 @@ import sklearn.metrics
 from drnb.log import log
 from drnb.neighbors.nbrinfo import NbrInfo, NearestNeighbors
 from drnb.neighbors.store import read_neighbors, write_neighbors
-from drnb.nnplugins.external import NNPluginContextInfo, run_external_neighbors
 from drnb.preprocess import numpyfy
 from drnb.types import DataSet
 from drnb.util import FromDict
@@ -89,100 +88,84 @@ def _plugin_default_params(method: str) -> dict:
     return NN_PLUGIN_DEFAULTS[method]
 
 
-def calculate_neighbors(
+@dataclass
+class NeighborsComputationResult:
+    idx: np.ndarray
+    dist: np.ndarray | None
+    has_distances: bool
+
+
+def _compute_neighbors_plugin(
+    *,
+    method: str,
+    plugin_spec,
     data: np.ndarray,
-    n_neighbors: int = 15,
-    metric: str = "euclidean",
-    method: str = "approximate",
-    return_distance: bool = True,
-    include_self: bool = True,
-    verbose: bool = False,
-    method_kwds: dict | None = None,
-    name: str = "",
-    drnb_home: Path | str | None = None,
-    data_sub_dir: str = "data",
-    nn_sub_dir: str = "nn",
-    experiment_name: str | None = None,
-) -> NearestNeighbors:
-    """Calculate nearest neighbors for a given data set."""
-    n_neighbors = int(n_neighbors)
-    if not include_self:
-        eff_n_neighbors = n_neighbors + 1
-    else:
-        eff_n_neighbors = n_neighbors
+    eff_n_neighbors: int,
+    metric: str,
+    return_distance: bool,
+    include_self: bool,
+    verbose: bool,
+    method_kwds: dict | None,
+    name: str,
+    drnb_home: Path | str | None,
+    data_sub_dir: str,
+    nn_sub_dir: str,
+    experiment_name: str | None,
+    quiet_failures: bool,
+) -> NeighborsComputationResult:
+    from drnb.nnplugins.external import NNPluginContextInfo, run_external_neighbors
 
-    n_items = data.shape[0]
-    if n_items < eff_n_neighbors:
-        log.warning(
-            "%d neighbors requested but only %d items in the data",
+    params = _plugin_default_params(method)
+    if method_kwds is not None:
+        params = params | method_kwds
+    if verbose:
+        log.info(
+            "Finding %d neighbors using plugin %s with %s metric and params: %s",
             eff_n_neighbors,
-            n_items,
+            method,
+            metric,
+            params,
         )
-        eff_n_neighbors = n_items
+    ctx = NNPluginContextInfo(
+        dataset_name=name or None,
+        drnb_home=Path(drnb_home) if drnb_home else None,
+        data_sub_dir=data_sub_dir or "data",
+        nn_sub_dir=nn_sub_dir or "nn",
+        experiment_name=experiment_name,
+    )
+    nn = run_external_neighbors(
+        method=method,
+        spec=plugin_spec,
+        data=data,
+        n_neighbors=eff_n_neighbors,
+        metric=metric,
+        params=params,
+        return_distance=return_distance,
+        ctx=ctx,
+        neighbor_name=name or None,
+        quiet_failures=quiet_failures,
+    )
+    idx = nn.idx
+    dist = nn.dist if return_distance else None
+    if not include_self:
+        idx = idx[:, 1:]
+        if return_distance and dist is not None:
+            dist = dist[:, 1:]
 
-    if method in ("exact", "approximate"):
-        if method == "exact":
-            method = _find_exact_method(metric)
-        else:
-            method = _find_fast_method(metric)
-        if verbose:
-            log.info("Using '%s' to find nearest neighbors", method)
-    if verbose and method != "faiss" and (n_items > 10000 or data.shape[1] > 10000):
-        log.warning("Exact nearest neighbors search with %s might take a while", method)
+    has_distances = return_distance and dist is not None
+    return NeighborsComputationResult(idx=idx, dist=dist, has_distances=has_distances)
 
-    plugin_spec = _lookup_nn_plugin(method)
-    if plugin_spec is not None:
-        params = _plugin_default_params(method)
-        if method_kwds is not None:
-            params = params | method_kwds
-        if verbose:
-            log.info(
-                "Finding %d neighbors using plugin %s with %s metric and params: %s",
-                eff_n_neighbors,
-                method,
-                metric,
-                params,
-            )
-        ctx = NNPluginContextInfo(
-            dataset_name=name or None,
-            drnb_home=Path(drnb_home) if drnb_home else None,
-            data_sub_dir=data_sub_dir or "data",
-            nn_sub_dir=nn_sub_dir or "nn",
-            experiment_name=experiment_name,
-        )
-        nn = run_external_neighbors(
-            method=method,
-            spec=plugin_spec,
-            data=data,
-            n_neighbors=eff_n_neighbors,
-            metric=metric,
-            params=params,
-            return_distance=return_distance,
-            ctx=ctx,
-            neighbor_name=name or None,
-        )
-        idx = nn.idx
-        dist = nn.dist
-        if not include_self:
-            if return_distance:
-                idx = idx[:, 1:]
-                dist = dist[:, 1:] if dist is not None else None
-            else:
-                idx = idx[:, 1:]
-        nn_info = NbrInfo(
-            name=name,
-            n_nbrs=n_neighbors,
-            metric=metric,
-            exact=_is_exact_method(method),
-            method=method,
-            has_distances=return_distance and dist is not None,
-            idx_path=None,
-            dist_path=None,
-        )
-        if return_distance:
-            return NearestNeighbors(idx=idx, dist=dist, info=nn_info)
-        return NearestNeighbors(idx=idx, dist=None, info=nn_info)
 
+def _compute_neighbors_builtin(
+    data: np.ndarray,
+    eff_n_neighbors: int,
+    metric: str,
+    method: str,
+    return_distance: bool,
+    include_self: bool,
+    verbose: bool,
+    method_kwds: dict | None,
+) -> NeighborsComputationResult:
     nn_func, default_method_kwds = create_nn_func(method)
 
     if method_kwds is None:
@@ -207,11 +190,120 @@ def calculate_neighbors(
         **method_kwds,
     )
 
+    if return_distance:
+        idx, dist = nn
+    else:
+        idx = nn
+        dist = None
+
     if not include_self:
-        if return_distance:
-            nn = (nn[0][:, 1:], nn[1][:, 1:])
+        idx = idx[:, 1:]
+        if return_distance and dist is not None:
+            dist = dist[:, 1:]
+
+    return NeighborsComputationResult(
+        idx=idx,
+        dist=dist if return_distance else None,
+        has_distances=return_distance,
+    )
+
+
+def calculate_neighbors(
+    data: np.ndarray,
+    n_neighbors: int = 15,
+    metric: str = "euclidean",
+    method: str = "approximate",
+    return_distance: bool = True,
+    include_self: bool = True,
+    verbose: bool = False,
+    method_kwds: dict | None = None,
+    name: str = "",
+    drnb_home: Path | str | None = None,
+    data_sub_dir: str = "data",
+    nn_sub_dir: str = "nn",
+    experiment_name: str | None = None,
+    quiet_plugin_failures: bool = False,
+) -> NearestNeighbors:
+    """Calculate nearest neighbors for a given data set."""
+    from drnb.nnplugins.external import NNPluginWorkspaceError
+
+    n_neighbors = int(n_neighbors)
+    if not include_self:
+        eff_n_neighbors = n_neighbors + 1
+    else:
+        eff_n_neighbors = n_neighbors
+
+    n_items = data.shape[0]
+    if n_items < eff_n_neighbors:
+        log.warning(
+            "%d neighbors requested but only %d items in the data",
+            eff_n_neighbors,
+            n_items,
+        )
+        eff_n_neighbors = n_items
+
+    methods = [method]
+    if method in ("exact", "approximate"):
+        if method == "exact":
+            methods = _preferred_exact_methods()[metric]
         else:
-            nn = nn[:, 1:]
+            methods = _preferred_fast_methods()[metric]
+
+    # this loop is used to hedge against neighbor plugin failures due to a failed
+    # installation of FAISS (which is more than likely). It will try FAISS if it can,
+    # and then fall back to the next best method. In general, the other neighbor plugins
+    # should have installed just fine, so if there are other failures, that's not a
+    # good sign.
+    for method in methods:
+        if verbose:
+            log.info("Using '%s' to find nearest neighbors", method)
+        if verbose and method != "faiss" and (n_items > 10000 or data.shape[1] > 10000):
+            log.warning(
+                "Exact nearest neighbors search with %s might take a while", method
+            )
+
+        plugin_spec = _lookup_nn_plugin(method)
+
+        try:
+            if plugin_spec is not None:
+                computation_result = _compute_neighbors_plugin(
+                    method=method,
+                    plugin_spec=plugin_spec,
+                    data=data,
+                    eff_n_neighbors=eff_n_neighbors,
+                    metric=metric,
+                    return_distance=return_distance,
+                    include_self=include_self,
+                    verbose=verbose,
+                    method_kwds=method_kwds,
+                    name=name,
+                    drnb_home=drnb_home,
+                    data_sub_dir=data_sub_dir,
+                    nn_sub_dir=nn_sub_dir,
+                    experiment_name=experiment_name,
+                    quiet_failures=quiet_plugin_failures,
+                )
+            else:
+                computation_result = _compute_neighbors_builtin(
+                    data=data,
+                    eff_n_neighbors=eff_n_neighbors,
+                    metric=metric,
+                    method=method,
+                    return_distance=return_distance,
+                    include_self=include_self,
+                    verbose=verbose,
+                    method_kwds=method_kwds,
+                )
+        except NNPluginWorkspaceError as e:
+            msg = f"Error computing neighbors with {method}: {e}"
+            if quiet_plugin_failures:
+                log.info(msg)
+            elif method in ("faiss", "torchknn"):
+                log.info(msg)
+            else:
+                log.error(msg)
+            continue
+        break
 
     nn_info = NbrInfo(
         name=name,
@@ -219,13 +311,15 @@ def calculate_neighbors(
         method=method,
         metric=metric,
         exact=_is_exact_method(method),
-        has_distances=return_distance,
+        has_distances=computation_result.has_distances,
         idx_path=None,
         dist_path=None,
     )
     if return_distance:
-        return NearestNeighbors(idx=nn[0], dist=nn[1], info=nn_info)
-    return NearestNeighbors(idx=nn, dist=None, info=nn_info)
+        return NearestNeighbors(
+            idx=computation_result.idx, dist=computation_result.dist, info=nn_info
+        )
+    return NearestNeighbors(idx=computation_result.idx, dist=None, info=nn_info)
 
 
 def get_neighbors(
@@ -240,6 +334,7 @@ def get_neighbors(
     cache: bool = True,
     data: np.ndarray | None = None,
     method_kwds: dict | None = None,
+    quiet_plugin_failures: bool = False,
 ) -> NearestNeighbors:
     """Read cached neighbors or calculate them on demand."""
     if method is not None:
@@ -286,6 +381,7 @@ def get_neighbors(
         drnb_home=drnb_home,
         data_sub_dir="data",
         nn_sub_dir=sub_dir,
+        quiet_plugin_failures=quiet_plugin_failures,
     )
     if cache and name:
         write_neighbors(
@@ -309,6 +405,7 @@ def get_exact_neighbors(
     cache: bool = True,
     data: np.ndarray | None = None,
     method_kwds: dict | None = None,
+    quiet_plugin_failures: bool = False,
 ) -> NearestNeighbors:
     """Get exact nearest neighbors for a dataset."""
     if name is None or not name:
@@ -326,6 +423,7 @@ def get_exact_neighbors(
         cache=cache,
         data=data,
         method_kwds=method_kwds,
+        quiet_plugin_failures=quiet_plugin_failures,
     )
 
 
@@ -338,6 +436,7 @@ def calculate_exact_neighbors(
     verbose: bool = False,
     method_kwds: dict | None = None,
     name: str = "",
+    quiet_plugin_failures: bool = False,
 ) -> NearestNeighbors:
     """Convenience wrapper for exact neighbors."""
     return calculate_neighbors(
@@ -350,6 +449,7 @@ def calculate_exact_neighbors(
         verbose=verbose,
         method_kwds=method_kwds,
         name=name,
+        quiet_plugin_failures=quiet_plugin_failures,
     )
 
 
@@ -373,13 +473,11 @@ def _preferred_fast_methods():
     from . import pynndescent as pynndescent_mod
 
     metric_algs = defaultdict(list)
-    if _plugin_available("faiss"):
-        for metric, method in _zip_algs(_FAISS_METRICS, "faiss"):
-            metric_algs[metric].append(method)
+    for metric, method in _zip_algs(_FAISS_METRICS, "faiss"):
+        metric_algs[metric].append(method)
 
-    if _plugin_available("torchknn"):
-        for metric, method in _zip_algs(_TORCHKNN_METRICS, "torchknn"):
-            metric_algs[metric].append(method)
+    for metric, method in _zip_algs(_TORCHKNN_METRICS, "torchknn"):
+        metric_algs[metric].append(method)
 
     for metric, method in _zip_algs(
         pynndescent_mod.PYNNDESCENT_METRICS.keys(), "pynndescent"
@@ -399,9 +497,10 @@ def _preferred_exact_methods():
     from . import sklearn as sknbrs
 
     metric_algs = defaultdict(list)
-    if _plugin_available("faiss"):
-        for metric, method in _zip_algs(_FAISS_METRICS, "faiss"):
-            metric_algs[metric].append(method)
+    for metric, method in _zip_algs(_FAISS_METRICS, "faiss"):
+        metric_algs[metric].append(method)
+    for metric, method in _zip_algs(_TORCHKNN_METRICS, "torchknn"):
+        metric_algs[metric].append(method)
     for metric, method in _zip_algs(sknbrs.SKLEARN_METRICS.keys(), "sklearn"):
         metric_algs[metric].append(method)
     for metric, method in _zip_algs(
@@ -438,6 +537,7 @@ class NeighborsRequest(FromDict):
     file_types: list[str] = field(default_factory=lambda: ["pkl"])
     params: dict = field(default_factory=dict)
     verbose: bool = False
+    quiet_plugin_failures: bool = False
 
     def create_neighbors(
         self,
@@ -470,6 +570,7 @@ class NeighborsRequest(FromDict):
                 verbose=self.verbose,
                 name=nbrs_name,
                 **self.params,
+                quiet_plugin_failures=self.quiet_plugin_failures,
             )
 
             for n_neighbors in self.n_neighbors:

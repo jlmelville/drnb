@@ -12,9 +12,10 @@ from drnb.dimension import mle_global
 from drnb.io import data_relative_path
 from drnb.io.dataset import get_dataset_info, list_available_datasets
 from drnb.log import log
-from drnb.neighbors import NearestNeighbors, read_neighbors
 from drnb.neighbors.localscale import locally_scaled_neighbors
 from drnb.neighbors.nbrinfo import replace_n_neighbors_in_path
+from drnb.neighbors.nbrinfo import NearestNeighbors
+from drnb.neighbors.store import read_neighbors
 from drnb.neighbors.random import random_sample_nbrs
 
 

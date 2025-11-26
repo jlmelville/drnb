@@ -11,13 +11,13 @@ from umap.utils import tau_rand_int
 
 import drnb.embed
 import drnb.embed.base
-import drnb.neighbors as nbrs
+import drnb.neighbors.compute as nbrs
 import drnb.neighbors.random
 from drnb.embed.context import EmbedContext
 from drnb.embed.mixins import InitMixin, KNNMixin
 from drnb.embed.umap.utils import euclidean
 from drnb.log import log
-from drnb.neighbors import calculate_exact_neighbors
+from drnb.neighbors.compute import calculate_exact_neighbors
 from drnb.neighbors.distances import neighbor_distances
 from drnb.neighbors.hubness import nn_to_sparse
 from drnb.neighbors.random import random_neighbors, sort_neighbors
