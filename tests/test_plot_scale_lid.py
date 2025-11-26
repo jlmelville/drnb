@@ -7,7 +7,9 @@ from drnb.plot.scale.lid import ColorByLid
 
 def _lid_expected(data: np.ndarray, n_neighbors: int, remove_self: bool) -> np.ndarray:
     n_neighbors_adj = min(n_neighbors + (1 if remove_self else 0), data.shape[0])
-    distances, _ = NearestNeighbors(n_neighbors=n_neighbors_adj).fit(data).kneighbors(data)
+    distances, _ = (
+        NearestNeighbors(n_neighbors=n_neighbors_adj).fit(data).kneighbors(data)
+    )
     effective_neighbors = min(n_neighbors, data.shape[0] - (1 if remove_self else 0))
     return mle_local(
         distances,
