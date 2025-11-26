@@ -10,6 +10,7 @@ import numpy as np
 import scipy.sparse
 import scipy.sparse.csgraph
 import sklearn.metrics
+from drnb_nn_plugin_sdk import env_flag
 
 from drnb.log import log
 from drnb.neighbors.nbrinfo import NbrInfo, NearestNeighbors
@@ -255,6 +256,9 @@ def calculate_neighbors(
     # should have installed just fine, so if there are other failures, that's not a
     # good sign.
     for method in methods:
+        # if FAISS is not available, skip it
+        if method == "faiss" and not env_flag("DRNB_NN_FAISS", True):
+            continue
         if verbose:
             log.info("Using '%s' to find nearest neighbors", method)
         if verbose and method != "faiss" and (n_items > 10000 or data.shape[1] > 10000):
@@ -264,6 +268,7 @@ def calculate_neighbors(
 
         plugin_spec = _lookup_nn_plugin(method)
 
+        computation_result = None
         try:
             if plugin_spec is not None:
                 computation_result = _compute_neighbors_plugin(
@@ -298,12 +303,15 @@ def calculate_neighbors(
             msg = f"Error computing neighbors with {method}: {e}"
             if quiet_plugin_failures:
                 log.info(msg)
-            elif method in ("faiss", "torchknn"):
+            elif method == "faiss":
                 log.info(msg)
             else:
                 log.error(msg)
             continue
         break
+
+    if computation_result is None:
+        raise ValueError(f"Failed to compute neighbors with {methods=}")
 
     nn_info = NbrInfo(
         name=name,

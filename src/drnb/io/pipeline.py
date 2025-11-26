@@ -397,7 +397,9 @@ def create_data_pipeline(
             reduce=reduce,
             data_exporters=data_exporters,
             target_exporters=target_exporters,
-            neighbors_request=create_neighbors_request(neighbors),
+            neighbors_request=create_neighbors_request(
+                neighbors | {"quiet_plugin_failures": True}
+            ),
             triplets_request=create_triplets_request(triplets),
             verbose=verbose,
         )
