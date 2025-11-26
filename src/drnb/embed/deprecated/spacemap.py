@@ -203,7 +203,7 @@ class Spacemap(drnb.embed.base.Embedder):
         coordinates
     """
 
-    precomputed_init: np.ndarray = None
+    precomputed_init: np.ndarray | None = None
 
     def embed_impl(
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, cast
+from typing import Any, Callable, cast
 
 import numpy as np
 
@@ -36,11 +36,11 @@ from drnb.util import dts_to_str
 class EmbedPipelineExporter:
     """Exporter for embedded data and data useful for evaluation (e.g neighbors)."""
 
-    out_types: List[str] = field(default_factory=list)
-    export_dict: Dict = field(default_factory=dict)
+    out_types: list[str] = field(default_factory=list)
+    export_dict: dict = field(default_factory=dict)
 
     def cache_data(
-        self, requirers: List[dict], embedding_result: dict, ctx: EmbedContext
+        self, requirers: list[dict], embedding_result: dict, ctx: EmbedContext
     ):
         """Cache derived data (neighbors, triplets) if needed."""
         embed_coords = embedding_result["coords"]
@@ -204,14 +204,14 @@ class EmbedderPipeline:
     # e.g. the method might be umap, but you may want to refer to it as densvis
     embed_method_variant: str = ""
     reader: dataio.DatasetReader = field(default_factory=dataio.DatasetReader)
-    embedder: Embedder | List[Embedder] = field(default_factory=list)
-    evaluators: List[EmbeddingEval] = field(default_factory=list)
-    plotters: List[PlotterProtocol] = field(default_factory=list)
+    embedder: Embedder | list[Embedder] = field(default_factory=list)
+    evaluators: list[EmbeddingEval] = field(default_factory=list)
+    plotters: list[PlotterProtocol] = field(default_factory=list)
     exporter: EmbedPipelineExporter | None = None
     verbose: bool = False
     pipeline_name: str | None = None
 
-    def run_many(self, dataset_names: List[str], verbose: bool | None = None) -> dict:
+    def run_many(self, dataset_names: list[str], verbose: bool | None = None) -> dict:
         """Run the pipeline on multiple datasets. Returns a dictionary mapping from the
         dataset name to the embedding result."""
         if verbose is None:
@@ -223,7 +223,7 @@ class EmbedderPipeline:
                 results[dataset_name] = self._run(dataset_name)
         return results
 
-    def run(self, dataset_name: str, verbose: bool = None) -> dict:
+    def run(self, dataset_name: str, verbose: bool | None = None) -> dict:
         """Run the pipeline. Returns the embedding result."""
         if verbose is None:
             verbose = self.verbose
@@ -259,7 +259,7 @@ class EmbedderPipeline:
             embedding_result = self.embedder.embed(x, ctx=ctx)
         if not isinstance(embedding_result, dict):
             embedding_result = {"coords": embedding_result}
-        embedding_result = cast(Dict[str, Any], embedding_result)
+        embedding_result = cast(dict[str, Any], embedding_result)
 
         if self.exporter is not None:
             log.info("Caching data")
@@ -286,7 +286,7 @@ class EmbedderPipeline:
 
 
 def create_exporter(
-    export: str | List[str] | bool | None,
+    export: str | list[str] | bool | None,
 ) -> EmbedPipelineExporter | None:
     """Create an exporter for the pipeline, using the file types specified in `export`.
     If `export` is None, no exporter is created. If `export` is True, the default file
@@ -311,8 +311,8 @@ def create_pipeline(
     method: EmbedConfig | ActionConfig | list | Callable,
     data_config: dict | None = None,
     plot: bool | dict | str = True,
-    eval_metrics: str | List[str] | None = None,
-    export: str | List[str] | bool | None = None,
+    eval_metrics: str | list[str] | None = None,
+    export: str | list[str] | bool | None = None,
     verbose: bool = False,
     embed_method_variant: str = "",
 ) -> EmbedderPipeline:
@@ -428,7 +428,7 @@ def color_by_rte(
     )
 
 
-def diag_plots(metric: str = "euclidean") -> List[PlotterProtocol]:
+def diag_plots(metric: str = "euclidean") -> list[PlotterProtocol]:
     """Create some default diagnostic plots."""
     return [
         color_by_ko(15, color_scale={"palette": "Spectral"}),
@@ -439,7 +439,7 @@ def diag_plots(metric: str = "euclidean") -> List[PlotterProtocol]:
     ]
 
 
-def extra_plots(metric: str = "euclidean") -> List[ActionConfig]:
+def extra_plots(metric: str = "euclidean") -> list[ActionConfig]:
     """Create some extra diagnostic plots."""
     return [
         ("nnphist", {"metric": metric}),
@@ -448,7 +448,7 @@ def extra_plots(metric: str = "euclidean") -> List[ActionConfig]:
     ]
 
 
-def standard_metrics() -> List[ActionConfig]:
+def standard_metrics() -> list[ActionConfig]:
     """Create a list of standard evaluation metrics."""
     return [
         "rte",
@@ -466,7 +466,7 @@ def standard_pipeline(
     *,
     params: dict | None = None,
     verbose: bool = False,
-    extra_eval: str | List[str] | None = None,
+    extra_eval: str | list[str] | None = None,
     extra_plot: bool | dict | str | None = None,
 ) -> EmbedderPipeline:
     """Create a standard embedding pipeline, with default evaluation metrics and
@@ -494,9 +494,9 @@ def standard_eval(
     *,
     params: dict | None = None,
     verbose: bool = False,
-    extra_eval: str | List[str] | None = None,
+    extra_eval: str | list[str] | None = None,
     extra_plot: bool | dict | str | None = None,
-) -> List[EvalResult]:
+) -> list[EvalResult]:
     """Run a one-off standard pipeline and return the evaluation results."""
     return standard_pipeline(
         method,

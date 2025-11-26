@@ -1,6 +1,5 @@
 import abc
 from dataclasses import dataclass, field
-from typing import List
 
 import numpy as np
 
@@ -45,11 +44,11 @@ class EmbeddingEval(abc.ABC):
 
 
 def evaluate_embedding(
-    evaluators: List[EmbeddingEval],
+    evaluators: list[EmbeddingEval],
     X: np.ndarray,
     embedding: tuple | dict | np.ndarray,
     ctx: EmbedContext | None = None,
-) -> List[EvalResult]:
+) -> list[EvalResult]:
     """Evaluate an embedding using a list of EmbeddingEval evaluators. Return a list of
     EvalResult objects."""
 

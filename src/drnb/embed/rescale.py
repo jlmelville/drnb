@@ -15,7 +15,7 @@ class Rescale(drnb.embed.base.Embedder):
     """Rescale coordinates to a fixed range. Exists purely to rescale the output of one
     embedder if using it as initialization into another in an embedding pipeline"""
 
-    precomputed_init: np.ndarray = None
+    precomputed_init: np.ndarray | None = None
     max_coord: float = 10.0
     noise: float = 0.0
 
@@ -39,7 +39,7 @@ class Rescale(drnb.embed.base.Embedder):
 class TsneRescale(drnb.embed.base.Embedder):
     """Rescale coordinates to a fixed standard deviation, t-SNE style."""
 
-    precomputed_init: np.ndarray = None
+    precomputed_init: np.ndarray | None = None
     target_std: float = 1e-4
     noise: float = 0.0
 

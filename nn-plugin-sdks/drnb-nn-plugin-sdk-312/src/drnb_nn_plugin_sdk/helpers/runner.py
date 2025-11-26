@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 import traceback
-from typing import Callable, Dict
+from typing import Callable
 
 from drnb_nn_plugin_sdk.protocol import NNPluginRequest, load_request
 
@@ -11,7 +11,7 @@ from .results import write_response_json
 
 
 def run_nn_plugin(
-    handlers: Dict[str, Callable[[NNPluginRequest], dict]],
+    handlers: dict[str, Callable[[NNPluginRequest], dict]],
     *,
     description: str | None = None,
 ) -> None:

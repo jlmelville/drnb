@@ -1,5 +1,3 @@
-from typing import List
-
 import glasbey
 import numpy as np
 import pandas as pd
@@ -12,7 +10,7 @@ from drnb.util import evenly_spaced
 # use glasbey to extend a categorical palette if possible (or necessary)
 def palettize(
     color_col: np.ndarray | pd.Series | range, palette: dict | str | None = None
-) -> dict | List[str] | np.ndarray:
+) -> dict | list[str] | np.ndarray:
     """Create a categorical palette for a color column, using glasbey to extend it if
     possible (or necessary)."""
 

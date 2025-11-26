@@ -1,5 +1,3 @@
-from typing import List
-
 from drnb.plot.nphistogram import NbrPreservationHistogram
 from drnb.plot.plotly import PlotlyPlotter
 from drnb.plot.protocol import PlotterProtocol
@@ -11,7 +9,7 @@ from drnb.util import get_method_and_args
 
 def create_plotters(
     plot: bool | dict | str = True, plot_kwargs: dict | None = None
-) -> List[PlotterProtocol]:
+) -> list[PlotterProtocol]:
     """Create a list of plotters based on the plot and plot_kwargs arguments."""
     plotter_cls = SeabornPlotter
 

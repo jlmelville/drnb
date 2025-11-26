@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
 
 import numpy as np
 import scipy
@@ -8,15 +7,15 @@ import scipy
 from drnb.embed.context import EmbedContext
 from drnb.eval.base import EmbeddingEval, EvalResult
 from drnb.eval.nbrpres import get_xy_nbr_idxs
+from drnb.neighbors.hubness import s_occurrences
 from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.neighbors.store import read_neighbors
-from drnb.neighbors.hubness import s_occurrences
 
 
 def soccur(
     X: np.ndarray,
     Y: np.ndarray,
-    n_nbrs: int | List[int] = 15,
+    n_nbrs: int | list[int] = 15,
     x_nbrs: NearestNeighbors | None = None,
     y_nbrs: NearestNeighbors | None = None,
     include_self: bool = False,
@@ -30,7 +29,7 @@ def soccur(
     name: str | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str = "nn",
-) -> List[float]:
+) -> list[float]:
     """Calculate the correlation of the s-occurrences of each point in the
     nearest neighbors of X and Y for each value of n_nbrs.
     The s-occurrence of a point is the number of mutual nearest neighbors."""
@@ -86,7 +85,7 @@ class SOccurrenceEval(EmbeddingEval):
 
     use_precomputed_knn: bool = True
     metric: str = "euclidean"
-    n_neighbors: int = 15  # can also be a list
+    n_neighbors: int | list[int] = 15  # can also be a list
     include_self: bool = False
     verbose: bool = False
 
@@ -104,7 +103,7 @@ class SOccurrenceEval(EmbeddingEval):
 
     def _evaluate_setup(
         self, ctx: EmbedContext | None = None
-    ) -> Tuple[NearestNeighbors | None, NearestNeighbors | None, dict]:
+    ) -> tuple[NearestNeighbors | None, NearestNeighbors | None, dict]:
         self._listify_n_neighbors()
 
         if ctx is not None:

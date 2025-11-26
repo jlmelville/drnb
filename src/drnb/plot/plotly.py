@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import Any, Callable, List, Self, Tuple
+from typing import Any, Callable, Self
 
 import numpy as np
 import pandas as pd
@@ -17,9 +17,9 @@ from drnb.embed.context import (
     read_neighbors_with_ctx,
 )
 from drnb.io.dataset import read_palette
+from drnb.log import log
 from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.plot.palette import palettize
-from drnb.log import log
 from drnb.types import EmbedResult
 
 
@@ -31,7 +31,7 @@ def plotly_embed_plot(
     alpha_scale: float = 1.0,
     palette: dict | str | None = None,
     title: str = "",
-    figsize: Tuple[float, float] | None = None,
+    figsize: tuple[float, float] | None = None,
     legend: bool = True,
     pc_axes: bool = False,
     flipx: bool = False,
@@ -239,7 +239,7 @@ class PlotlyPlotter:
     cex: float | None = None
     alpha_scale: float | None = None
     title: str | None = None
-    figsize: Tuple[float, float] = None
+    figsize: tuple[float, float] | None = None
     legend: bool = True
     palette: dict | str | None = None
     color_by: Any | None = None
@@ -248,7 +248,7 @@ class PlotlyPlotter:
     pc_axes: bool = False
     flipx: bool = False
     flipy: bool = False
-    hover: List[str] | None = None
+    hover: list[str] | None = None
     show_axes: bool = False
     equal_axes: bool = False
     renderer: str = "jupyterlab"

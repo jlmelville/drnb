@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 import numpy as np
 
@@ -44,7 +43,7 @@ class FileEmbedExporter:
         self.file_exporter.export(name, coords)
 
     def export_extra(
-        self, name: str, embedded: dict, suffix: str | List[str] | None = None
+        self, name: str, embedded: dict, suffix: str | list[str] | None = None
     ):
         """Export extra data from the `embedded` dict."""
         if suffix is None:
@@ -66,13 +65,13 @@ class FileEmbedExporter:
 # export=dict(ext=["pkl", "csv"], sub_dir="umap-pl", embed_method_label="densvis")
 def create_embed_exporter(
     embed_method_label: str,
-    out_type: str | List[str],
+    out_type: str | list[str],
     sub_dir: str | None = None,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     create_sub_dir: bool = True,
     drnb_home: Path | str | None = None,
     verbose: bool = False,
-) -> List[FileEmbedExporter]:
+) -> list[FileEmbedExporter]:
     """Create exporters for embedded data."""
 
     if suffix is None:

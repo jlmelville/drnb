@@ -6,9 +6,9 @@ depend solely on NumPy and the standard library.
 """
 
 from .protocol import (
-    JSONValue,
     NN_PLUGIN_PROTOCOL_VERSION,
     DrnbNNPluginProtocolError,
+    JSONValue,
     NNPluginInputPaths,
     NNPluginOptions,
     NNPluginOutputPaths,

@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import Any, Callable, Self, Tuple
+from typing import Any, Callable, Self
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,7 +27,7 @@ def sns_embed_plot(
     alpha_scale: float = 1.0,
     palette: dict | str | None = None,
     title: str = "",
-    figsize: Tuple[float, float] | None = None,
+    figsize: tuple[float, float] | None = None,
     legend: bool = True,
     pc_axes: bool = False,
     flipx: bool = False,
@@ -226,10 +226,10 @@ class SeabornPlotter:
     cex: int | None = None
     alpha_scale: float | None = None
     title: str | None = None
-    figsize: Tuple[float, float] | None = None
+    figsize: tuple[float, float] | None = None
     legend: bool = True
     palette: dict | str | None = None
-    color_by: Any = None
+    color_by: Any | None = None
     vmin: float | None = None
     vmax: float | None = None
     pc_axes: bool = False

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Self
+from typing import Self
 
 import numpy as np
 from numba import jit, prange
@@ -14,7 +14,7 @@ from drnb.util import FromDict
 
 def calculate_triplets(
     data: np.ndarray,
-    seed: int = None,
+    seed: int | None = None,
     n_triplets_per_point: int = 5,
     return_distance: bool = True,
     metric: str = "euclidean",
@@ -32,7 +32,7 @@ def calculate_triplets(
 
 
 def get_triplets(
-    X: np.ndarray, seed: int = None, n_triplets_per_point: int = 5
+    X: np.ndarray, seed: int | None = None, n_triplets_per_point: int = 5
 ) -> np.ndarray:
     """Generate triplets for a dataset X. Each row of X is a point in the dataset.
     Returns a 3D array of indices into X, with shape (X.shape[0], n_triplets_per_point,
@@ -133,8 +133,8 @@ def find_triplet_files(
     metric: str = "l2",
     drnb_home: Path | str | None = None,
     sub_dir: str = "triplets",
-    seed: int = None,
-) -> List[TripletInfo]:
+    seed: int | None = None,
+) -> list[TripletInfo]:
     """Find triplet files for a dataset. Returns a list of TripletInfo objects.
     If seed is not None, only returns files with that seed. If metric is not None,
     only returns files with that metric. If no files are found, returns an empty list."""
@@ -196,13 +196,13 @@ def write_triplets(
     drnb_home: Path | str | None = None,
     sub_dir: str = "triplets",
     create_sub_dir: bool = True,
-    file_type: str | List[str] = "npy",
+    file_type: str | list[str] = "npy",
     verbose: bool = False,
     dist: np.ndarray | None = None,
     metric: str = "euclidean",
     flattened: bool = False,
-    suffix: str | List[str] | None = None,
-) -> tuple[List[Path], List[Path]]:
+    suffix: str | list[str] | None = None,
+) -> tuple[list[Path], list[Path]]:
     """Write triplet data to files. Returns a tuple of paths to the idx and dist files.
     If dist is None, the second element of the tuple will be an empty list."""
     if not flattened and idx.shape[1] != n_triplets_per_point:
@@ -306,16 +306,16 @@ class TripletsRequest(FromDict):
 
     n_triplets_per_point: int = 5
     seed: int = 42
-    file_types: list = field(default_factory=lambda: ["pkl"])
-    metric: list = field(default_factory=lambda: ["euclidean"])
+    file_types: list[str] = field(default_factory=lambda: ["pkl"])
+    metric: list[str] = field(default_factory=lambda: ["euclidean"])
 
     def create_triplets(
         self,
         data: np.ndarray,
         dataset_name: str,
         triplet_dir: str,
-        suffix: str | List[str] | None = None,
-    ) -> List[Path]:
+        suffix: str | list[str] | None = None,
+    ) -> list[Path]:
         """Create triplets for a dataset. Returns a list of paths to the idx and dist
         files."""
         if not isinstance(self.metric, (list, tuple)):

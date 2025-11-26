@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Set, Tuple
+from typing import Any, Literal
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -17,12 +17,12 @@ class Experiment:
     """Class to run and store the results of an experiment."""
 
     name: str = ""
-    datasets: List[str] = field(default_factory=list)
-    uniq_datasets: Set[str] = field(default_factory=set)
-    methods: List = field(default_factory=list)
-    uniq_method_names: Set[str] = field(default_factory=set)
-    results: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    evaluations: List = field(default_factory=list)
+    datasets: list[str] = field(default_factory=list)
+    uniq_datasets: set[str] = field(default_factory=set)
+    methods: list = field(default_factory=list)
+    uniq_method_names: set[str] = field(default_factory=set)
+    results: dict[str, dict[str, Any]] = field(default_factory=dict)
+    evaluations: list = field(default_factory=list)
     verbose: bool = False
 
     def add_method(self, method, *, params=None, name: str = ""):
@@ -35,7 +35,7 @@ class Experiment:
         self.methods.append((method, name))
         self.uniq_method_names.add(name)
 
-    def add_datasets(self, datasets: List[str]):
+    def add_datasets(self, datasets: list[str]):
         """Add a list of datasets to the experiment."""
         for dataset in datasets:
             self.add_dataset(dataset)
@@ -70,9 +70,9 @@ class Experiment:
 
     def to_df(
         self,
-        datasets: List[str] | None = None,
-        methods: List[str] | str | None = None,
-        metrics: List[str] | None = None,
+        datasets: list[str] | None = None,
+        methods: list[str] | str | None = None,
+        metrics: list[str] | None = None,
     ):
         """Convert the results of the experiment to a DataFrame."""
         if methods is None:
@@ -99,9 +99,9 @@ class Experiment:
 
     def plot(
         self,
-        datasets: List[str] | None = None,
-        methods: List[str] | None = None,
-        figsize: Tuple[float, float] | None = None,
+        datasets: list[str] | None = None,
+        methods: list[str] | None = None,
+        figsize: tuple[float, float] | None = None,
         align: bool = True,
         grid_color: str = "#dddddd",  # light gray color for grid
         **kwargs,
@@ -178,7 +178,7 @@ class Experiment:
         self,
         compression: Literal["gzip", "bz2", ""] | None = "gzip",
         overwrite: bool = False,
-        name: str = None,
+        name: str | None = None,
     ):
         """Save the experiment to the repository. If `name` is provided, the experiment
         will be renamed."""
@@ -200,7 +200,7 @@ class Experiment:
 
 def read_experiment(
     experiment_name: str,
-    compression: List[str] | Literal["gzip", "bz2", "any", ""] = "any",
+    compression: list[str] | Literal["gzip", "bz2", "any", ""] = "any",
 ) -> Experiment:
     """Read an experiment from the repository."""
     return read_pickle(
@@ -235,13 +235,13 @@ def short_col(colname: str, sep: str = "-") -> str:
     return colname[:index2]
 
 
-def get_metric_names(results: Dict[str, Any]) -> List[str]:
+def get_metric_names(results: dict[str, Any]) -> list[str]:
     """Get the metric names from the first entry in the results dictionary."""
     return [short_col(ev.label) for ev in list(results.values())[0]["evaluations"]]
 
 
 def results_to_df(
-    results: Dict[str, Any], datasets: List[str] | None = None
+    results: dict[str, Any], datasets: list[str] | None = None
 ) -> pd.DataFrame:
     """Convert the results of an experiment to a DataFrame."""
     col_names = get_metric_names(results)

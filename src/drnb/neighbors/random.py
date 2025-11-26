@@ -1,14 +1,14 @@
-from typing import Tuple, cast
+from typing import cast
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.utils import check_random_state
 
-from .nbrinfo import NearestNeighbors
 from .distances import neighbor_distances
+from .nbrinfo import NearestNeighbors
 
 
-def sort_neighbors(idx: np.ndarray, dist: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def sort_neighbors(idx: np.ndarray, dist: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Sort the neighbors by distance."""
     # sort each row by ascending distance
     dist_ind = dist.argsort()
@@ -26,7 +26,7 @@ def logn_neighbors(n_items: int | NDArray) -> int:
 
 def random_neighbors(
     data: np.ndarray,
-    n_neighbors: int = None,
+    n_neighbors: int | None = None,
     distance: str = "euclidean",
     random_state: int = 42,
 ) -> NearestNeighbors:

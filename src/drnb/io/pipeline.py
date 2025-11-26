@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, List, Literal
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -27,11 +27,11 @@ class DatasetPipeline:
     scale_action: ActionConfig | None = None
     check_for_duplicates: bool = False
     reduce: int | None = None
-    reduce_result: Any = None
+    reduce_result: str | None = None
     drnb_home: Path | str | None = None
     data_sub_dir: str = "data"
-    data_exporters: List[FileExporter] | None = field(default_factory=list)
-    target_exporters: List[FileExporter] | None = field(default_factory=list)
+    data_exporters: list[FileExporter] | None = field(default_factory=list)
+    target_exporters: list[FileExporter] | None = field(default_factory=list)
     neighbors_request: NeighborsRequest | None = None
     triplets_request: TripletsRequest | None = None
     verbose: bool = False
@@ -42,7 +42,7 @@ class DatasetPipeline:
         data,
         data_cols=None,
         target=None,
-        target_cols: List[str] = None,
+        target_cols: list[str] | None = None,
         target_palette=None,
         url=None,
         tags=None,
@@ -65,9 +65,9 @@ class DatasetPipeline:
         self,
         name: str,
         data: np.ndarray | pd.DataFrame,
-        data_cols: List[int] | List[str] | None,
+        data_cols: list[int] | list[str] | None,
         target: np.ndarray | pd.DataFrame | pd.Series | None,
-        target_cols: List[str] | None,
+        target_cols: list[str] | None,
         target_palette,
         url,
         tags,
@@ -157,7 +157,7 @@ class DatasetPipeline:
         return data, data_nona_index, n_na_rows
 
     def filter_data_columns(
-        self, data: np.ndarray | pd.DataFrame, data_cols: List[int] | List[str] | None
+        self, data: np.ndarray | pd.DataFrame, data_cols: list[int] | list[str] | None
     ) -> np.ndarray | pd.DataFrame:
         """Filter the columns of the data to keep only the ones in `data_cols`."""
         data = filter_columns(data, data_cols)
@@ -211,7 +211,7 @@ class DatasetPipeline:
         self,
         data: np.ndarray | pd.DataFrame,
         target: np.ndarray | pd.DataFrame | pd.Series | None,
-        target_cols: List[str] | None = None,
+        target_cols: list[str] | None = None,
     ) -> tuple[np.ndarray | pd.DataFrame, np.ndarray | pd.DataFrame | pd.Series | None]:
         """Get the target data, which can be the same as the input data."""
         # if we are given target columns but no target data assume we are using the data
@@ -226,9 +226,9 @@ class DatasetPipeline:
         target: np.ndarray | pd.DataFrame | pd.Series | None,
         name: str,
         dropna_index: np.ndarray,
-        target_cols: List[str] | None = None,
+        target_cols: list[str] | None = None,
         target_palette: dict | None = None,
-    ) -> tuple[tuple[int, int] | None, List[str]]:
+    ) -> tuple[tuple[int, int] | None, list[str]]:
         """Process the target data, if any. Return the shape of the target data and the
         paths to the exported target files."""
         if isinstance(target, np.ndarray):
@@ -289,9 +289,9 @@ class DatasetPipeline:
         self,
         data: np.ndarray | pd.DataFrame,
         name: str,
-        exporters: List[FileExporter],
+        exporters: list[FileExporter],
         what: str,
-    ) -> List[str]:
+    ) -> list[str]:
         """Export the data using the exporters. Return the paths to the exported
         files."""
         all_output_paths = []
@@ -309,7 +309,7 @@ class DatasetPipeline:
 
     def calculate_neighbors(
         self, data: pd.DataFrame | np.ndarray, name: str
-    ) -> List[str]:
+    ) -> list[str]:
         """Calculate nearest neighbors for the data. Return the paths to the neighbor
         files."""
         if self.neighbors_request is None:
@@ -324,7 +324,7 @@ class DatasetPipeline:
 
     def calculate_triplets(
         self, data: pd.DataFrame | np.ndarray, name: str
-    ) -> List[str]:
+    ) -> list[str]:
         """Calculate triplets for the data. Return the paths to the triplet files."""
         if self.triplets_request is None:
             return []
@@ -350,24 +350,24 @@ class DatasetPipelineResult:
     n_na_rows: int = 0
     n_duplicates: int | None = None
     reduce_result: str | None = None
-    data_output_paths: list = field(default_factory=list)
+    data_output_paths: list[str] = field(default_factory=list)
     target_shape: tuple | None = None
-    target_output_paths: List[str] | None = field(default_factory=list)
-    neighbors_output_paths: List[str] | None = field(default_factory=list)
-    triplets_output_paths: List[str] | None = field(default_factory=list)
+    target_output_paths: list[str] | None = field(default_factory=list)
+    neighbors_output_paths: list[str] | None = field(default_factory=list)
+    triplets_output_paths: list[str] | None = field(default_factory=list)
     url: str | None = None
     tags: list = field(default_factory=list)
-    data_cols: List[int] | List[str] | None = field(default_factory=list)
-    target_cols: list = field(default_factory=list)
+    data_cols: list[int] | list[str] | None = field(default_factory=list)
+    target_cols: list[str] = field(default_factory=list)
 
 
 def create_data_pipeline(
-    data_export: ActionConfig | List[ActionConfig],
+    data_export: ActionConfig | list[ActionConfig],
     check_for_duplicates: bool = False,
     convert: bool | dict | None = True,
     scale: ActionConfig | None | Literal[False] = None,
     reduce: int | None = None,
-    target_export: ActionConfig | List[ActionConfig] | None = None,
+    target_export: ActionConfig | list[ActionConfig] | None = None,
     neighbors: dict | None = None,
     triplets: dict | None = None,
     drnb_home: Path | str | None = None,
@@ -411,7 +411,7 @@ def create_default_pipeline(
     scale: ActionConfig | None | Literal[False] = None,
     reduce: int | None = None,
     csv: bool = True,
-    metric: str | List[str] | None = None,
+    metric: str | list[str] | None = None,
     verbose: bool = True,
 ) -> DatasetPipeline:
     """Create a default data pipeline. Some limited overriding of defaults is available

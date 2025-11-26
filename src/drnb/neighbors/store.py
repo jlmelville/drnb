@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
 
 import drnb.neighbors.nbrinfo as nbrinfo
 from drnb.io import data_relative_path, get_path, write_data
@@ -83,9 +82,9 @@ def write_neighbors(
     drnb_home: Path | str | None = None,
     sub_dir: str = "nn",
     create_sub_dir: bool = False,
-    file_type: str | List[str] = "pkl",
+    file_type: str | list[str] = "pkl",
     verbose: bool = False,
-) -> tuple[List[Path], List[Path]]:
+) -> tuple[list[Path], list[Path]]:
     if neighbor_data.info is None:
         raise ValueError("Cannot write neighbors without NbrInfo metadata")
     if isinstance(file_type, str):
@@ -100,7 +99,7 @@ def write_neighbors(
         verbose=verbose,
         file_type=file_type,
     )
-    dist_paths: List[Path] = []
+    dist_paths: list[Path] = []
     if neighbor_data.dist is not None:
         dist_paths = write_data(
             x=neighbor_data.dist,

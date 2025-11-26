@@ -1,4 +1,4 @@
-from typing import List, Literal, Tuple, cast
+from typing import Literal, cast
 
 import numpy as np
 import scipy.sparse
@@ -40,7 +40,7 @@ def noisy_scale_coords(
     coords: NDArray[np.float32],
     max_coord: float = 10.0,
     noise: float = 0.0001,
-    seed=None,
+    seed: int | None = None,
 ) -> NDArray[np.float32]:
     """Scale the coordinates so that the maximum absolute value is `max_coord`
     and add noise."""
@@ -73,7 +73,7 @@ def add_scaled_noise(
     return coords + rng.normal(scale=target_std, size=coords.shape).astype(np.float32)
 
 
-def spca(data: NDArray[np.float32], stdev: float = None) -> NDArray[np.float32]:
+def spca(data: NDArray[np.float32], stdev: float | None = None) -> NDArray[np.float32]:
     """Initialize the embedding using PCA, scaling the coordinates by `stdev` divided by
     1e-4. If `stdev` is None, the coordinates are not scaled after PCA."""
     log.info("Initializing via openTSNE-style (scaled) PCA")
@@ -107,7 +107,7 @@ def umap_random_init(n: int, random_state: int = 42, max_coord: float = 10.0):
 
 def umap_graph_spectral_init(
     x: np.ndarray | None = None,
-    knn: List[np.ndarray] | Tuple[np.ndarray] | NearestNeighbors | None = None,
+    knn: list[np.ndarray] | tuple[np.ndarray, ...] | NearestNeighbors | None = None,
     metric: str = "euclidean",
     n_neighbors: int = 15,
     global_neighbors: Literal["random", "mid"] | None = None,
@@ -142,7 +142,7 @@ def umap_graph_spectral_init(
     if isinstance(knn, NearestNeighbors):
         knn.dist = cast(np.ndarray, knn.dist)
         knn = [knn.idx, knn.dist]
-    knn = cast(List[np.ndarray], knn)
+    knn = cast(list[np.ndarray], knn)
 
     knn_fss, _, _ = umap.umap_.fuzzy_simplicial_set(
         X=x,
@@ -225,7 +225,7 @@ def umap_graph_spectral_init(
 
 def binary_graph_spectral_init(
     x: np.ndarray | None = None,
-    knn: List[np.ndarray] | Tuple[np.ndarray] | NearestNeighbors | None = None,
+    knn: list[np.ndarray] | tuple[np.ndarray, ...] | NearestNeighbors | None = None,
     metric: str = "euclidean",
     n_neighbors: int = 15,
     global_neighbors: Literal["random", "mid"] | None = None,
@@ -379,7 +379,7 @@ def standard_neighbor_init(
     init: Literal["pca", "rand", "spectral", "gspectral"] | np.ndarray,
     nobs: int,
     random_state: int = 42,
-    knn_idx: List[np.ndarray] | Tuple[np.ndarray] | NearestNeighbors | None = None,
+    knn_idx: list[np.ndarray] | tuple[np.ndarray, ...] | NearestNeighbors | None = None,
     X: NDArray[np.float32] | None = None,
     init_scale: float | None = None,
 ):

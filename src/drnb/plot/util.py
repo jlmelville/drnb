@@ -1,18 +1,16 @@
-from typing import Tuple
-
 import matplotlib
 import numpy as np
 import pandas as pd
 
 
-def rgb_to_hex(rgb: Tuple[float, float, float]) -> str:
+def rgb_to_hex(rgb: tuple[float, float, float]) -> str:
     """Convert an RGB tuple of floats in (0, 1) to a hex code."""
     return matplotlib.colors.to_hex(rgb)
 
 
 def hex_to_rgb(
     hexcode: str, scale: bool = False
-) -> Tuple[float, float, float] | Tuple[int, int, int]:
+) -> tuple[float, float, float] | tuple[int, int, int]:
     """Convert a hex code to an RGB tuple in (0.0, 1.0) if scale is True or (0, 255)
     otherwise."""
     result = tuple(int(hexcode[i : i + 2], 16) for i in (1, 3, 5))

@@ -3,15 +3,14 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from drnb_plugin_sdk.helpers import runner
 from drnb_plugin_sdk.protocol import (
     PROTOCOL_VERSION,
     PluginInputPaths,
+    PluginNeighbors,
+    PluginOptions,
     PluginOutputPaths,
     PluginRequest,
-    PluginOptions,
-    PluginNeighbors,
     request_to_dict,
 )
 

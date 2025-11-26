@@ -28,8 +28,6 @@ Usage Example:
     # after local scaling was used to reorder them.
 """
 
-from typing import Tuple
-
 import numba
 import numpy as np
 
@@ -133,7 +131,7 @@ def locally_scaled_neighbors(
     m: int | None = None,
     scale_from: int = 4,
     scale_to: int = 6,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Select the l-nearest locally-scaled neighbors for each point out of the
     top-m neighbors given precomputed k-nearest neighbors (where k >= m).

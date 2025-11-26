@@ -1,5 +1,3 @@
-from typing import List
-
 from drnb.util import get_method_and_args
 
 from .astress import ApproxStressEval
@@ -15,8 +13,8 @@ from .unbrpres import UndirectedNbrPreservationEval
 
 
 def create_evaluators(
-    eval_metrics: str | List[str] | None = None,
-) -> List[EmbeddingEval]:
+    eval_metrics: str | list[str] | None = None,
+) -> list[EmbeddingEval]:
     """Create a list of embedding evaluators based on the given list of evaluation
     metrics. If eval_metrics is None, return an empty list.
 

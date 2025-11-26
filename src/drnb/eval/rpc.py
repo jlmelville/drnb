@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List
 
 import numpy as np
 import scipy.stats
@@ -125,7 +124,7 @@ class RandomPairCorrelEval(EmbeddingEval):
     metric: str - distance metric
     """
 
-    random_state: int = None
+    random_state: int | None = None
     n_triplets_per_point: int = 5
     use_precomputed_triplets: bool = True
     metric: str = "euclidean"
@@ -188,7 +187,7 @@ class RandomPairCorrelEval(EmbeddingEval):
 
     def evaluatev(
         self, X: np.ndarray, coords: np.ndarray, ctx: EmbedContext | None = None
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Evaluate the embedding using random triplets. Return the distances in the
         original and new embeddings."""
         idx, X_dist, Xnew_dist = self._evaluate_setup(ctx=ctx)

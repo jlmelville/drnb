@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -25,7 +24,7 @@ def read_target(
     sub_dir: str = "data",
     verbose: bool = False,
     target_suffix: str = "target",
-    data: np.ndarray | pd.DataFrame = None,
+    data: np.ndarray | pd.DataFrame | None = None,
     data_suffix: str = "",
 ) -> pd.DataFrame:
     """Read the target data for the given dataset with the specified `target_suffix`.
@@ -143,8 +142,8 @@ def create_dataset_exporter(export_config: ActionConfig) -> FileExporter:
 
 
 def create_dataset_exporters(
-    export_configs: List[ActionConfig] | ActionConfig | None,
-) -> List[FileExporter]:
+    export_configs: list[ActionConfig] | ActionConfig | None,
+) -> list[FileExporter]:
     """Create a list of dataset exporters from the given configuration. The
     configuration is either a list of export configurations, a single export
     configuration, or None. If None, an empty list is returned."""
@@ -176,7 +175,7 @@ def filter_bad_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_dataset_info(
-    names: str | List[str],
+    names: str | list[str],
     drnb_home: Path | str | None = None,
     sub_dir: str | None = "data",
 ) -> pd.DataFrame:

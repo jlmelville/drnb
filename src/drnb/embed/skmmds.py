@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal, Tuple
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import numba
@@ -46,7 +46,7 @@ def embedded_nbr_dist(
     n_components: int = 2,
     algorithm: Literal["arpack", "randomized"] = "arpack",
     random_state: int = 42,
-) -> Tuple[Tuple[np.ndarray, np.ndarray], np.ndarray]:
+) -> tuple[tuple[np.ndarray, np.ndarray], np.ndarray]:
     """Calculate the distances between embedded neighbors, and the variance explained
     by the embedding, using a truncated SVD on the neighbors of each point.
     """
@@ -93,7 +93,7 @@ def knn_pca(
     knn_idx: np.ndarray,
     knn_dist: np.ndarray,
     n_components: int | None = None,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Perform PCA reduction on the data if requested, and update the nearest neighbor
     data accordingly."""
     if n_components is not None:
@@ -832,10 +832,10 @@ def rsikmmds(
     scale_dist: bool = False,
     local_pca: bool = False,
     far_weight: float = 1.0,
-    iso_nbrs: Tuple[float, float] | bool = False,
-    iso_nnbrs: Tuple[float, float] | bool = True,
-    lc_nbrs: float | Tuple[float, float] | None = None,
-    lc_nnbrs: float | Tuple[float, float] | None = None,
+    iso_nbrs: tuple[float, float] | bool = False,
+    iso_nnbrs: tuple[float, float] | bool = True,
+    lc_nbrs: float | tuple[float, float] | None = None,
+    lc_nnbrs: float | tuple[float, float] | None = None,
     plot_high: bool = False,
     plot_low: bool = False,
 ) -> np.ndarray:
@@ -957,10 +957,10 @@ def _rsikmmds(
     nbr_graph: csr_matrix,
     eps: float,
     far_weight: float,
-    iso_nbrs: Tuple[float, float] | bool = False,
-    iso_nnbrs: Tuple[float, float] | bool = True,
-    lc_nbrs: float | Tuple[float, float] | None = None,
-    lc_nnbrs: float | Tuple[float, float] | None = None,
+    iso_nbrs: tuple[float, float] | bool = False,
+    iso_nnbrs: tuple[float, float] | bool = True,
+    lc_nbrs: float | tuple[float, float] | None = None,
+    lc_nnbrs: float | tuple[float, float] | None = None,
 ) -> np.ndarray:
     nobs, ndim = Y.shape
     graph_j, graph_dist, ptr = nbr_graph.indices, nbr_graph.data, nbr_graph.indptr

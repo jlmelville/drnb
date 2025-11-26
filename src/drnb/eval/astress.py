@@ -69,7 +69,7 @@ class ApproxStressEval(EmbeddingEval):
     n_samples: int = 3
 
     def evaluate(
-        self, X: np.ndarray, coords: np.ndarray, _: EmbedContext = None
+        self, X: np.ndarray, coords: np.ndarray, _: EmbedContext | None = None
     ) -> EvalResult:
         result = approx_stress(
             X, coords, self.metric, self.n_samples, self.random_state

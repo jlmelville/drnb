@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 
 import numpy as np
 
@@ -115,7 +115,7 @@ def check_embed_method(
     return (normalized.name, {**normalized.wrapper_kwds, "params": normalized.params})
 
 
-def get_embedder_name(method: List[str] | tuple | str | EmbedConfig) -> str:
+def get_embedder_name(method: list[str] | tuple | str | EmbedConfig) -> str:
     """Get the name of the embedder."""
     # chained embedder is a list of embedder names
     if isinstance(method, list):

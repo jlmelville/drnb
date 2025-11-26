@@ -71,7 +71,7 @@ class Pacumap(drnb.embed.umap.Umap):
     """Embedder for PacUMAP."""
 
     use_precomputed_knn: bool = True
-    drnb_init: str = None
+    drnb_init: str | None = None
 
     def embed_impl(
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
