@@ -119,9 +119,7 @@ def run_external_neighbors(
             use_sandbox=use_sandbox,
             keep_tmp=keep_tmp,
         )
-        response = _launch_plugin(
-            spec, workspace, req_path, stderr_level=stderr_level
-        )
+        response = _launch_plugin(spec, workspace, req_path, stderr_level=stderr_level)
         return _decode_result(
             workspace,
             request,
@@ -209,11 +207,7 @@ def _decode_result(
     if not response.get("ok", False):
         workspace.fail(f"plugin error: {response.get('message', 'unknown')}")
 
-    npz_hint = response.get("result_npz") or request.output.result_path  # type: ignore[union-attr]
-    npz_path = Path(npz_hint).resolve()
-    if not _path_within(npz_path, workspace.path):
-        workspace.fail("plugin wrote results outside of workspace")
-
+    npz_path = response["result_npz"]
     with np.load(npz_path, allow_pickle=False) as z:
         idx = z["idx"].astype(np.int32, copy=False)
         dist = None
@@ -333,14 +327,6 @@ def _find_source_data_path(ctx: NNPluginContextInfo | None) -> Path | None:
             if candidate.exists():
                 return candidate
     return None
-
-
-def _path_within(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-        return True
-    except ValueError:
-        return False
 
 
 def _default_runner(spec: NNPluginSpec) -> list[str]:

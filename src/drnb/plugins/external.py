@@ -247,10 +247,7 @@ class ExternalEmbedder(Embedder):
         if not response.get("ok", False):
             workspace.fail(f"plugin error: {response.get('message', 'unknown')}")
 
-        npz_hint = response.get("result_npz") or request.output.result_path
-        npz_path = Path(npz_hint).resolve()
-        if not _path_within(npz_path, workspace.path):
-            workspace.fail("plugin wrote results outside of workspace")
+        npz_path = response["result_npz"]
 
         with np.load(npz_path, allow_pickle=False) as z:
             coords = z["coords"].astype(np.float32, copy=False)
@@ -320,14 +317,6 @@ def _run_plugin_process(
 
     if code != 0:
         workspace.fail(f"plugin exit {code}")
-
-
-def _path_within(path: Path, root: Path) -> bool:
-    try:
-        path.relative_to(root)
-        return True
-    except ValueError:
-        return False
 
 
 def _default_runner(spec: PluginSpec) -> list[str]:
