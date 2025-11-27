@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Callable, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 import numpy as np
 
@@ -17,19 +19,11 @@ from drnb.eval.base import EmbeddingEval, EvalResult, evaluate_embedding
 from drnb.eval.factory import create_evaluators
 from drnb.io.embed import create_embed_exporter
 from drnb.log import log, log_verbosity
-from drnb.neighbors.compute import create_neighbors_request
-from drnb.neighbors.store import find_candidate_neighbors_info
-from drnb.plot.factory import create_plotters
-from drnb.plot.protocol import PlotterProtocol
-from drnb.plot.scale import ColorScale
-from drnb.plot.scale.ko import ColorByKo
-from drnb.plot.scale.lid import ColorByLid
-from drnb.plot.scale.nbrpres import ColorByNbrPres
-from drnb.plot.scale.rte import ColorByRte
-from drnb.plot.scale.so import ColorBySo
-from drnb.triplets import create_triplets_request, find_triplet_files
 from drnb.types import ActionConfig, EmbedConfig
 from drnb.util import dts_to_str
+
+if TYPE_CHECKING:
+    from drnb.plot.protocol import PlotterProtocol
 
 
 @dataclass
@@ -64,6 +58,8 @@ class EmbedPipelineExporter:
         self, require: dict, embed_coords: np.ndarray, ctx: EmbedContext
     ):
         """Cache the triplets if needed."""
+        from drnb.triplets import create_triplets_request, find_triplet_files
+
         triplet_info = find_triplet_files(
             name=ctx.embed_triplets_name,
             n_triplets_per_point=require["n_triplets_per_point"],
@@ -115,6 +111,9 @@ class EmbedPipelineExporter:
         self, require: dict, embed_coords: np.ndarray, ctx: EmbedContext
     ):
         """Cache the nearest neighbors if needed."""
+        from drnb.neighbors.compute import create_neighbors_request
+        from drnb.neighbors.store import find_candidate_neighbors_info
+
         neighbors_info = find_candidate_neighbors_info(
             name=ctx.embed_nn_name,
             n_neighbors=require["n_neighbors"],
@@ -334,7 +333,11 @@ def create_pipeline(
     # shut up pylint
     _embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
-    plotters = create_plotters(plot)
+    plotters = []
+    if plot:
+        from drnb.plot.factory import create_plotters
+
+        plotters = create_plotters(plot)
     exporter = create_exporter(export)
 
     return EmbedderPipeline(
@@ -356,6 +359,9 @@ def color_by_ko(
     log1p: bool = False,
 ) -> ColorByKo:
     """Create a Color by K-Occurrence plotter."""
+    from drnb.plot.scale import ColorScale
+    from drnb.plot.scale.ko import ColorByKo
+
     return ColorByKo(
         n_neighbors,
         scale=ColorScale.new(color_scale),
@@ -371,6 +377,9 @@ def color_by_so(
     log1p: bool = False,
 ) -> ColorBySo:
     """Create a Color by S-Occurrence plotter."""
+    from drnb.plot.scale import ColorScale
+    from drnb.plot.scale.so import ColorBySo
+
     return ColorBySo(
         n_neighbors,
         scale=ColorScale.new(color_scale),
@@ -388,6 +397,9 @@ def color_by_lid(
     knn_params: dict | None = None,
 ) -> ColorByLid:
     """Create a Color by Local Intrinsic Dimensionality plotter."""
+    from drnb.plot.scale import ColorScale
+    from drnb.plot.scale.lid import ColorByLid
+
     return ColorByLid(
         n_neighbors=n_neighbors,
         metric=metric,

@@ -1,15 +1,14 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-import matplotlib.pyplot as plt
-import pandas as pd
-
-import drnb.embed.pipeline as pl
-from drnb.embed import check_embed_method, get_coords, get_embedder_name
 from drnb.io import read_pickle, write_pickle
 from drnb.log import log
-from drnb.plot.common import result_plot
 from drnb.util import dts_to_str
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 @dataclass
@@ -27,6 +26,8 @@ class Experiment:
 
     def add_method(self, method, *, params=None, name: str = ""):
         """Add an embedding method to the experiment."""
+        from drnb.embed import check_embed_method, get_embedder_name
+
         method = check_embed_method(method, params)
         if not name:
             name = get_embedder_name(method)
@@ -49,6 +50,8 @@ class Experiment:
 
     def run(self):
         """Run the experiment."""
+        import drnb.embed.pipeline as pl
+
         self.name = ensure_experiment_name(self.name)
         for method, method_name in self.methods:
             pipeline = pl.create_pipeline(
@@ -75,6 +78,8 @@ class Experiment:
         metrics: list[str] | None = None,
     ):
         """Convert the results of the experiment to a DataFrame."""
+        import pandas as pd
+
         if methods is None:
             methods = [name for _, name in self.methods]
         if not isinstance(methods, list):
@@ -124,6 +129,11 @@ class Experiment:
         **kwargs
             Additional arguments passed to result_plot.
         """
+        import matplotlib.pyplot as plt
+
+        from drnb.embed import get_coords
+        from drnb.plot.common import result_plot
+
         if not self.results:
             raise ValueError("No results to plot")
 
@@ -244,6 +254,8 @@ def results_to_df(
     results: dict[str, Any], datasets: list[str] | None = None
 ) -> pd.DataFrame:
     """Convert the results of an experiment to a DataFrame."""
+    import pandas as pd
+
     col_names = get_metric_names(results)
     if datasets is None:
         datasets = results.keys()

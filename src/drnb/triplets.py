@@ -6,7 +6,6 @@ import numpy as np
 from numba import jit, prange
 
 import drnb.io as nbio
-from drnb.distances import distance_function
 from drnb.log import log
 from drnb.types import DistanceFunc
 from drnb.util import FromDict
@@ -25,6 +24,8 @@ def calculate_triplets(
     shape as the idx array."""
     idx = get_triplets(X=data, seed=seed, n_triplets_per_point=n_triplets_per_point)
     if return_distance:
+        from drnb.distances import distance_function
+
         dist_fun = distance_function(metric)
         dist = calc_distances(data, idx, dist_fun)
         return idx, dist

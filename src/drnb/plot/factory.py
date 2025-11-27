@@ -1,9 +1,8 @@
-from drnb.plot.nphistogram import NbrPreservationHistogram
-from drnb.plot.plotly import PlotlyPlotter
+from __future__ import annotations
+
+from typing import Callable
+
 from drnb.plot.protocol import PlotterProtocol
-from drnb.plot.rpdscatterplot import RandomPairDistanceScatterplot
-from drnb.plot.rthistogram import RandomTripletHistogram
-from drnb.plot.seaborn import SeabornPlotter
 from drnb.util import get_method_and_args
 
 
@@ -11,7 +10,18 @@ def create_plotters(
     plot: bool | dict | str = True, plot_kwargs: dict | None = None
 ) -> list[PlotterProtocol]:
     """Create a list of plotters based on the plot and plot_kwargs arguments."""
-    plotter_cls = SeabornPlotter
+
+    def _load_seaborn_plotter():
+        from drnb.plot.seaborn import SeabornPlotter
+
+        return SeabornPlotter
+
+    def _load_plotly_plotter():
+        from drnb.plot.plotly import PlotlyPlotter
+
+        return PlotlyPlotter
+
+    plotter_cls_factory: Callable[[], type] = _load_seaborn_plotter
 
     if plot_kwargs is None:
         plot_kwargs = {}
@@ -24,9 +34,9 @@ def create_plotters(
 
     if isinstance(plot, str):
         if plot == "seaborn":
-            plotter_cls = SeabornPlotter
+            plotter_cls_factory = _load_seaborn_plotter
         elif plot == "plotly":
-            plotter_cls = PlotlyPlotter
+            plotter_cls_factory = _load_plotly_plotter
         else:
             raise ValueError(f"Unknown plot type {plot}")
         plot = True
@@ -34,6 +44,7 @@ def create_plotters(
         return []
 
     plotters = []
+    plotter_cls = plotter_cls_factory()
 
     color_by = []
     if "color_by" in plot_kwargs:
@@ -56,10 +67,16 @@ def create_plotters(
         extra, extra_kwds = get_method_and_args(extra, {})
 
         if extra == "nnphist":
+            from drnb.plot.nphistogram import NbrPreservationHistogram
+
             plotters.append(NbrPreservationHistogram(**extra_kwds))
         elif extra == "rthist":
+            from drnb.plot.rthistogram import RandomTripletHistogram
+
             plotters.append(RandomTripletHistogram(**extra_kwds))
         elif extra == "rpscatter":
+            from drnb.plot.rpdscatterplot import RandomPairDistanceScatterplot
+
             plotters.append(RandomPairDistanceScatterplot(**extra_kwds))
         else:
             raise ValueError(f"Unknown plot type '{extra}'")

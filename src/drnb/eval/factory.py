@@ -1,15 +1,6 @@
 from drnb.util import get_method_and_args
 
-from .astress import ApproxStressEval
 from .base import EmbeddingEval
-from .globalscore import GlobalScore
-from .labelpres import LabelPreservationEval
-from .nbrpres import NbrPreservationEval
-from .rpc import RandomPairCorrelEval
-from .rte import RandomTripletEval
-from .soccur import SOccurrenceEval
-from .stress import StressEval
-from .unbrpres import UndirectedNbrPreservationEval
 
 
 def create_evaluators(
@@ -42,23 +33,23 @@ def create_evaluators(
 
         embed_eval_name = embed_eval_name.lower()
         if embed_eval_name == "gs":
-            ctor = GlobalScore
+            from .globalscore import GlobalScore as ctor
         elif embed_eval_name == "rte":
-            ctor = RandomTripletEval
+            from .rte import RandomTripletEval as ctor
         elif embed_eval_name == "rpc":
-            ctor = RandomPairCorrelEval
+            from .rpc import RandomPairCorrelEval as ctor
         elif embed_eval_name == "nnp":
-            ctor = NbrPreservationEval
+            from .nbrpres import NbrPreservationEval as ctor
         elif embed_eval_name == "unnp":
-            ctor = UndirectedNbrPreservationEval
+            from .unbrpres import UndirectedNbrPreservationEval as ctor
         elif embed_eval_name == "soccur":
-            ctor = SOccurrenceEval
+            from .soccur import SOccurrenceEval as ctor
         elif embed_eval_name == "lp":
-            ctor = LabelPreservationEval
+            from .labelpres import LabelPreservationEval as ctor
         elif embed_eval_name == "astress":
-            ctor = ApproxStressEval
+            from .astress import ApproxStressEval as ctor
         elif embed_eval_name == "exact-stress":
-            ctor = StressEval
+            from .stress import StressEval as ctor
         else:
             raise ValueError(f"Unknown embed eval option '{embed_eval_name}'")
         evaluators.append(ctor(**eval_kwds))
