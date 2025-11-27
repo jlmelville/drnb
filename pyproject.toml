@@ -23,6 +23,7 @@ dependencies = [
     "umap-learn>=0.5.9.post2",
     "drnb-plugin-sdk-312>=0.1.0",
     "drnb-nn-plugin-sdk-312>=0.1.0",
+    "ipywidgets>=8.1.8",
 ]
 
 
