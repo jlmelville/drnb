@@ -124,7 +124,7 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
     elif method == "leopold":
         from drnb.embed.leopold import Leopold as ctor
     elif method == "spacemap":
-        from drnb.embed.deprecated.spacemap import Spacemap as ctor
+        from drnb.embed.spacemap import Spacemap as ctor
     elif method == "mmds":
         from drnb.embed.smmds import Mmds as ctor
     elif method == "rescale":
