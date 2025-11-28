@@ -216,7 +216,9 @@ def test_warn_on_existing_in_post_init(monkeypatch, tmp_path, caplog):
 
     caplog.clear()
     exp2 = Experiment(name="exp-warn")
-    assert any("Experiment directory already exists" in rec.message for rec in caplog.records)
+    assert any(
+        "Experiment directory already exists" in rec.message for rec in caplog.records
+    )
 
 
 def test_clear_storage_logs(monkeypatch, tmp_path, caplog):
@@ -258,9 +260,7 @@ def test_status_reports_completed_with_parametrized_evals(monkeypatch, tmp_path)
                 return {
                     "coords": np.array([[1.0, 0.0]]),
                     "evaluations": [
-                        EvalResult(
-                            eval_type="RTE", label="rte-5-euclidean", value=1.0
-                        ),
+                        EvalResult(eval_type="RTE", label="rte-5-euclidean", value=1.0),
                         EvalResult(
                             eval_type="NNP",
                             label="nnp-15-noself-euclidean",
@@ -305,11 +305,17 @@ def test_merge_allows_union_and_missing(monkeypatch, tmp_path):
             }
         }
     }
-    exp1.run_info = {"dummy": {"ds1": {"status": "completed", "signature": sig1, "shard": ""}}}
+    exp1.run_info = {
+        "dummy": {"ds1": {"status": "completed", "signature": sig1, "shard": ""}}
+    }
 
     exp2 = Experiment(name="exp2")
     exp2.add_dataset("ds2")
-    exp2.evaluations = ["rte", ("nnp", {"n_neighbors": [15, 50]}), ("rpc", {"metric": "euclidean"})]
+    exp2.evaluations = [
+        "rte",
+        ("nnp", {"n_neighbors": [15, 50]}),
+        ("rpc", {"metric": "euclidean"}),
+    ]
     exp2.add_method(("dummy", {"params": {}}), name="dummy")
     sig2 = _param_signature(exp2.methods[0][0], exp2.evaluations)
     exp2.results = {
@@ -321,7 +327,9 @@ def test_merge_allows_union_and_missing(monkeypatch, tmp_path):
             }
         }
     }
-    exp2.run_info = {"dummy": {"ds2": {"status": "completed", "signature": sig2, "shard": ""}}}
+    exp2.run_info = {
+        "dummy": {"ds2": {"status": "completed", "signature": sig2, "shard": ""}}
+    }
 
     merged = merge_experiments(exp1, exp2, name="merged")
     df = merged.to_df()
@@ -355,7 +363,9 @@ def test_merge_overwrites_existing_shards(monkeypatch, tmp_path):
     exp1.evaluations = ["rte"]
     res1 = {
         "coords": np.array([[1.0, 0.0]]),
-        "evaluations": [EvalResult(eval_type="RTE", label="rte-5-euclidean", value=1.0)],
+        "evaluations": [
+            EvalResult(eval_type="RTE", label="rte-5-euclidean", value=1.0)
+        ],
         "context": None,
     }
     sig1 = _param_signature(exp1.methods[0][0], exp1.evaluations)
@@ -398,7 +408,9 @@ def test_merge_fails_when_dest_exists_without_overwrite(monkeypatch, tmp_path):
     sig1 = _param_signature(exp1.methods[0][0], exp1.evaluations)
     exp1.results = {"dummy": {"ds1": res1}}
     exp1.run_info = {
-        "dummy": {"ds1": {"status": "completed", "signature": sig1, "shard": str(shard_rel)}}
+        "dummy": {
+            "ds1": {"status": "completed", "signature": sig1, "shard": str(shard_rel)}
+        }
     }
 
     # create target dir to trigger the safety check
@@ -438,14 +450,18 @@ def test_partial_eval_rerun_only_missing(monkeypatch, tmp_path):
             def run(self, dataset):
                 return {
                     "coords": np.array([[0.0, 0.0]]),
-                    "evaluations": [EvalResult(eval_type="dummy", label="ev1", value=1.0)],
+                    "evaluations": [
+                        EvalResult(eval_type="dummy", label="ev1", value=1.0)
+                    ],
                     "context": None,
                 }
 
         return DummyPipeline()
 
     monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
-    monkeypatch.setattr("drnb.experiment._expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr(
+        "drnb.experiment._expected_eval_labels", lambda _: ["ev1", "ev2"]
+    )
 
     exp = Experiment(name="exp-partial-evals")
     exp.add_method(("dummy", {"params": {}}), name="dummy")
@@ -492,14 +508,18 @@ def test_partial_eval_with_lazy_result(monkeypatch, tmp_path):
             def run(self, dataset):
                 return {
                     "coords": np.array([[0.0, 0.0]]),
-                    "evaluations": [EvalResult(eval_type="dummy", label="ev1", value=1.0)],
+                    "evaluations": [
+                        EvalResult(eval_type="dummy", label="ev1", value=1.0)
+                    ],
                     "context": None,
                 }
 
         return DummyPipeline()
 
     monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
-    monkeypatch.setattr("drnb.experiment._expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr(
+        "drnb.experiment._expected_eval_labels", lambda _: ["ev1", "ev2"]
+    )
 
     exp1 = Experiment(name="exp1", drnb_home=tmp_path)
     exp1.add_method(("dummy", {"params": {}}), name="dummy")
@@ -515,11 +535,17 @@ def test_partial_eval_with_lazy_result(monkeypatch, tmp_path):
     exp1.results = {"dummy": {"ds1": res1}}
     exp1.run_info = {
         "dummy": {
-            "ds1": {"status": "evals_partial", "signature": sig1, "shard": str(shard_rel)}
+            "ds1": {
+                "status": "evals_partial",
+                "signature": sig1,
+                "shard": str(shard_rel),
+            }
         }
     }
 
-    merged = merge_experiments(exp1, Experiment(name="exp2"), name="merged", overwrite=True)
+    merged = merge_experiments(
+        exp1, Experiment(name="exp2"), name="merged", overwrite=True
+    )
     calls.clear()
     merged.run()
     assert calls == ["ev2"]  # only missing eval was computed
@@ -528,3 +554,11 @@ def test_partial_eval_with_lazy_result(monkeypatch, tmp_path):
         result = result.materialize()
     labels = sorted(short_col(ev.label) for ev in result.get("evaluations", []))
     assert labels == ["ev1", "ev2"]
+
+
+def test_add_evaluation_helpers_dedupe():
+    exp = Experiment(name="exp-add-evals")
+    exp.evaluations = ["rte"]
+    exp.add_evaluation(("nnp", {"n_neighbors": [15]}))
+    exp.add_evaluations(["rte", ("nnp", {"n_neighbors": [15]}), "rpc"])
+    assert exp.evaluations == ["rte", ("nnp", {"n_neighbors": [15]}), "rpc"]

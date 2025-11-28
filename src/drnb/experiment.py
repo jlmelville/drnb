@@ -280,6 +280,14 @@ class Experiment:
         self.uniq_datasets.add(dataset)
         self.datasets.append(dataset)
 
+    def add_evaluation(self, evaluation: Any):
+        """Add a single evaluation metric to the experiment (deduping by equality)."""
+        self.evaluations = _merge_evaluations(self.evaluations, [evaluation])
+
+    def add_evaluations(self, evaluations: list[Any]):
+        """Add multiple evaluation metrics to the experiment (deduping by equality)."""
+        self.evaluations = _merge_evaluations(self.evaluations, evaluations)
+
     def run(self):
         """Run the experiment, checkpointing each dataset/method pair as soon as it
         completes.
@@ -951,9 +959,7 @@ def _labels_for_evaluator(evaluator: Any) -> list[str]:
     return [short_col(str(evaluator))]
 
 
-def _merge_eval_results(
-    existing: list, new: list, expected_labels: list[str]
-) -> list:
+def _merge_eval_results(existing: list, new: list, expected_labels: list[str]) -> list:
     label_map: dict[str, Any] = {}
     for ev in existing or []:
         label_map[short_col(ev.label)] = ev
