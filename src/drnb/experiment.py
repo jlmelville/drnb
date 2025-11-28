@@ -560,9 +560,41 @@ class Experiment:
         fixed = None
         for i, dataset in enumerate(datasets):
             for j, method in enumerate(methods):
-                result = self.results[method][dataset]
+                if j == 0:
+                    # We need to explicitly reset this for each row. It's possible
+                    # that the first result doesn't exist and so this part of the loop
+                    # will skip, in which case we can accidentally inherit the fixed
+                    # coordinates from the previous row.
+                    fixed = None
+                result = self.results.get(method, {}).get(dataset)
+                if result is None:
+                    axes[i, j].axis("off")
+                    axes[i, j].text(
+                        0.5,
+                        0.5,
+                        "No result",
+                        ha="center",
+                        va="center",
+                        transform=axes[i, j].transAxes,
+                    )
+                    continue
                 if isinstance(result, LazyResult):
                     result = result.materialize()
+                if (
+                    not isinstance(result, dict)
+                    or "coords" not in result
+                    or result.get("context") is None
+                ):
+                    axes[i, j].axis("off")
+                    axes[i, j].text(
+                        0.5,
+                        0.5,
+                        "No result",
+                        ha="center",
+                        va="center",
+                        transform=axes[i, j].transAxes,
+                    )
+                    continue
                 if align and j == 0:
                     fixed = get_coords(result)
 
@@ -687,14 +719,15 @@ def results_to_df(
         res = results.get(name)
         if not res or "evaluations" not in res:
             continue
-        df.loc[name] = [ev.value for ev in res["evaluations"]]
+        eval_map = {short_col(ev.label): ev.value for ev in res["evaluations"]}
+        df.loc[name] = [eval_map.get(col) for col in col_names]
     return df
 
 
 def merge_experiments(
     exp1: Experiment, exp2: Experiment, name: str | None = None
 ) -> Experiment:
-    """Merge two experiments, keeping only datasets that exist in both.
+    """Merge two experiments, allowing holes when datasets are missing in one side.
 
     Parameters
     ----------
@@ -714,43 +747,55 @@ def merge_experiments(
     Notes
     -----
     The merged experiment will:
-    - Include only datasets present in both experiments
-    - Combine methods and results from both experiments
-    - Use evaluations from both experiments
+    - Include all datasets present in either experiment (order preserves exp1.datasets,
+    then new items from exp2.datasets)
+    - Combine methods and results from both experiments; missing method/dataset pairs
+    are left empty
+    - Combine evaluations from both experiments (deduplicated, preserving order)
     - Use provided name or generate one by combining the original experiment names
     """
-    # Find common datasets
-    common_datasets = exp1.uniq_datasets.intersection(exp2.uniq_datasets)
-    if not common_datasets:
-        raise ValueError("No datasets in common between experiments")
+    # Union of datasets preserving order
+    merged_datasets: list[str] = []
+    seen = set()
+    for dataset in exp1.datasets + exp2.datasets:
+        if dataset not in seen:
+            merged_datasets.append(dataset)
+            seen.add(dataset)
 
     # Create new experiment
     merged = Experiment()
 
-    # Add common datasets in the order they appear in exp1
-    for dataset in exp1.datasets:
-        if dataset in common_datasets:
-            merged.add_dataset(dataset)
+    for dataset in merged_datasets:
+        merged.add_dataset(dataset)
 
     # Add methods and results from exp1
     for method, name in exp1.methods:
         merged.add_method(method, name=name)
-        merged.results[name] = {
-            dataset: exp1.results[name][dataset] for dataset in common_datasets
-        }
+        merged.results[name] = {}
+        for dataset, res in exp1.results.get(name, {}).items():
+            merged.results[name][dataset] = res
 
     # Add methods and results from exp2
     for method, name in exp2.methods:
         if name not in merged.uniq_method_names:
             merged.add_method(method, name=name)
-            merged.results[name] = {
-                dataset: exp2.results[name][dataset] for dataset in common_datasets
-            }
+            merged.results[name] = {}
+        for dataset, res in exp2.results.get(name, {}).items():
+            merged.results[name][dataset] = res
 
     # Combine evaluations
-    merged.evaluations = list(set(exp1.evaluations + exp2.evaluations))
+    merged.evaluations = _merge_evaluations(exp1.evaluations, exp2.evaluations)
 
     # Set name
     merged.name = name if name is not None else f"merged-{exp1.name}-{exp2.name}"
 
+    return merged
+
+
+def _merge_evaluations(eval1: list[Any], eval2: list[Any]) -> list[Any]:
+    """Combine evaluation lists, preserving order and handling unhashable entries."""
+    merged: list[Any] = []
+    for ev in list(eval1) + list(eval2):
+        if not any(existing == ev for existing in merged):
+            merged.append(ev)
     return merged
