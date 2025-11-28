@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator
 
 import numpy as np
 
+from drnb.eval.base import evaluate_embedding
+from drnb.eval.factory import create_evaluators
 from drnb.io import get_path
 from drnb.log import log
 from drnb.util import dts_to_str
@@ -22,6 +24,9 @@ if TYPE_CHECKING:
 EXPERIMENT_FORMAT_VERSION = 2
 RESULT_FORMAT_VERSION = 1
 RUN_STATUS_COMPLETED = "completed"
+RUN_STATUS_MISSING = "missing"
+RUN_STATUS_COORDS_ONLY = "coords_only"
+RUN_STATUS_FAILED = "failed"
 RESULT_JSON = "result.json"
 MANIFEST_JSON = "manifest.json"
 
@@ -93,6 +98,25 @@ def _method_from_manifest(entry: Any) -> Any:
     return value
 
 
+def _has_all_evaluations(res: dict, expected_labels: list[str]) -> bool:
+    if not expected_labels:
+        return True
+    if not res or "evaluations" not in res:
+        return False
+    actual = {short_col(ev.label) for ev in res["evaluations"]}
+    return all(label in actual for label in expected_labels)
+
+
+def _result_status(res: dict | None, expected_labels: list[str]) -> str:
+    if res is None:
+        return RUN_STATUS_MISSING
+    if "coords" not in res:
+        return RUN_STATUS_MISSING
+    if not _has_all_evaluations(res, expected_labels):
+        return RUN_STATUS_COORDS_ONLY
+    return RUN_STATUS_COMPLETED
+
+
 def _context_to_dict(ctx: Any) -> dict | None:
     if ctx is None:
         return None
@@ -146,6 +170,21 @@ def _manifest_path(
     return _experiment_dir(name, drnb_home, create=create) / MANIFEST_JSON
 
 
+def _experiment_storage_state(
+    name: str, drnb_home: Path | str | None
+) -> tuple[Path | None, Path | None]:
+    """Return existing experiment dir and manifest if present without creating them."""
+    try:
+        base = get_path(drnb_home, sub_dir="experiments", create_sub_dir=False)
+    except (FileNotFoundError, ValueError):
+        return None, None
+    exp_dir = base / name
+    if not exp_dir.exists():
+        return None, None
+    manifest = exp_dir / MANIFEST_JSON
+    return exp_dir, manifest if manifest.exists() else None
+
+
 class LazyResult:
     """Wrapper that loads a shard on first access."""
 
@@ -193,8 +232,20 @@ class Experiment:
     evaluations: list = field(default_factory=list)
     verbose: bool = False
     drnb_home: Path | str | None = None
+    warn_on_existing: bool = True
     run_info: dict[str, dict[str, dict[str, Any]]] = field(default_factory=dict)
-    _announced_output: bool = field(default=False, init=False, repr=False)
+
+    def __post_init__(self):
+        if not self.warn_on_existing or not self.name:
+            return
+        exp_dir, manifest = _experiment_storage_state(self.name, self.drnb_home)
+        if exp_dir is None or self.run_info:
+            return
+        log.warning(
+            "Experiment directory already exists: %s. Existing shards may be reused; "
+            "use a new name or clear_storage() if you want a fresh run.",
+            exp_dir,
+        )
 
     def add_method(self, method, *, params=None, name: str = ""):
         """Add an embedding method to the experiment."""
@@ -232,8 +283,10 @@ class Experiment:
 
         self.name = ensure_experiment_name(self.name)
         self._ensure_sets()
-        exp_dir = _experiment_dir(self.name, self.drnb_home, create=True)
+        exp_dir = self._ensure_exp_dir()
         log.info("Experiment %s writing to %s", self.name, exp_dir)
+        expected_labels = _expected_eval_labels(self.evaluations)
+        run_info_updates: dict[str, dict[str, dict[str, Any]]] = {}
         for method, method_name in self.methods:
             pipeline = pl.create_pipeline(
                 method=method,
@@ -248,44 +301,92 @@ class Experiment:
             signature = _param_signature(method, self.evaluations)
             for dataset in self.datasets:
                 run_record = self.run_info.get(method_name, {}).get(dataset)
-                if run_record is not None:
-                    prior_sig = run_record.get("signature")
-                    if (
-                        run_record.get("status") == RUN_STATUS_COMPLETED
-                        and prior_sig == signature
-                    ):
-                        log.info(
-                            "Skipping %s on %s (already completed, matching signature)",
-                            method_name,
-                            dataset,
+                existing = method_results.get(dataset)
+                if isinstance(existing, LazyResult):
+                    existing = existing.materialize()
+                status = _result_status(existing, expected_labels)
+                prior_sig = run_record.get("signature") if run_record else None
+
+                if status == RUN_STATUS_COMPLETED and prior_sig == signature:
+                    log.info(
+                        "Skipping %s on %s (already completed)",
+                        method_name,
+                        dataset,
+                    )
+                    if dataset not in method_results:
+                        method_results[dataset] = self._lazy_result(
+                            method_name, dataset
                         )
-                        if dataset not in method_results:
-                            method_results[dataset] = self._lazy_result(
-                                method_name, dataset
-                            )
-                        continue
-                    if prior_sig != signature:
-                        log.info(
-                            "Rerunning %s on %s due to signature mismatch (prior=%s current=%s)",
-                            method_name,
-                            dataset,
-                            prior_sig,
-                            signature,
-                        )
-                log.info("Running %s on %s", method_name, dataset)
-                embed_result = pipeline.run(dataset)
-                method_results[dataset] = embed_result
+                    continue
+
+                eval_only = status == RUN_STATUS_COORDS_ONLY and prior_sig == signature
+                if prior_sig is not None and prior_sig != signature:
+                    log.info(
+                        "Rerunning %s on %s due to signature mismatch (prior=%s current=%s)",
+                        method_name,
+                        dataset,
+                        prior_sig,
+                        signature,
+                    )
+
+                if eval_only and existing:
+                    log.info(
+                        "Reusing coords for %s on %s; recomputing evaluations",
+                        method_name,
+                        dataset,
+                    )
+                    embed_result = existing
+                    x = pipeline.reader.read_data(dataset)[0]
+                    evals = evaluate_embedding(
+                        pipeline.evaluators,
+                        x,
+                        embed_result,
+                        ctx=embed_result.get("context"),
+                    )
+                    embed_result["evaluations"] = evals
+                    method_results[dataset] = embed_result
+                else:
+                    log.info("Running %s on %s", method_name, dataset)
+                    embed_result = pipeline.run(dataset)
+                    method_results[dataset] = embed_result
+
                 shard_path = self._write_result_shard(
-                    method_name, dataset, embed_result
+                    method_name, dataset, method_results[dataset]
                 )
-                self._update_run_info(method_name, dataset, signature, shard_path)
-                self._write_manifest()
+                status_update = _result_status(method_results[dataset], expected_labels)
+                self._update_run_info(
+                    method_name,
+                    dataset,
+                    signature,
+                    shard_path,
+                    run_info_updates,
+                    status=status_update,
+                )
+
+        self._write_manifest(run_info_updates)
 
     def _ensure_sets(self):
         if not self.uniq_method_names and self.methods:
             self.uniq_method_names = {name for _, name in self.methods}
         if not self.uniq_datasets and self.datasets:
             self.uniq_datasets = set(self.datasets)
+
+    def _ensure_exp_dir(self) -> Path:
+        exp_dir_existing, manifest_existing = _experiment_storage_state(
+            self.name, self.drnb_home
+        )
+        exp_dir = _experiment_dir(self.name, self.drnb_home, create=True)
+        if (
+            self.warn_on_existing
+            and (exp_dir_existing is not None or manifest_existing is not None)
+            and not self.run_info
+        ):
+            log.warning(
+                "Experiment directory already exists: %s. Existing shards may be reused; "
+                "use a new name or clear_storage() if you want a fresh run.",
+                exp_dir,
+            )
+        return exp_dir
 
     def _shard_dir(
         self, method_name: str, dataset: str, *, create: bool = True
@@ -371,18 +472,29 @@ class Experiment:
         return result
 
     def _update_run_info(
-        self, method_name: str, dataset: str, signature: str, shard_path: Path
+        self,
+        method_name: str,
+        dataset: str,
+        signature: str,
+        shard_path: Path,
+        run_info_updates: dict,
+        status: str = RUN_STATUS_COMPLETED,
     ):
-        if method_name not in self.run_info:
-            self.run_info[method_name] = {}
-        self.run_info[method_name][dataset] = {
-            "status": RUN_STATUS_COMPLETED,
+        if method_name not in run_info_updates:
+            run_info_updates[method_name] = {}
+        run_info_updates[method_name][dataset] = {
+            "status": status,
             "signature": signature,
             "updated_at": _now_iso(),
             "shard": str(shard_path),
         }
 
-    def _write_manifest(self):
+    def _write_manifest(self, run_info_updates: dict):
+        if run_info_updates:
+            for method_name, datasets in run_info_updates.items():
+                if method_name not in self.run_info:
+                    self.run_info[method_name] = {}
+                self.run_info[method_name].update(datasets)
         exp_dir = _experiment_dir(self.name, self.drnb_home, create=True)
         manifest = {
             "format_version": EXPERIMENT_FORMAT_VERSION,
@@ -409,7 +521,7 @@ class Experiment:
             self.results[method_name].pop(dataset, None)
             if not self.results[method_name]:
                 self.results.pop(method_name, None)
-        self._write_manifest()
+        self._write_manifest({})
 
     def clear_method(self, method_name: str):
         """Drop all shards and run records for a method so every dataset reruns."""
@@ -433,12 +545,24 @@ class Experiment:
         self.uniq_method_names = set()
         self.evaluations = []
 
+    def clear_storage(self):
+        """Delete on-disk data for this experiment but keep the in-memory setup."""
+        try:
+            exp_dir = _experiment_dir(self.name, self.drnb_home, create=False)
+        except FileNotFoundError:
+            exp_dir = None
+        if exp_dir and exp_dir.exists():
+            log.warning("Deleting experiment storage at %s", exp_dir)
+            shutil.rmtree(exp_dir)
+        self.results.clear()
+        self.run_info.clear()
+
     @classmethod
     def _from_manifest(cls, manifest_path: Path) -> Experiment:
         with open(manifest_path, "r", encoding="utf-8") as f:
             manifest = json.load(f)
 
-        exp = cls()
+        exp = cls(warn_on_existing=False)
         version = manifest.get("format_version")
         if version != EXPERIMENT_FORMAT_VERSION:
             raise ValueError(f"Unsupported experiment format version {version}")
@@ -483,32 +607,72 @@ class Experiment:
         if not methods:
             return pd.DataFrame()
         if metrics is None:
-            if not self.results:
-                return pd.DataFrame()
-            first_method_results = list(self.results.values())[0]
-            first_dataset_result = next(iter(first_method_results.values()), None)
-            if not first_dataset_result or "evaluations" not in first_dataset_result:
+            metrics = []
+            for method in methods:
+                method_results = self.results.get(method, {})
+                for metric_name in get_metric_names(method_results):
+                    if metric_name not in metrics:
+                        metrics.append(metric_name)
+            if not metrics:
                 log.info("No evaluations found; returning empty DataFrame")
                 return pd.DataFrame()
-            metrics = get_metric_names(first_method_results)
         if datasets is None:
             datasets = self.datasets
         dfs = []
         for method in methods:
-            df = results_to_df(self.results[method], datasets=datasets)
-            if df.empty:
-                log.info(
-                    "No evaluations found for method %s; returning empty DataFrame",
-                    method,
-                )
-                return pd.DataFrame()
-            dfs.append(df[metrics])
+            method_results = self.results.get(method, {})
+            df = pd.DataFrame(index=datasets, columns=metrics)
+            for dataset in datasets:
+                res = method_results.get(dataset)
+                if not res or "evaluations" not in res:
+                    continue
+                eval_map = {short_col(ev.label): ev.value for ev in res["evaluations"]}
+                df.loc[dataset] = [eval_map.get(metric) for metric in metrics]
+            dfs.append(df)
         df = pd.concat(dfs, axis=1, keys=methods)
 
         index = pd.MultiIndex.from_product(
             [methods, dfs[0].columns], names=["method", "metric"]
         )
         return df.reindex(index, axis=1)
+
+    def status(self):
+        """Return a status summary DataFrame (rows=datasets, columns=methods)."""
+        import pandas as pd
+
+        methods = [name for _, name in self.methods]
+        expected_labels = _expected_eval_labels(self.evaluations)
+        df = pd.DataFrame(index=self.datasets, columns=methods)
+        for method in methods:
+            method_config = next((m for m, n in self.methods if n == method), None)
+            current_sig = (
+                _param_signature(method_config, self.evaluations)
+                if method_config is not None
+                else None
+            )
+            for dataset in self.datasets:
+                run_entry = self.run_info.get(method, {}).get(dataset)
+                res = self.results.get(method, {}).get(dataset)
+                if isinstance(res, LazyResult):
+                    try:
+                        res = res.materialize()
+                    except FileNotFoundError:
+                        res = None
+                needs_recalc = (
+                    not run_entry
+                    or run_entry.get("status") != RUN_STATUS_COMPLETED
+                    or (
+                        current_sig is not None
+                        and current_sig != run_entry.get("signature")
+                    )
+                )
+                if needs_recalc:
+                    df.loc[dataset, method] = _result_status(res, expected_labels)
+                elif run_entry and "status" in run_entry:
+                    df.loc[dataset, method] = run_entry["status"]
+                else:
+                    df.loc[dataset, method] = _result_status(res, expected_labels)
+        return df
 
     def plot(
         self,
@@ -646,6 +810,7 @@ class Experiment:
         self.name = ensure_experiment_name(self.name)
         self._ensure_sets()
         exp_dir = _experiment_dir(self.name, self.drnb_home, create=True)
+        run_info_updates: dict[str, dict[str, dict[str, Any]]] = {}
         for method, method_name in self.methods:
             method_results = self.results.get(method_name, {})
             signature = _param_signature(method, self.evaluations)
@@ -656,8 +821,10 @@ class Experiment:
                         continue
                     result = result.materialize()
                 shard_path = self._write_result_shard(method_name, dataset, result)
-                self._update_run_info(method_name, dataset, signature, shard_path)
-        self._write_manifest()
+                self._update_run_info(
+                    method_name, dataset, signature, shard_path, run_info_updates
+                )
+        self._write_manifest(run_info_updates)
 
 
 def read_experiment(
@@ -695,6 +862,32 @@ def short_col(colname: str, sep: str = "-") -> str:
     return colname[:index2]
 
 
+def _expected_eval_labels(evaluations: list[Any]) -> list[str]:
+    evaluators = create_evaluators(evaluations)
+    return _expected_eval_labels_from_evaluators(evaluators)
+
+
+def _expected_eval_labels_from_evaluators(evaluators: list[Any]) -> list[str]:
+    labels: list[str] = []
+    for evaluator in evaluators:
+        labels.extend(_labels_for_evaluator(evaluator))
+    return labels
+
+
+def _labels_for_evaluator(evaluator: Any) -> list[str]:
+    to_str = getattr(evaluator, "to_str", None)
+    neighbors = getattr(evaluator, "n_neighbors", None)
+    if callable(to_str) and neighbors is not None:
+        if not isinstance(neighbors, (list, tuple)):
+            neighbors = [neighbors]
+        try:
+            return [short_col(to_str(n)) for n in neighbors]
+        except TypeError:
+            # Fall through to string representation if signature mismatches
+            pass
+    return [short_col(str(evaluator))]
+
+
 def get_metric_names(results: dict[str, Any]) -> list[str]:
     """Get the metric names from the first entry in the results dictionary."""
     first = next(iter(results.values()), None)
@@ -725,7 +918,11 @@ def results_to_df(
 
 
 def merge_experiments(
-    exp1: Experiment, exp2: Experiment, name: str | None = None
+    exp1: Experiment,
+    exp2: Experiment,
+    name: str | None = None,
+    *,
+    overwrite: bool = False,
 ) -> Experiment:
     """Merge two experiments, allowing holes when datasets are missing in one side.
 
@@ -754,6 +951,16 @@ def merge_experiments(
     - Combine evaluations from both experiments (deduplicated, preserving order)
     - Use provided name or generate one by combining the original experiment names
     """
+    merged_name = name or f"merged-{exp1.name}-{exp2.name}"
+    merged_home = exp1.drnb_home or exp2.drnb_home
+    dest_existing, _ = _experiment_storage_state(merged_name, merged_home)
+    if dest_existing is not None and not overwrite:
+        raise ValueError(
+            f"Destination experiment directory already exists: {dest_existing}. "
+            "Choose a new name or pass overwrite=True."
+        )
+    merged = Experiment(name=merged_name, warn_on_existing=False)
+    merged.drnb_home = merged_home
     # Union of datasets preserving order
     merged_datasets: list[str] = []
     seen = set()
@@ -762,32 +969,69 @@ def merge_experiments(
             merged_datasets.append(dataset)
             seen.add(dataset)
 
-    # Create new experiment
-    merged = Experiment()
-
     for dataset in merged_datasets:
         merged.add_dataset(dataset)
 
-    # Add methods and results from exp1
-    for method, name in exp1.methods:
-        merged.add_method(method, name=name)
-        merged.results[name] = {}
-        for dataset, res in exp1.results.get(name, {}).items():
-            merged.results[name][dataset] = res
-
-    # Add methods and results from exp2
-    for method, name in exp2.methods:
-        if name not in merged.uniq_method_names:
-            merged.add_method(method, name=name)
-            merged.results[name] = {}
-        for dataset, res in exp2.results.get(name, {}).items():
-            merged.results[name][dataset] = res
-
-    # Combine evaluations
+    # Combine evaluations early so signatures align with the merged config
     merged.evaluations = _merge_evaluations(exp1.evaluations, exp2.evaluations)
+    merged_expected_labels = _expected_eval_labels(merged.evaluations)
+    merged_expected_label_set = set(merged_expected_labels)
+
+    # Add methods and copy results/run_info from both experiments
+    dest_exp_dir = _experiment_dir(merged_name, merged.drnb_home, create=True)
+
+    def copy_from(exp_src: Experiment):
+        src_exp_dir = _experiment_dir(exp_src.name, exp_src.drnb_home, create=False)
+        src_expected_label_set = set(_expected_eval_labels(exp_src.evaluations))
+        for method, method_name in exp_src.methods:
+            if method_name not in merged.uniq_method_names:
+                merged.add_method(method, name=method_name)
+            if method_name not in merged.results:
+                merged.results[method_name] = {}
+            merged_method = next(m for m, n in merged.methods if n == method_name)
+            signature = _param_signature(merged_method, merged.evaluations)
+            for dataset, res in exp_src.results.get(method_name, {}).items():
+                run_entry = exp_src.run_info.get(method_name, {}).get(dataset)
+                shard_rel = None
+                dest_shard_dir = None
+                if run_entry and run_entry.get("shard"):
+                    shard_rel = Path(run_entry["shard"])
+                    src_shard_dir = src_exp_dir / shard_rel
+                    dest_shard_dir = dest_exp_dir / shard_rel
+                    if src_shard_dir.exists():
+                        if dest_shard_dir.exists():
+                            shutil.rmtree(dest_shard_dir)
+                        dest_shard_dir.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copytree(src_shard_dir, dest_shard_dir)
+                if shard_rel and dest_shard_dir and dest_shard_dir.exists():
+                    merged.results[method_name][dataset] = LazyResult(
+                        dest_shard_dir, merged._load_result_shard
+                    )
+                    if merged_expected_label_set - src_expected_label_set:
+                        status = RUN_STATUS_COORDS_ONLY
+                    elif run_entry and "status" in run_entry:
+                        status = run_entry["status"]
+                    else:
+                        status = _result_status(
+                            merged.results[method_name][dataset],
+                            merged_expected_labels,
+                        )
+                else:
+                    merged.results[method_name][dataset] = res
+                    materialized = res
+                    status = _result_status(materialized, merged_expected_labels)
+                merged.run_info.setdefault(method_name, {})[dataset] = {
+                    "status": status,
+                    "signature": signature,
+                    "updated_at": _now_iso(),
+                    "shard": str(shard_rel) if shard_rel else "",
+                }
+
+    copy_from(exp1)
+    copy_from(exp2)
 
     # Set name
-    merged.name = name if name is not None else f"merged-{exp1.name}-{exp2.name}"
+    merged.name = merged_name
 
     return merged
 

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -10,6 +11,9 @@ from drnb.eval.base import EvalResult
 from drnb.experiment import (
     Experiment,
     LazyResult,
+    _param_signature,
+    _expected_eval_labels,
+    _experiment_dir,
     merge_experiments,
     read_experiment,
 )
@@ -197,12 +201,100 @@ def test_plot_with_partial_results(monkeypatch, tmp_path):
     plt.close(fig)
 
 
+def test_warn_on_existing_in_post_init(monkeypatch, tmp_path, caplog):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+    caplog.set_level(logging.WARNING, logger="drnb")
+    calls: list[str] = []
+    _install_dummy_pipeline(monkeypatch, calls)
+
+    exp1 = Experiment(name="exp-warn")
+    exp1.add_method(("dummy", {"params": {}}), name="dummy")
+    exp1.add_dataset("ds1")
+    exp1.run()
+    assert calls == ["ds1"]
+
+    caplog.clear()
+    exp2 = Experiment(name="exp-warn")
+    assert any("Experiment directory already exists" in rec.message for rec in caplog.records)
+
+
+def test_clear_storage_logs(monkeypatch, tmp_path, caplog):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+    caplog.set_level(logging.WARNING, logger="drnb")
+    calls: list[str] = []
+    _install_dummy_pipeline(monkeypatch, calls)
+
+    exp = Experiment(name="exp-clear")
+    exp.add_method(("dummy", {"params": {}}), name="dummy")
+    exp.add_dataset("ds1")
+    exp.run()
+
+    caplog.clear()
+    exp.clear_storage()
+    assert any("Deleting experiment storage" in rec.message for rec in caplog.records)
+    assert not (tmp_path / "experiments" / "exp-clear").exists()
+
+
+def test_status_reports_completed_with_parametrized_evals(monkeypatch, tmp_path):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+
+    def _create_pipeline(**kwargs):
+        class DummyPipeline:
+            def __init__(self):
+                class Reader:
+                    def read_data(self, dataset):
+                        return np.zeros((1, 1)), None
+
+                self.reader = Reader()
+
+            def run(self, dataset):
+                ctx = EmbedContext(
+                    dataset_name=dataset,
+                    embed_method_name="dummy",
+                    experiment_name="test-exp",
+                    drnb_home=tmp_path,
+                )
+                return {
+                    "coords": np.array([[1.0, 0.0]]),
+                    "evaluations": [
+                        EvalResult(
+                            eval_type="RTE", label="rte-5-euclidean", value=1.0
+                        ),
+                        EvalResult(
+                            eval_type="NNP",
+                            label="nnp-15-noself-euclidean",
+                            value=0.5,
+                        ),
+                    ],
+                    "context": ctx,
+                }
+
+        return DummyPipeline()
+
+    monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
+
+    exp = Experiment(name="exp-status")
+    exp.add_method(("dummy", {"params": {}}), name="dummy")
+    exp.add_dataset("ds1")
+    exp.evaluations = ["rte", ("nnp", {"n_neighbors": [15]})]
+
+    exp.run()
+    status_df = exp.status()
+    assert status_df.loc["ds1", "dummy"] == "completed"
+
+
+def test_expected_eval_labels_expand_parametrized_evals():
+    labels = _expected_eval_labels(["rte", ("nnp", {"n_neighbors": [15, 50]})])
+    assert labels == ["rte-5", "nnp-15", "nnp-50"]
+
+
 def test_merge_allows_union_and_missing(monkeypatch, tmp_path):
     monkeypatch.setenv("DRNB_HOME", str(tmp_path))
     exp1 = Experiment(name="exp1")
     exp1.add_dataset("ds1")
     exp1.evaluations = ["rte", ("nnp", {"n_neighbors": [15, 50]})]
     exp1.add_method(("dummy", {"params": {}}), name="dummy")
+    sig1 = _param_signature(exp1.methods[0][0], exp1.evaluations)
     exp1.results = {
         "dummy": {
             "ds1": {
@@ -212,11 +304,13 @@ def test_merge_allows_union_and_missing(monkeypatch, tmp_path):
             }
         }
     }
+    exp1.run_info = {"dummy": {"ds1": {"status": "completed", "signature": sig1, "shard": ""}}}
 
     exp2 = Experiment(name="exp2")
     exp2.add_dataset("ds2")
     exp2.evaluations = ["rte", ("nnp", {"n_neighbors": [15, 50]}), ("rpc", {"metric": "euclidean"})]
     exp2.add_method(("dummy", {"params": {}}), name="dummy")
+    sig2 = _param_signature(exp2.methods[0][0], exp2.evaluations)
     exp2.results = {
         "dummy": {
             "ds2": {
@@ -226,6 +320,7 @@ def test_merge_allows_union_and_missing(monkeypatch, tmp_path):
             }
         }
     }
+    exp2.run_info = {"dummy": {"ds2": {"status": "completed", "signature": sig2, "shard": ""}}}
 
     merged = merge_experiments(exp1, exp2, name="merged")
     df = merged.to_df()
@@ -241,3 +336,72 @@ def test_merge_allows_union_and_missing(monkeypatch, tmp_path):
         ("nnp", {"n_neighbors": [15, 50]}),
         ("rpc", {"metric": "euclidean"}),
     ]
+    # run_info signatures align with merged evaluations
+    method = next(m for m, n in merged.methods if n == "dummy")
+    sig = _param_signature(method, merged.evaluations)
+    assert merged.run_info["dummy"]["ds1"]["signature"] == sig
+    assert merged.run_info["dummy"]["ds2"]["signature"] == sig
+
+
+def test_merge_overwrites_existing_shards(monkeypatch, tmp_path):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+
+    # Source experiment with real shard
+    exp1 = Experiment(name="exp1")
+    exp1.drnb_home = tmp_path
+    exp1.add_dataset("ds1")
+    exp1.add_method(("dummy", {"params": {}}), name="dummy")
+    exp1.evaluations = ["rte"]
+    res1 = {
+        "coords": np.array([[1.0, 0.0]]),
+        "evaluations": [EvalResult(eval_type="RTE", label="rte-5-euclidean", value=1.0)],
+        "context": None,
+    }
+    sig1 = _param_signature(exp1.methods[0][0], exp1.evaluations)
+    shard_rel = exp1._write_result_shard("dummy", "ds1", res1)
+    exp1.results = {"dummy": {"ds1": res1}}
+    exp1.run_info = {
+        "dummy": {
+            "ds1": {"status": "completed", "signature": sig1, "shard": str(shard_rel)}
+        }
+    }
+
+    # Pre-existing merged directory with stale shard
+    stale_res = {
+        "coords": np.array([[9.0, 0.0]]),
+        "evaluations": [EvalResult(eval_type="stale", label="stale", value=9.0)],
+        "context": None,
+    }
+    stale_exp = Experiment(name="merged", drnb_home=tmp_path)
+    stale_exp._write_result_shard("dummy", "ds1", stale_res)
+
+    merged = merge_experiments(
+        exp1, Experiment(name="exp2"), name="merged", overwrite=True
+    )
+    result = merged.results["dummy"]["ds1"]
+    if isinstance(result, LazyResult):
+        result = result.materialize()
+    # The stale shard should have been replaced by the source shard
+    assert np.allclose(result["coords"], res1["coords"])
+
+
+def test_merge_fails_when_dest_exists_without_overwrite(monkeypatch, tmp_path):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+    exp1 = Experiment(name="exp1")
+    exp1.drnb_home = tmp_path
+    exp1.add_dataset("ds1")
+    exp1.add_method(("dummy", {"params": {}}), name="dummy")
+    exp1.evaluations = []
+    res1 = {"coords": np.array([[0.0, 0.0]]), "context": None}
+    shard_rel = exp1._write_result_shard("dummy", "ds1", res1)
+    sig1 = _param_signature(exp1.methods[0][0], exp1.evaluations)
+    exp1.results = {"dummy": {"ds1": res1}}
+    exp1.run_info = {
+        "dummy": {"ds1": {"status": "completed", "signature": sig1, "shard": str(shard_rel)}}
+    }
+
+    # create target dir to trigger the safety check
+    _experiment_dir("merged", tmp_path, create=True)
+
+    with pytest.raises(ValueError):
+        merge_experiments(exp1, Experiment(name="exp2"), name="merged")
