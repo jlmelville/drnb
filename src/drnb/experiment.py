@@ -221,9 +221,12 @@ class Experiment:
         self.datasets.append(dataset)
 
     def run(self):
-        """Run the experiment, checkpointing each dataset/method pair as soon as it completes.
+        """Run the experiment, checkpointing each dataset/method pair as soon as it
+        completes.
 
-        If a prior shard exists and the signature matches, the work is skipped. If the signature differs, rerun and overwrite to keep results aligned with current parameters.
+        If a prior shard exists and the signature matches, the work is skipped. If the
+        signature differs, rerun and overwrite to keep results aligned with current
+        parameters.
         """
         import drnb.embed.pipeline as pl
 
@@ -678,10 +681,11 @@ def results_to_df(
     if not col_names:
         return pd.DataFrame()
     if datasets is None:
-        datasets = results.keys()
-    df = pd.DataFrame(index=results.keys(), columns=col_names)
-    for name, res in results.items():
-        if name not in datasets or "evaluations" not in res:
+        datasets = list(results.keys())
+    df = pd.DataFrame(index=datasets, columns=col_names)
+    for name in datasets:
+        res = results.get(name)
+        if not res or "evaluations" not in res:
             continue
         df.loc[name] = [ev.value for ev in res["evaluations"]]
     return df

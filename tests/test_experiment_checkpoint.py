@@ -134,3 +134,21 @@ def test_to_df_with_no_evaluations(monkeypatch, tmp_path):
     df = exp.to_df()
     assert df.empty
     assert calls == ["ds1"]
+
+
+def test_to_df_respects_dataset_order(monkeypatch, tmp_path):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+    exp = Experiment(name="exp-order")
+    exp.datasets = ["ds1", "ds2"]
+    exp.uniq_datasets = set(exp.datasets)
+    exp.methods = [(("dummy", {"params": {}}), "dummy")]
+    exp.uniq_method_names = {"dummy"}
+    exp.results = {
+        "dummy": {
+            "ds2": {"evaluations": [EvalResult(eval_type="dummy", label="score", value=2.0)]},
+            "ds1": {"evaluations": [EvalResult(eval_type="dummy", label="score", value=1.0)]},
+        }
+    }
+
+    df = exp.to_df()
+    assert list(df.index) == ["ds1", "ds2"]
