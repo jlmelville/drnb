@@ -25,7 +25,7 @@ EXPERIMENT_FORMAT_VERSION = 2
 RESULT_FORMAT_VERSION = 1
 RUN_STATUS_COMPLETED = "completed"
 RUN_STATUS_MISSING = "missing"
-RUN_STATUS_COORDS_ONLY = "coords_only"
+RUN_STATUS_PARTIAL_EVALS = "evals_partial"
 RUN_STATUS_FAILED = "failed"
 RESULT_JSON = "result.json"
 MANIFEST_JSON = "manifest.json"
@@ -98,23 +98,32 @@ def _method_from_manifest(entry: Any) -> Any:
     return value
 
 
-def _has_all_evaluations(res: dict, expected_labels: list[str]) -> bool:
-    if not expected_labels:
-        return True
+def _eval_label_set(res: dict | None) -> set[str]:
     if not res or "evaluations" not in res:
-        return False
-    actual = {short_col(ev.label) for ev in res["evaluations"]}
-    return all(label in actual for label in expected_labels)
+        return set()
+    return {short_col(ev.label) for ev in res["evaluations"]}
 
 
-def _result_status(res: dict | None, expected_labels: list[str]) -> str:
-    if res is None:
-        return RUN_STATUS_MISSING
-    if "coords" not in res:
-        return RUN_STATUS_MISSING
-    if not _has_all_evaluations(res, expected_labels):
-        return RUN_STATUS_COORDS_ONLY
-    return RUN_STATUS_COMPLETED
+def _result_progress(
+    res: dict | LazyResult | None, expected_labels: list[str]
+) -> tuple[str, int, int, set[str]]:
+    if isinstance(res, LazyResult):
+        try:
+            res = res.materialize()
+        except FileNotFoundError:
+            res = None
+    expected_set = set(expected_labels)
+    expected_count = len(expected_set)
+    if res is None or "coords" not in res:
+        return RUN_STATUS_MISSING, 0, expected_count, expected_set
+    if expected_count == 0:
+        return RUN_STATUS_COMPLETED, 0, 0, set()
+    actual_labels = _eval_label_set(res)
+    completed = len(expected_set & actual_labels)
+    if completed == expected_count:
+        return RUN_STATUS_COMPLETED, completed, expected_count, set()
+    missing = expected_set - actual_labels
+    return RUN_STATUS_PARTIAL_EVALS, completed, expected_count, missing
 
 
 def _context_to_dict(ctx: Any) -> dict | None:
@@ -303,8 +312,13 @@ class Experiment:
                 run_record = self.run_info.get(method_name, {}).get(dataset)
                 existing = method_results.get(dataset)
                 if isinstance(existing, LazyResult):
-                    existing = existing.materialize()
-                status = _result_status(existing, expected_labels)
+                    try:
+                        existing = existing.materialize()
+                    except FileNotFoundError:
+                        existing = None
+                status, completed, expected_count, missing = _result_progress(
+                    existing, expected_labels
+                )
                 prior_sig = run_record.get("signature") if run_record else None
 
                 if status == RUN_STATUS_COMPLETED and prior_sig == signature:
@@ -319,7 +333,6 @@ class Experiment:
                         )
                     continue
 
-                eval_only = status == RUN_STATUS_COORDS_ONLY and prior_sig == signature
                 if prior_sig is not None and prior_sig != signature:
                     log.info(
                         "Rerunning %s on %s due to signature mismatch (prior=%s current=%s)",
@@ -329,21 +342,21 @@ class Experiment:
                         signature,
                     )
 
-                if eval_only and existing:
+                if (
+                    status == RUN_STATUS_PARTIAL_EVALS
+                    and prior_sig == signature
+                    and existing
+                    and missing
+                ):
                     log.info(
-                        "Reusing coords for %s on %s; recomputing evaluations",
+                        "Reusing coords for %s on %s; computing %d missing evaluations",
                         method_name,
                         dataset,
+                        len(missing),
                     )
-                    embed_result = existing
-                    x = pipeline.reader.read_data(dataset)[0]
-                    evals = evaluate_embedding(
-                        pipeline.evaluators,
-                        x,
-                        embed_result,
-                        ctx=embed_result.get("context"),
+                    embed_result = _run_missing_evaluations(
+                        pipeline, dataset, existing, missing, expected_labels
                     )
-                    embed_result["evaluations"] = evals
                     method_results[dataset] = embed_result
                 else:
                     log.info("Running %s on %s", method_name, dataset)
@@ -353,7 +366,9 @@ class Experiment:
                 shard_path = self._write_result_shard(
                     method_name, dataset, method_results[dataset]
                 )
-                status_update = _result_status(method_results[dataset], expected_labels)
+                status_update, completed_update, expected_update, _ = _result_progress(
+                    method_results[dataset], expected_labels
+                )
                 self._update_run_info(
                     method_name,
                     dataset,
@@ -361,6 +376,8 @@ class Experiment:
                     shard_path,
                     run_info_updates,
                     status=status_update,
+                    evals_completed=completed_update,
+                    evals_expected=expected_update,
                 )
 
         self._write_manifest(run_info_updates)
@@ -479,15 +496,22 @@ class Experiment:
         shard_path: Path,
         run_info_updates: dict,
         status: str = RUN_STATUS_COMPLETED,
+        evals_completed: int | None = None,
+        evals_expected: int | None = None,
     ):
         if method_name not in run_info_updates:
             run_info_updates[method_name] = {}
-        run_info_updates[method_name][dataset] = {
+        entry = {
             "status": status,
             "signature": signature,
             "updated_at": _now_iso(),
             "shard": str(shard_path),
         }
+        if evals_completed is not None:
+            entry["evals_completed"] = evals_completed
+        if evals_expected is not None:
+            entry["evals_expected"] = evals_expected
+        run_info_updates[method_name][dataset] = entry
 
     def _write_manifest(self, run_info_updates: dict):
         if run_info_updates:
@@ -653,25 +677,30 @@ class Experiment:
             for dataset in self.datasets:
                 run_entry = self.run_info.get(method, {}).get(dataset)
                 res = self.results.get(method, {}).get(dataset)
-                if isinstance(res, LazyResult):
-                    try:
-                        res = res.materialize()
-                    except FileNotFoundError:
-                        res = None
-                needs_recalc = (
-                    not run_entry
-                    or run_entry.get("status") != RUN_STATUS_COMPLETED
-                    or (
-                        current_sig is not None
-                        and current_sig != run_entry.get("signature")
-                    )
+                status_value: str
+                completed = run_entry.get("evals_completed") if run_entry else None
+                expected = run_entry.get("evals_expected") if run_entry else None
+                sig_mismatch = (
+                    current_sig is not None
+                    and run_entry is not None
+                    and current_sig != run_entry.get("signature")
                 )
-                if needs_recalc:
-                    df.loc[dataset, method] = _result_status(res, expected_labels)
-                elif run_entry and "status" in run_entry:
-                    df.loc[dataset, method] = run_entry["status"]
+                if sig_mismatch or run_entry is None:
+                    status_value, completed, expected, _ = _result_progress(
+                        res, expected_labels
+                    )
                 else:
-                    df.loc[dataset, method] = _result_status(res, expected_labels)
+                    status_value = run_entry.get("status", RUN_STATUS_MISSING)
+                    if completed is None or expected is None:
+                        status_value, completed, expected, _ = _result_progress(
+                            res, expected_labels
+                        )
+                if status_value == RUN_STATUS_PARTIAL_EVALS and expected is not None:
+                    df.loc[dataset, method] = (
+                        f"{RUN_STATUS_PARTIAL_EVALS}({completed}/{expected})"
+                    )
+                else:
+                    df.loc[dataset, method] = status_value
         return df
 
     def plot(
@@ -821,8 +850,18 @@ class Experiment:
                         continue
                     result = result.materialize()
                 shard_path = self._write_result_shard(method_name, dataset, result)
+                status_update, completed_update, expected_update, _ = _result_progress(
+                    result, _expected_eval_labels(self.evaluations)
+                )
                 self._update_run_info(
-                    method_name, dataset, signature, shard_path, run_info_updates
+                    method_name,
+                    dataset,
+                    signature,
+                    shard_path,
+                    run_info_updates,
+                    status=status_update,
+                    evals_completed=completed_update,
+                    evals_expected=expected_update,
                 )
         self._write_manifest(run_info_updates)
 
@@ -874,6 +913,30 @@ def _expected_eval_labels_from_evaluators(evaluators: list[Any]) -> list[str]:
     return labels
 
 
+def _run_missing_evaluations(
+    pipeline: Any,
+    dataset: str,
+    embed_result: dict,
+    missing_labels: set[str],
+    expected_labels: list[str],
+) -> dict:
+    x = pipeline.reader.read_data(dataset)[0]
+    filtered_evaluators = [
+        ev
+        for ev in pipeline.evaluators
+        if any(label in missing_labels for label in _labels_for_evaluator(ev))
+    ]
+    if not filtered_evaluators:
+        return embed_result
+    new_evals = evaluate_embedding(
+        filtered_evaluators, x, embed_result, ctx=embed_result.get("context")
+    )
+    existing_evals = embed_result.get("evaluations", [])
+    merged = _merge_eval_results(existing_evals, new_evals, expected_labels)
+    embed_result["evaluations"] = merged
+    return embed_result
+
+
 def _labels_for_evaluator(evaluator: Any) -> list[str]:
     to_str = getattr(evaluator, "to_str", None)
     neighbors = getattr(evaluator, "n_neighbors", None)
@@ -886,6 +949,23 @@ def _labels_for_evaluator(evaluator: Any) -> list[str]:
             # Fall through to string representation if signature mismatches
             pass
     return [short_col(str(evaluator))]
+
+
+def _merge_eval_results(
+    existing: list, new: list, expected_labels: list[str]
+) -> list:
+    label_map: dict[str, Any] = {}
+    for ev in existing or []:
+        label_map[short_col(ev.label)] = ev
+    for ev in new or []:
+        label_map[short_col(ev.label)] = ev
+    merged: list[Any] = []
+    expected_set = [short_col(lbl) for lbl in expected_labels]
+    for lbl in expected_set:
+        if lbl in label_map:
+            merged.append(label_map.pop(lbl))
+    merged.extend(label_map.values())
+    return merged
 
 
 def get_metric_names(results: dict[str, Any]) -> list[str]:
@@ -1007,24 +1087,23 @@ def merge_experiments(
                     merged.results[method_name][dataset] = LazyResult(
                         dest_shard_dir, merged._load_result_shard
                     )
-                    if merged_expected_label_set - src_expected_label_set:
-                        status = RUN_STATUS_COORDS_ONLY
-                    elif run_entry and "status" in run_entry:
-                        status = run_entry["status"]
-                    else:
-                        status = _result_status(
-                            merged.results[method_name][dataset],
-                            merged_expected_labels,
-                        )
+                    materialized = merged.results[method_name][dataset].materialize()
+                    status, completed, expected_count, _ = _result_progress(
+                        materialized, merged_expected_labels
+                    )
                 else:
                     merged.results[method_name][dataset] = res
                     materialized = res
-                    status = _result_status(materialized, merged_expected_labels)
+                    status, completed, expected_count, _ = _result_progress(
+                        materialized, merged_expected_labels
+                    )
                 merged.run_info.setdefault(method_name, {})[dataset] = {
                     "status": status,
                     "signature": signature,
                     "updated_at": _now_iso(),
                     "shard": str(shard_rel) if shard_rel else "",
+                    "evals_completed": completed,
+                    "evals_expected": expected_count,
                 }
 
     copy_from(exp1)

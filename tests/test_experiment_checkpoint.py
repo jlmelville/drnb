@@ -11,6 +11,7 @@ from drnb.eval.base import EvalResult
 from drnb.experiment import (
     Experiment,
     LazyResult,
+    short_col,
     _param_signature,
     _expected_eval_labels,
     _experiment_dir,
@@ -405,3 +406,125 @@ def test_merge_fails_when_dest_exists_without_overwrite(monkeypatch, tmp_path):
 
     with pytest.raises(ValueError):
         merge_experiments(exp1, Experiment(name="exp2"), name="merged")
+
+
+def test_partial_eval_rerun_only_missing(monkeypatch, tmp_path):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+
+    calls = []
+
+    class DummyEvaluator:
+        def __init__(self, label):
+            self.label = label
+
+        def evaluate(self, X, coords, ctx=None):
+            calls.append(self.label)
+            return EvalResult(eval_type="dummy", label=self.label, value=1.0)
+
+        def __str__(self):
+            return self.label
+
+    def _create_pipeline(**kwargs):
+        class DummyPipeline:
+            def __init__(self):
+                self.evaluators = [DummyEvaluator("ev1"), DummyEvaluator("ev2")]
+
+                class Reader:
+                    def read_data(self, dataset):
+                        return np.zeros((1, 1)), None
+
+                self.reader = Reader()
+
+            def run(self, dataset):
+                return {
+                    "coords": np.array([[0.0, 0.0]]),
+                    "evaluations": [EvalResult(eval_type="dummy", label="ev1", value=1.0)],
+                    "context": None,
+                }
+
+        return DummyPipeline()
+
+    monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
+    monkeypatch.setattr("drnb.experiment._expected_eval_labels", lambda _: ["ev1", "ev2"])
+
+    exp = Experiment(name="exp-partial-evals")
+    exp.add_method(("dummy", {"params": {}}), name="dummy")
+    exp.add_dataset("ds1")
+
+    exp.run()
+    assert calls == []  # pipeline provided ev1; no extra evals run
+
+    calls.clear()
+    exp.run()
+    # Only missing ev2 should be evaluated
+    assert calls == ["ev2"]
+
+    status_df = exp.status()
+    assert status_df.loc["ds1", "dummy"] == "completed"
+
+
+def test_partial_eval_with_lazy_result(monkeypatch, tmp_path):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+    calls: list[str] = []
+
+    class DummyEvaluator:
+        def __init__(self, label):
+            self.label = label
+
+        def evaluate(self, X, coords, ctx=None):
+            calls.append(self.label)
+            return EvalResult(eval_type="dummy", label=self.label, value=1.0)
+
+        def __str__(self):
+            return self.label
+
+    def _create_pipeline(**kwargs):
+        class DummyPipeline:
+            def __init__(self):
+                self.evaluators = [DummyEvaluator("ev1"), DummyEvaluator("ev2")]
+
+                class Reader:
+                    def read_data(self, dataset):
+                        return np.zeros((1, 1)), None
+
+                self.reader = Reader()
+
+            def run(self, dataset):
+                return {
+                    "coords": np.array([[0.0, 0.0]]),
+                    "evaluations": [EvalResult(eval_type="dummy", label="ev1", value=1.0)],
+                    "context": None,
+                }
+
+        return DummyPipeline()
+
+    monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
+    monkeypatch.setattr("drnb.experiment._expected_eval_labels", lambda _: ["ev1", "ev2"])
+
+    exp1 = Experiment(name="exp1", drnb_home=tmp_path)
+    exp1.add_method(("dummy", {"params": {}}), name="dummy")
+    exp1.add_dataset("ds1")
+    exp1.evaluations = ["ev1", "ev2"]
+    res1 = {
+        "coords": np.array([[0.0, 0.0]]),
+        "evaluations": [EvalResult(eval_type="dummy", label="ev1", value=1.0)],
+        "context": None,
+    }
+    sig1 = _param_signature(exp1.methods[0][0], exp1.evaluations)
+    shard_rel = exp1._write_result_shard("dummy", "ds1", res1)
+    exp1.results = {"dummy": {"ds1": res1}}
+    exp1.run_info = {
+        "dummy": {
+            "ds1": {"status": "evals_partial", "signature": sig1, "shard": str(shard_rel)}
+        }
+    }
+
+    merged = merge_experiments(exp1, Experiment(name="exp2"), name="merged", overwrite=True)
+    calls.clear()
+    merged.run()
+    assert calls == ["ev2"]  # only missing eval was computed
+    result = merged.results["dummy"]["ds1"]
+    if isinstance(result, LazyResult):
+        result = result.materialize()
+    labels = sorted(short_col(ev.label) for ev in result.get("evaluations", []))
+    assert labels == ["ev1", "ev2"]
