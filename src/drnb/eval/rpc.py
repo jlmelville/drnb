@@ -80,7 +80,9 @@ def random_pair_correl_eval(
         Xnew_dist=Xnew_dist,
     )
 
-    correl = scipy.stats.pearsonr(X_dist.flatten(), Xnew_dist.flatten()).statistic
+    correl = float(
+        scipy.stats.pearsonr(X_dist.flatten(), Xnew_dist.flatten()).statistic
+    )
     if return_triplets:
         return correl, triplets, X_dist
     return correl
