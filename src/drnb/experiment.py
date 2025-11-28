@@ -1,9 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal
+import hashlib
+import json
+import os
+import shutil
+from dataclasses import asdict, dataclass, field, is_dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Callable, Iterator
 
-from drnb.io import read_pickle, write_pickle
+import numpy as np
+
+from drnb.io import get_path
 from drnb.log import log
 from drnb.util import dts_to_str
 
@@ -11,9 +19,170 @@ if TYPE_CHECKING:
     import pandas as pd
 
 
+EXPERIMENT_FORMAT_VERSION = 2
+RESULT_FORMAT_VERSION = 1
+RUN_STATUS_COMPLETED = "completed"
+RESULT_JSON = "result.json"
+MANIFEST_JSON = "manifest.json"
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _safe_component(name: str) -> str:
+    return name.replace(os.sep, "_")
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    if isinstance(value, (np.integer, np.floating)):
+        return value.item()
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if is_dataclass(value):
+        return _json_safe(asdict(value))
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, Path):
+        return str(value)
+    return str(value)
+
+
+def _eval_to_dict(ev) -> dict:
+    return {
+        "eval_type": ev.eval_type,
+        "label": ev.label,
+        "value": ev.value,
+        "info": _json_safe(ev.info),
+    }
+
+
+def _eval_from_dict(data: dict):
+    from drnb.eval.base import EvalResult
+
+    return EvalResult(
+        eval_type=data.get("eval_type", ""),
+        label=data.get("label", ""),
+        value=data.get("value", 0.0),
+        info=data.get("info", {}),
+    )
+
+
+def _method_to_manifest(method: Any) -> Any:
+    if isinstance(method, list):
+        return {"kind": "list", "value": [_method_to_manifest(m) for m in method]}
+    if isinstance(method, tuple):
+        return {
+            "kind": "tuple",
+            "value": [_json_safe(method[0]), _json_safe(method[1])],
+        }
+    return {"kind": "json", "value": _json_safe(method)}
+
+
+def _method_from_manifest(entry: Any) -> Any:
+    kind = entry.get("kind")
+    value = entry.get("value")
+    if kind == "list":
+        return [_method_from_manifest(v) for v in value]
+    if kind == "tuple":
+        return (value[0], value[1])
+    return value
+
+
+def _context_to_dict(ctx: Any) -> dict | None:
+    if ctx is None:
+        return None
+    return {
+        "dataset_name": getattr(ctx, "dataset_name", None),
+        "embed_method_name": getattr(ctx, "embed_method_name", None),
+        "embed_method_variant": getattr(ctx, "embed_method_variant", ""),
+        "drnb_home": str(getattr(ctx, "drnb_home", ""))
+        if getattr(ctx, "drnb_home", None) is not None
+        else None,
+        "data_sub_dir": getattr(ctx, "data_sub_dir", "data"),
+        "nn_sub_dir": getattr(ctx, "nn_sub_dir", "nn"),
+        "triplet_sub_dir": getattr(ctx, "triplet_sub_dir", "triplets"),
+        "experiment_name": getattr(ctx, "experiment_name", None),
+    }
+
+
+def _context_from_dict(data: dict | None):
+    if not data:
+        return None
+    from drnb.embed.context import EmbedContext
+
+    home = data.get("drnb_home")
+    if home is not None:
+        data = {**data, "drnb_home": Path(home)}
+    return EmbedContext(**data)
+
+
+def _param_signature(method: Any, evaluations: list[Any]) -> str:
+    payload = {
+        "method": _method_to_manifest(method),
+        "evaluations": _json_safe(evaluations),
+    }
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha1(serialized.encode("utf-8")).hexdigest()
+
+
+def _experiment_dir(
+    name: str, drnb_home: Path | str | None, *, create: bool = True
+) -> Path:
+    base = get_path(drnb_home, sub_dir="experiments", create_sub_dir=create)
+    exp_dir = base / name
+    if create:
+        exp_dir.mkdir(parents=True, exist_ok=True)
+    return exp_dir
+
+
+def _manifest_path(
+    name: str, drnb_home: Path | str | None, *, create: bool = True
+) -> Path:
+    return _experiment_dir(name, drnb_home, create=create) / MANIFEST_JSON
+
+
+class LazyResult:
+    """Wrapper that loads a shard on first access."""
+
+    def __init__(self, shard_dir: Path, loader: Callable[[Path], dict]):
+        self.shard_dir = shard_dir
+        self._loader = loader
+        self._cache: dict | None = None
+
+    def _load(self) -> dict:
+        if self._cache is None:
+            self._cache = self._loader(self.shard_dir)
+        return self._cache
+
+    def __getitem__(self, key: str):
+        return self._load()[key]
+
+    def __iter__(self) -> Iterator:
+        return iter(self._load())
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._load()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._load().get(key, default)
+
+    def materialize(self) -> dict:
+        return self._load()
+
+
 @dataclass
 class Experiment:
-    """Class to run and store the results of an experiment."""
+    """Run and checkpoint embedding experiments.
+
+    Each (method, dataset) run is persisted immediately as a shard on disk. Subsequent
+    runs skip shards whose parameter signatures match and rerun shards whose signatures
+    differ, so outputs stay consistent with the code and params in use.
+    """
 
     name: str = ""
     datasets: list[str] = field(default_factory=list)
@@ -23,6 +192,9 @@ class Experiment:
     results: dict[str, dict[str, Any]] = field(default_factory=dict)
     evaluations: list = field(default_factory=list)
     verbose: bool = False
+    drnb_home: Path | str | None = None
+    run_info: dict[str, dict[str, dict[str, Any]]] = field(default_factory=dict)
+    _announced_output: bool = field(default=False, init=False, repr=False)
 
     def add_method(self, method, *, params=None, name: str = ""):
         """Add an embedding method to the experiment."""
@@ -49,10 +221,16 @@ class Experiment:
         self.datasets.append(dataset)
 
     def run(self):
-        """Run the experiment."""
+        """Run the experiment, checkpointing each dataset/method pair as soon as it completes.
+
+        If a prior shard exists and the signature matches, the work is skipped. If the signature differs, rerun and overwrite to keep results aligned with current parameters.
+        """
         import drnb.embed.pipeline as pl
 
         self.name = ensure_experiment_name(self.name)
+        self._ensure_sets()
+        exp_dir = _experiment_dir(self.name, self.drnb_home, create=True)
+        log.info("Experiment %s writing to %s", self.name, exp_dir)
         for method, method_name in self.methods:
             pipeline = pl.create_pipeline(
                 method=method,
@@ -64,12 +242,227 @@ class Experiment:
             if method_results is None:
                 method_results = {}
                 self.results[method_name] = method_results
+            signature = _param_signature(method, self.evaluations)
             for dataset in self.datasets:
-                if dataset in method_results:
-                    continue
+                run_record = self.run_info.get(method_name, {}).get(dataset)
+                if run_record is not None:
+                    prior_sig = run_record.get("signature")
+                    if (
+                        run_record.get("status") == RUN_STATUS_COMPLETED
+                        and prior_sig == signature
+                    ):
+                        log.info(
+                            "Skipping %s on %s (already completed, matching signature)",
+                            method_name,
+                            dataset,
+                        )
+                        if dataset not in method_results:
+                            method_results[dataset] = self._lazy_result(
+                                method_name, dataset
+                            )
+                        continue
+                    if prior_sig != signature:
+                        log.info(
+                            "Rerunning %s on %s due to signature mismatch (prior=%s current=%s)",
+                            method_name,
+                            dataset,
+                            prior_sig,
+                            signature,
+                        )
                 log.info("Running %s on %s", method_name, dataset)
                 embed_result = pipeline.run(dataset)
                 method_results[dataset] = embed_result
+                shard_path = self._write_result_shard(
+                    method_name, dataset, embed_result
+                )
+                self._update_run_info(method_name, dataset, signature, shard_path)
+                self._write_manifest()
+
+    def _ensure_sets(self):
+        if not self.uniq_method_names and self.methods:
+            self.uniq_method_names = {name for _, name in self.methods}
+        if not self.uniq_datasets and self.datasets:
+            self.uniq_datasets = set(self.datasets)
+
+    def _shard_dir(
+        self, method_name: str, dataset: str, *, create: bool = True
+    ) -> Path:
+        exp_dir = _experiment_dir(self.name, self.drnb_home, create=create)
+        run_record = self.run_info.get(method_name, {}).get(dataset)
+        if run_record and "shard" in run_record:
+            return exp_dir / run_record["shard"]
+        return (
+            exp_dir
+            / "results"
+            / _safe_component(method_name)
+            / _safe_component(dataset)
+        )
+
+    def _lazy_result(self, method_name: str, dataset: str) -> LazyResult:
+        return LazyResult(
+            self._shard_dir(method_name, dataset, create=False), self._load_result_shard
+        )
+
+    def _write_result_shard(
+        self, method_name: str, dataset: str, embed_result: dict
+    ) -> Path:
+        shard_dir = self._shard_dir(method_name, dataset)
+        shard_dir.mkdir(parents=True, exist_ok=True)
+
+        entries: dict[str, dict] = {}
+        for key, value in embed_result.items():
+            if key == "context":
+                entries[key] = {"type": "context", "value": _context_to_dict(value)}
+                continue
+            if isinstance(value, np.ndarray):
+                filename = f"{key}.npz"
+                np.savez_compressed(shard_dir / filename, data=value)
+                entries[key] = {"type": "npz", "file": filename}
+                continue
+            if is_dataclass(value):
+                value = asdict(value)
+            if hasattr(value, "eval_type") and hasattr(value, "label"):
+                entries[key] = {"type": "eval_result", "value": _eval_to_dict(value)}
+                continue
+            if (
+                isinstance(value, list)
+                and value
+                and all(hasattr(v, "eval_type") for v in value)
+            ):
+                entries[key] = {
+                    "type": "eval_results",
+                    "value": [_eval_to_dict(v) for v in value],
+                }
+                continue
+            try:
+                entries[key] = {"type": "json", "value": _json_safe(value)}
+            except TypeError:
+                entries[key] = {"type": "text", "value": str(value)}
+
+        meta = {"version": RESULT_FORMAT_VERSION, "entries": entries}
+        with open(shard_dir / RESULT_JSON, "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2)
+        exp_dir = _experiment_dir(self.name, self.drnb_home, create=True)
+        return shard_dir.relative_to(exp_dir)
+
+    def _load_result_shard(self, shard_dir: Path) -> dict:
+        meta_path = shard_dir / RESULT_JSON
+        with open(meta_path, "r", encoding="utf-8") as f:
+            meta = json.load(f)
+        entries = meta.get("entries", {})
+        result = {}
+        for key, entry in entries.items():
+            entry_type = entry.get("type")
+            if entry_type == "npz":
+                data = np.load(shard_dir / entry["file"])
+                arr = data[data.files[0]]
+                result[key] = arr
+            elif entry_type == "context":
+                result[key] = _context_from_dict(entry.get("value"))
+            elif entry_type == "eval_result":
+                result[key] = _eval_from_dict(entry["value"])
+            elif entry_type == "eval_results":
+                result[key] = [_eval_from_dict(v) for v in entry.get("value", [])]
+            else:
+                result[key] = entry.get("value")
+        return result
+
+    def _update_run_info(
+        self, method_name: str, dataset: str, signature: str, shard_path: Path
+    ):
+        if method_name not in self.run_info:
+            self.run_info[method_name] = {}
+        self.run_info[method_name][dataset] = {
+            "status": RUN_STATUS_COMPLETED,
+            "signature": signature,
+            "updated_at": _now_iso(),
+            "shard": str(shard_path),
+        }
+
+    def _write_manifest(self):
+        exp_dir = _experiment_dir(self.name, self.drnb_home, create=True)
+        manifest = {
+            "format_version": EXPERIMENT_FORMAT_VERSION,
+            "name": self.name,
+            "datasets": self.datasets,
+            "methods": [
+                {"name": name, "method": _method_to_manifest(method)}
+                for method, name in self.methods
+            ],
+            "evaluations": _json_safe(self.evaluations),
+            "run_info": self.run_info,
+        }
+        with open(exp_dir / MANIFEST_JSON, "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
+
+    def clear_task(self, method_name: str, dataset: str):
+        """Drop a single shard and run record so the pair will rerun on the next `run`."""
+        shard_dir = self._shard_dir(method_name, dataset, create=False)
+        if shard_dir.exists():
+            shutil.rmtree(shard_dir)
+        if method_name in self.run_info:
+            self.run_info[method_name].pop(dataset, None)
+        if method_name in self.results:
+            self.results[method_name].pop(dataset, None)
+            if not self.results[method_name]:
+                self.results.pop(method_name, None)
+        self._write_manifest()
+
+    def clear_method(self, method_name: str):
+        """Drop all shards and run records for a method so every dataset reruns."""
+        datasets = list(self.run_info.get(method_name, {}).keys())
+        for dataset in datasets:
+            self.clear_task(method_name, dataset)
+
+    def reset(self):
+        """Delete all shards and metadata for this experiment (destructive)."""
+        try:
+            exp_dir = _experiment_dir(self.name, self.drnb_home, create=False)
+        except FileNotFoundError:
+            exp_dir = None
+        if exp_dir and exp_dir.exists():
+            shutil.rmtree(exp_dir)
+        self.results.clear()
+        self.run_info.clear()
+        self.datasets = []
+        self.uniq_datasets = set()
+        self.methods = []
+        self.uniq_method_names = set()
+        self.evaluations = []
+
+    @classmethod
+    def _from_manifest(cls, manifest_path: Path) -> Experiment:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            manifest = json.load(f)
+
+        exp = cls()
+        version = manifest.get("format_version")
+        if version != EXPERIMENT_FORMAT_VERSION:
+            raise ValueError(f"Unsupported experiment format version {version}")
+        exp.name = manifest.get("name") or manifest_path.parent.name
+        exp.drnb_home = manifest_path.parent.parent.parent
+        exp.datasets = manifest.get("datasets", [])
+        exp.uniq_datasets = set(exp.datasets)
+        exp.evaluations = manifest.get("evaluations", [])
+        exp.run_info = manifest.get("run_info", {})
+        exp.methods = []
+        exp.uniq_method_names = set()
+        for method_entry in manifest.get("methods", []):
+            method_name = method_entry.get("name", "")
+            method_config = _method_from_manifest(method_entry.get("method", {}))
+            exp.methods.append((method_config, method_name))
+            if method_name:
+                exp.uniq_method_names.add(method_name)
+
+        exp.results = {}
+        for _, method_name in exp.methods:
+            method_results = {}
+            run_entries = exp.run_info.get(method_name, {})
+            for dataset in run_entries:
+                method_results[dataset] = exp._lazy_result(method_name, dataset)
+            if method_results:
+                exp.results[method_name] = method_results
+        return exp
 
     def to_df(
         self,
@@ -87,14 +480,26 @@ class Experiment:
         if not methods:
             return pd.DataFrame()
         if metrics is None:
-            metrics = get_metric_names(list(self.results.values())[0])
+            if not self.results:
+                return pd.DataFrame()
+            first_method_results = list(self.results.values())[0]
+            first_dataset_result = next(iter(first_method_results.values()), None)
+            if not first_dataset_result or "evaluations" not in first_dataset_result:
+                log.info("No evaluations found; returning empty DataFrame")
+                return pd.DataFrame()
+            metrics = get_metric_names(first_method_results)
         if datasets is None:
             datasets = self.datasets
         dfs = []
         for method in methods:
-            dfs.append(
-                results_to_df(self.results[method], datasets=datasets)[metrics],
-            )
+            df = results_to_df(self.results[method], datasets=datasets)
+            if df.empty:
+                log.info(
+                    "No evaluations found for method %s; returning empty DataFrame",
+                    method,
+                )
+                return pd.DataFrame()
+            dfs.append(df[metrics])
         df = pd.concat(dfs, axis=1, keys=methods)
 
         index = pd.MultiIndex.from_product(
@@ -152,11 +557,14 @@ class Experiment:
         fixed = None
         for i, dataset in enumerate(datasets):
             for j, method in enumerate(methods):
+                result = self.results[method][dataset]
+                if isinstance(result, LazyResult):
+                    result = result.materialize()
                 if align and j == 0:
-                    fixed = get_coords(self.results[method][dataset])
+                    fixed = get_coords(result)
 
                 result_plot(
-                    self.results[method][dataset],
+                    result,
                     ax=axes[i, j],
                     title=f"{method} on {dataset}",
                     fixed=fixed,
@@ -186,39 +594,46 @@ class Experiment:
 
     def save(
         self,
-        compression: Literal["gzip", "bz2", ""] | None = "gzip",
-        overwrite: bool = False,
         name: str | None = None,
     ):
         """Save the experiment to the repository. If `name` is provided, the experiment
-        will be renamed."""
+        will be renamed.
+
+        Parameters
+        ----------
+
+        name : str | None
+            Optional new name for the experiment.
+        """
         if name is not None:
             self.name = name
             log.info("Renaming experiment to %s", self.name)
         self.name = ensure_experiment_name(self.name)
-
-        write_pickle(
-            x=self,
-            name=self.name,
-            suffix="",
-            sub_dir="experiments",
-            create_sub_dir=True,
-            compression=compression,
-            overwrite=overwrite,
-        )
+        self._ensure_sets()
+        exp_dir = _experiment_dir(self.name, self.drnb_home, create=True)
+        for method, method_name in self.methods:
+            method_results = self.results.get(method_name, {})
+            signature = _param_signature(method, self.evaluations)
+            for dataset, result in method_results.items():
+                run_record = self.run_info.get(method_name, {}).get(dataset)
+                if isinstance(result, LazyResult):
+                    if run_record is not None:
+                        continue
+                    result = result.materialize()
+                shard_path = self._write_result_shard(method_name, dataset, result)
+                self._update_run_info(method_name, dataset, signature, shard_path)
+        self._write_manifest()
 
 
 def read_experiment(
     experiment_name: str,
-    compression: list[str] | Literal["gzip", "bz2", "any", ""] = "any",
 ) -> Experiment:
-    """Read an experiment from the repository."""
-    return read_pickle(
-        experiment_name,
-        sub_dir="experiments",
-        suffix="",
-        compression=compression,
-    )
+    """Read an experiment from the repository using the v2 manifest/shard format."""
+    manifest = _manifest_path(experiment_name, None, create=False)
+    if not manifest.exists():
+        raise FileNotFoundError(f"No manifest found for experiment '{experiment_name}'")
+    log.info("Reading experiment %s from %s", experiment_name, manifest.parent)
+    return Experiment._from_manifest(manifest)
 
 
 def ensure_experiment_name(experiment_name: str | None) -> str:
@@ -247,7 +662,10 @@ def short_col(colname: str, sep: str = "-") -> str:
 
 def get_metric_names(results: dict[str, Any]) -> list[str]:
     """Get the metric names from the first entry in the results dictionary."""
-    return [short_col(ev.label) for ev in list(results.values())[0]["evaluations"]]
+    first = next(iter(results.values()), None)
+    if not first or "evaluations" not in first:
+        return []
+    return [short_col(ev.label) for ev in first["evaluations"]]
 
 
 def results_to_df(
@@ -257,11 +675,13 @@ def results_to_df(
     import pandas as pd
 
     col_names = get_metric_names(results)
+    if not col_names:
+        return pd.DataFrame()
     if datasets is None:
         datasets = results.keys()
     df = pd.DataFrame(index=results.keys(), columns=col_names)
     for name, res in results.items():
-        if name not in datasets:
+        if name not in datasets or "evaluations" not in res:
             continue
         df.loc[name] = [ev.value for ev in res["evaluations"]]
     return df
