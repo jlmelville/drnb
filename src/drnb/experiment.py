@@ -280,13 +280,10 @@ class Experiment:
         self.uniq_datasets.add(dataset)
         self.datasets.append(dataset)
 
-    def add_evaluation(self, evaluation: Any):
-        """Add a single evaluation metric to the experiment (deduping by equality)."""
-        self.evaluations = _merge_evaluations(self.evaluations, [evaluation])
-
-    def add_evaluations(self, evaluations: list[Any]):
-        """Add multiple evaluation metrics to the experiment (deduping by equality)."""
-        self.evaluations = _merge_evaluations(self.evaluations, evaluations)
+    def add_evaluations(self, evaluations: Any | list[Any]):
+        """Add one or more evaluation metrics (deduped by equality)."""
+        normalized = _normalize_evaluations(evaluations)
+        self.evaluations = _merge_evaluations(self.evaluations, normalized)
 
     def run(self):
         """Run the experiment, checkpointing each dataset/method pair as soon as it
@@ -940,7 +937,7 @@ def _run_missing_evaluations(
         filtered_evaluators, x, embed_result, ctx=embed_result.get("context")
     )
     existing_evals = embed_result.get("evaluations", [])
-    merged = _merge_eval_results(existing_evals, new_evals, expected_labels)
+    merged = _merge_eval_results_by_label(existing_evals, new_evals, expected_labels)
     embed_result["evaluations"] = merged
     return embed_result
 
@@ -959,7 +956,9 @@ def _labels_for_evaluator(evaluator: Any) -> list[str]:
     return [short_col(str(evaluator))]
 
 
-def _merge_eval_results(existing: list, new: list, expected_labels: list[str]) -> list:
+def _merge_eval_results_by_label(
+    existing: list, new: list, expected_labels: list[str]
+) -> list:
     label_map: dict[str, Any] = {}
     for ev in existing or []:
         label_map[short_col(ev.label)] = ev
@@ -1128,3 +1127,17 @@ def _merge_evaluations(eval1: list[Any], eval2: list[Any]) -> list[Any]:
         if not any(existing == ev for existing in merged):
             merged.append(ev)
     return merged
+
+
+def _normalize_evaluations(evaluations: Any | list[Any]) -> list[Any]:
+    """Normalize evaluation input to a list without breaking tuple-based eval specs."""
+    if evaluations is None:
+        return []
+    # A single evaluator specified as ("name", {kwargs})
+    if isinstance(evaluations, tuple) and len(evaluations) == 2 and isinstance(
+        evaluations[0], str
+    ):
+        return [evaluations]
+    if isinstance(evaluations, (list, tuple)):
+        return list(evaluations)
+    return [evaluations]

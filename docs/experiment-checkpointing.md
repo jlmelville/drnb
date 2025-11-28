@@ -1,32 +1,110 @@
 # Experiment Checkpointing (Format v2)
 
-This document describes how experiments are persisted without pickles, what files get written, and how checkpointing behaves during runs.
+This document describes how experiments are persisted (pickle-free), what files get written, and how checkpointing behaves during runs, merges, and partial evaluation reruns.
 
-## What gets written
+## Storage Layout
 
-- `experiments/<name>/manifest.json` – JSON manifest (format_version=2) that lists datasets, methods, evaluations, and `run_info` for each `(method, dataset)` pair. It is rewritten after every completed dataset.
-- `experiments/<name>/results/<method>/<dataset>/result.json` – metadata for a single shard. Lists each stored field and how to load it.
-- `experiments/<name>/results/<method>/<dataset>/*.npz` – arrays (e.g., `coords.npz`) stored alongside `result.json`. Only array fields get `.npz` files.
+All files live under `DRNB_HOME/experiments/<name>/`:
+- `manifest.json` – top-level metadata and per-(method,dataset) run info.
+- `results/<method>/<dataset>/result.json` – shard metadata listing stored fields and how to load them.
+- `results/<method>/<dataset>/*.npz` – arrays (e.g., `coords.npz`) stored alongside `result.json`.
 
-All paths are rooted under `DRNB_HOME/experiments/`.
+## Manifest (v2)
 
-## Runtime behavior
+`manifest.json` contains:
+- `format_version`: `2`
+- `name`, `datasets`, `methods` (serialized configs), `evaluations`
+- `run_info`: map of `method -> dataset -> {status, signature, updated_at, shard, evals_completed, evals_expected}`
+  - `status`: `missing`, `evals_partial`, or `completed`
+  - `signature`: stable hash of method config + evaluations (drives skip/rerun)
+  - `shard`: relative path to the shard directory
+  - `evals_completed` / `evals_expected`: counts for partial-eval tracking
 
-- When `Experiment.run()` executes a `(method, dataset)` pair, it writes a shard immediately, updates `run_info`, and rewrites `manifest.json`.
-- If a shard already exists and its signature matches the current method + evaluations, the pair is skipped.
-- If a shard exists but the signature differs, the pair is rerun and the shard is overwritten to keep results aligned with current params.
-- `Experiment.results[...]` entries are lazy: they load shard contents only when accessed (e.g., `to_df` or `plot`).
+## Shards
 
-Signatures are stable hashes built from the serialized method configuration (including chained embedders) and the evaluation list. They change when method params or evaluation configuration changes.
+Each shard directory holds:
+- `result.json` describing each entry (`coords`, `evaluations`, `context`, etc.) and how to load it (`npz`, `json`, `eval_results`, `context`, etc.).
+- One `.npz` per array field (e.g., `coords.npz`).
 
-## Helper methods
+## Runtime Behavior
 
-- `clear_task(method_name, dataset)` – deletes one shard and its `run_info` so that pair reruns on the next `run()`.
-- `clear_method(method_name)` – deletes all shards for a method so every dataset reruns.
-- `reset()` – deletes the entire experiment directory and clears in-memory state (destructive).
+- `Experiment.run()` processes each `(method, dataset)`:
+  - If no coords: run pipeline (coords + all evals), write shard, update manifest.
+  - If signature mismatches: rerun full pipeline and overwrite shard.
+  - If coords present, signature matches, and some evals are missing: reuse coords and run only the missing evals; merge into shard.
+  - If signature matches and all evals present: skip.
+- Status values:
+  - `missing`: no coords stored.
+  - `evals_partial`: coords present, some evals missing (counts recorded).
+  - `completed`: coords present and all expected evals found (0/0 evals also counts as complete).
+- `status()` reports a DataFrame; partial evals render as `evals_partial(x/y)`.
+- `run_info` is rewritten to `manifest.json` after each dataset; shards are written immediately when produced.
 
-## Logging
+## Merge Behavior
 
-- When a shard is written: `Checkpointed <method>/<dataset> -> <path>`.
-- When the manifest is written: `Wrote manifest for experiment <name> to <path>`.
-- Skips and reruns are logged inside `run()` (skip with matching signature; rerun on mismatch).
+- `merge_experiments(exp1, exp2, name, overwrite=False)`:
+  - Copies shards into the destination experiment directory (overwriting shard paths when `overwrite=True`).
+  - Recomputes status/eval counts against the merged evaluation set; partial evals stay partial until rerun.
+  - Errors if the destination experiment directory already exists and `overwrite` is `False`.
+
+## Helpers
+
+- `add_datasets`, `add_evaluations` (accepts single or list, deduped).
+- `clear_task(method, dataset)`: delete one shard/run_info entry so it reruns.
+- `clear_method(method)`: delete all shards for a method.
+- `clear_storage()`: delete the experiment directory on disk, keep in-memory setup.
+- `reset()`: delete storage and clear all in-memory experiment config (destructive).
+
+## Sample Files
+
+`manifest.json` (abridged):
+```json
+{
+  "format_version": 2,
+  "name": "demo-exp",
+  "datasets": ["iris"],
+  "methods": [
+    {"name": "pca", "method": {"kind": "json", "value": "pca"}}
+  ],
+  "evaluations": ["rte", ["nnp", {"n_neighbors": [15]}]],
+  "run_info": {
+    "pca": {
+      "iris": {
+        "status": "completed",
+        "signature": "8e7c1f...",
+        "updated_at": "2025-11-28T12:00:00Z",
+        "shard": "results/pca/iris",
+        "evals_completed": 2,
+        "evals_expected": 2
+      }
+    }
+  }
+}
+```
+
+`results/pca/iris/result.json` (abridged):
+```json
+{
+  "version": 1,
+  "entries": {
+    "coords": {"type": "npz", "file": "coords.npz"},
+    "evaluations": {
+      "type": "eval_results",
+      "value": [
+        {"eval_type": "RTE", "label": "rte-5-euclidean", "value": 0.9, "info": {}},
+        {"eval_type": "NNP", "label": "nnp-15-noself-euclidean", "value": 0.8, "info": {}}
+      ]
+    },
+    "context": {
+      "type": "context",
+      "value": {"dataset_name": "iris", "embed_method_name": "pca", "experiment_name": "demo-exp"}
+    }
+  }
+}
+```
+
+## Notes and Expectations
+
+- No backward-compat handling for older manifests/shards beyond v2; we control read/write.
+- Overwrite semantics are explicit (`overwrite=True` on merge, or use `clear_storage`/`clear_task`).
+- Logs are concise: skips/reruns/partial-eval fills are reported during `run()`.

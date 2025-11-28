@@ -556,9 +556,9 @@ def test_partial_eval_with_lazy_result(monkeypatch, tmp_path):
     assert labels == ["ev1", "ev2"]
 
 
-def test_add_evaluation_helpers_dedupe():
+def test_add_evaluations_accepts_single_and_list():
     exp = Experiment(name="exp-add-evals")
     exp.evaluations = ["rte"]
-    exp.add_evaluation(("nnp", {"n_neighbors": [15]}))
+    exp.add_evaluations(("nnp", {"n_neighbors": [15]}))
     exp.add_evaluations(["rte", ("nnp", {"n_neighbors": [15]}), "rpc"])
     assert exp.evaluations == ["rte", ("nnp", {"n_neighbors": [15]}), "rpc"]
