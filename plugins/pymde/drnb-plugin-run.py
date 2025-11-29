@@ -16,11 +16,15 @@ from drnb_plugin_sdk.helpers.paths import (
 )
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
+from drnb_plugin_sdk.helpers.version import build_version_payload
 from pymde import constraints, preprocess, problem, quadratic
 from pymde.functions import penalties
 from pymde.preprocess.graph import Graph
 from pymde.recipes import _remove_anchor_anchor_edges
 
+VERSION_INFO = build_version_payload(
+    package="pymde", plugin_package="drnb-plugin-pymde"
+)
 
 def embed_pymde_nbrs(
     x: np.ndarray, seed: int, params: dict, graph: Graph | None = None
@@ -392,7 +396,7 @@ def run_pymde(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
         np.float32, copy=False
     )
 
-    return save_result_npz(req.output.result_path, coords)
+    return save_result_npz(req.output.result_path, coords, version=VERSION_INFO)
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ def save_result_npz(
     output_path: str | Path,
     coords: np.ndarray,
     snapshots: Mapping[str, np.ndarray] | None = None,
+    version: Mapping[str, Any] | str | None = None,
 ) -> dict[str, Any]:
     """Write coords (and optional snapshots) to an .npz file."""
     out_path = Path(output_path).resolve()
@@ -19,7 +20,13 @@ def save_result_npz(
         for key, value in snapshots.items():
             payload[key] = np.asarray(value, dtype=np.float32, order="C")
     np.savez_compressed(out_path, **payload)
-    return {"ok": True, "result_npz": str(out_path)}
+    response: dict[str, Any] = {"ok": True, "result_npz": str(out_path)}
+    if version is not None:
+        if isinstance(version, Mapping):
+            response["version"] = dict(version)
+        else:
+            response["version"] = str(version)
+    return response
 
 
 def write_response_json(response_path: str | Path, payload: Mapping[str, Any]) -> str:

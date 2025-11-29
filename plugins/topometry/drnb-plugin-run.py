@@ -12,6 +12,11 @@ from drnb_plugin_sdk.helpers.paths import (
 )
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
+from drnb_plugin_sdk.helpers.version import build_version_payload
+
+VERSION_INFO = build_version_payload(
+    package="topometry", plugin_package="drnb-plugin-topometry"
+)
 
 
 def run_topometry(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
@@ -32,7 +37,7 @@ def run_topometry(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
     embedder.fit_transform(x)
     result = embedder.project(projection_method="MAP")
     coords = result.astype(np.float32, copy=False)
-    return save_result_npz(req.output.result_path, coords)
+    return save_result_npz(req.output.result_path, coords, version=VERSION_INFO)
 
 
 if __name__ == "__main__":

@@ -103,6 +103,11 @@ def merge_experiments(
                     status, completed, expected_count, _ = result_progress(
                         materialized, merged_expected_labels
                     )
+                version_info = None
+                if run_entry:
+                    version_info = run_entry.get("version_info")
+                if version_info is None and isinstance(materialized, dict):
+                    version_info = materialized.get("version_info")
                 merged.run_info.setdefault(method_name, {})[dataset] = {
                     "status": status,
                     "signature": signature,
@@ -110,6 +115,7 @@ def merge_experiments(
                     "shard": str(shard_rel) if shard_rel else "",
                     "evals_completed": completed,
                     "evals_expected": expected_count,
+                    **({"version_info": version_info} if version_info else {}),
                 }
 
     copy_from(exp1)

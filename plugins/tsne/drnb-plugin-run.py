@@ -17,6 +17,7 @@ from drnb_plugin_sdk.helpers.paths import (
 )
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
+from drnb_plugin_sdk.helpers.version import build_version_payload
 from openTSNE import initialization as initialization_scheme
 
 _PLUGIN_ONLY_PARAMS = {
@@ -32,6 +33,10 @@ _PLUGIN_ONLY_PARAMS = {
     "final_momentum",
     "gradient_descent_params",
 }
+
+VERSION_INFO = build_version_payload(
+    package="openTSNE", plugin_package="drnb-plugin-tsne"
+)
 
 
 def tsne_init(
@@ -315,7 +320,7 @@ def run_tsne(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
             embedded = tsne.fit(x, affinities=affinities, initialization=init)
 
     coords = np.asarray(embedded, dtype=np.float32, order="C")
-    return save_result_npz(req.output.result_path, coords)
+    return save_result_npz(req.output.result_path, coords, version=VERSION_INFO)
 
 
 if __name__ == "__main__":

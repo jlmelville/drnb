@@ -19,12 +19,14 @@ All files live under `DRNB_HOME/experiments/<name>/`:
   - `signature`: stable hash of method config + evaluations (drives skip/rerun)
   - `shard`: relative path to the shard directory
   - `evals_completed` / `evals_expected`: counts for partial-eval tracking
+  - `version_info`: embedder version payload (`package`, `version`, `source`, optional `plugin_package` / `plugin_version`)
 
 ## Shards
 
 Each shard directory holds:
 - `result.json` describing each entry (`coords`, `evaluations`, `context`, etc.) and how to load it (`npz`, `json`, `eval_results`, `context`, etc.).
 - One `.npz` per array field (e.g., `coords.npz`).
+- JSON entries such as `version_info` are stored alongside evaluations/context so version metadata travels with the shard.
 
 ## Runtime Behavior
 
@@ -76,7 +78,8 @@ Each shard directory holds:
         "updated_at": "2025-11-28T12:00:00Z",
         "shard": "results/pca/iris",
         "evals_completed": 2,
-        "evals_expected": 2
+        "evals_expected": 2,
+        "version_info": {"package": "scikit-learn", "version": "1.2.3", "source": "core"}
       }
     }
   }
@@ -96,6 +99,10 @@ Each shard directory holds:
         {"eval_type": "NNP", "label": "nnp-15-noself-euclidean", "value": 0.8, "info": {}}
       ]
     },
+    "version_info": {
+      "type": "json",
+      "value": {"package": "scikit-learn", "version": "1.2.3", "source": "core"}
+    },
     "context": {
       "type": "context",
       "value": {"dataset_name": "iris", "embed_method_name": "pca", "experiment_name": "demo-exp"}
@@ -103,4 +110,3 @@ Each shard directory holds:
   }
 }
 ```
-

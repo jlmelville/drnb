@@ -43,7 +43,14 @@ and always contains:
    `drnb_plugin_sdk.helpers.results.save_result_npz` to store `coords` and
    optional `snap_*` arrays in a consistent format.
 4. Write the final JSON response (e.g., `{"ok": true, "result_npz": ...}` or
-   `{"ok": false, "message": ...}`) to `req.output.response_path`. The helper
+   `{"ok": false, "message": ...}`) to `req.output.response_path`. Include a
+   `version` payload describing the embedder library and, optionally, the plugin
+   runner itself. A typical payload looks like
+   `{"package": "pacmap", "version": "0.8.2", "plugin_package": "drnb-plugin-pacmap", "plugin_version": "0.0.1"}`.
+   Use the SDK helper `helpers.version.build_version_payload` (which relies on
+   `importlib.metadata.version`) to avoid parsing lock files or pyproject tables.
+   The helper `save_result_npz` accepts this payload via its `version` argument.
+   The helper
    `drnb_plugin_sdk.helpers.results.write_response_json` handles this; it's
    called automatically when you use `helpers.runner.run_plugin`.
 5. Emit diagnostic logging to stdout and/or stderr freely. The host streams both
@@ -109,6 +116,19 @@ copy/pasted serialization code.
     "output": {
       "result_path": "/tmp/drnb-tsne-XXXX/result.npz",
       "response_path": "/tmp/drnb-tsne-XXXX/response.json"
+    }
+  }
+
+### Sample response with version metadata
+
+  {
+    "ok": true,
+    "result_npz": "/tmp/drnb-tsne-XXXX/result.npz",
+    "version": {
+      "package": "openTSNE",
+      "version": "1.0.0",
+      "plugin_package": "drnb-plugin-tsne",
+      "plugin_version": "0.0.1"
     }
   }
 

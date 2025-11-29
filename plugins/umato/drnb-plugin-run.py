@@ -10,8 +10,13 @@ from drnb_plugin_sdk.helpers.logging import log, summarize_params
 from drnb_plugin_sdk.helpers.paths import resolve_x_path
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
+from drnb_plugin_sdk.helpers.version import build_version_payload
 
 DEFAULT_HUB_NUM = 300
+
+VERSION_INFO = build_version_payload(
+    package="umato", plugin_package="drnb-plugin-umato"
+)
 
 
 def _adjust_hub_num(x: np.ndarray, params: dict[str, Any]) -> None:
@@ -38,7 +43,7 @@ def run_umato(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
     coords = embedder.fit_transform(x).astype(np.float32, copy=False)
 
     log(f"Saving results to {req.output.result_path}")
-    result = save_result_npz(req.output.result_path, coords)
+    result = save_result_npz(req.output.result_path, coords, version=VERSION_INFO)
     return result
 
 

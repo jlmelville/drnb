@@ -78,3 +78,30 @@ def test_external_embed_uses_param_copy(monkeypatch) -> None:
     assert embedder.params == {"a": 1}
     assert isinstance(result, dict)
     assert "coords" in result
+
+
+def test_decode_plugin_result_captures_version(tmp_path) -> None:
+    embedder = ExternalEmbedder(method="demo")
+    coords = np.zeros((2, 2), dtype=np.float32)
+    npz_path = tmp_path / "result.npz"
+    np.savez_compressed(npz_path, coords=coords)
+
+    response = {
+        "ok": True,
+        "result_npz": str(npz_path),
+        "version": {
+            "package": "demo-lib",
+            "version": "1.0.0",
+            "plugin_package": "drnb-plugin-demo",
+            "plugin_version": "0.0.1",
+        },
+    }
+
+    result = embedder.decode_plugin_result(
+        workspace=PluginWorkspace(path=tmp_path, remove_on_exit=True, method="demo"),
+        request=None,
+        response=response,
+    )
+    assert result["version_info"]["source"] == "plugin"
+    assert result["version_info"]["package"] == "demo-lib"
+    assert result["version_info"]["plugin_package"] == "drnb-plugin-demo"

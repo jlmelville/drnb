@@ -14,8 +14,13 @@ from drnb_plugin_sdk.helpers.paths import (
 )
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
+from drnb_plugin_sdk.helpers.version import build_version_payload
 from localscale import locally_scaled_neighbors
 from neighbor_pairs import create_neighbor_pairs
+
+VERSION_INFO = build_version_payload(
+    package="pacmap", plugin_package="drnb-plugin-pacmap"
+)
 
 
 def _load_initialization(
@@ -179,7 +184,9 @@ def run_pacmap(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
 
     result = embedder.fit_transform(x, init=init)
     coords, snaps = _extract_snapshot_arrays(result, snapshots)
-    return save_result_npz(req.output.result_path, coords, snapshots=snaps)
+    return save_result_npz(
+        req.output.result_path, coords, snapshots=snaps, version=VERSION_INFO
+    )
 
 
 def run_localmap(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
@@ -209,7 +216,9 @@ def run_localmap(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
 
     result = embedder.fit_transform(x, init=init)
     coords, snaps = _extract_snapshot_arrays(result, snapshots)
-    return save_result_npz(req.output.result_path, coords, snapshots=snaps)
+    return save_result_npz(
+        req.output.result_path, coords, snapshots=snaps, version=VERSION_INFO
+    )
 
 
 if __name__ == "__main__":

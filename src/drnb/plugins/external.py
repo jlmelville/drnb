@@ -26,6 +26,7 @@ from drnb_plugin_sdk import (
 
 from drnb.embed.base import Embedder
 from drnb.embed.context import EmbedContext
+from drnb.embed.version import UNKNOWN_VALUE
 from drnb.log import log
 from drnb.neighbors.store import find_candidate_neighbors_info
 from drnb.plugins.protocol import (
@@ -260,9 +261,13 @@ class ExternalEmbedder(Embedder):
                     except Exception:
                         pass
 
+        version_info = _normalize_version_info(response.get("version"), self.method)
+
         result: dict[str, Any] = {"coords": coords}
         if snaps:
             result["snapshots"] = snaps
+        if version_info is not None:
+            result["version_info"] = version_info
         return result
 
 
@@ -345,6 +350,31 @@ def _load_response(response_path: Path | str) -> dict[str, Any]:
         raise DrnbPluginProtocolError(
             f"invalid plugin response at {path}: {exc}"
         ) from exc
+
+
+def _normalize_version_info(raw: Any, method: str) -> dict[str, Any] | None:
+    if raw is None:
+        return None
+    if isinstance(raw, dict):
+        package = str(raw.get("package") or method or UNKNOWN_VALUE)
+        version = str(raw.get("version") or UNKNOWN_VALUE)
+        info: dict[str, Any] = {
+            "package": package,
+            "version": version,
+            "source": "plugin",
+        }
+        plugin_pkg = raw.get("plugin_package")
+        plugin_version = raw.get("plugin_version")
+        if plugin_pkg:
+            info["plugin_package"] = str(plugin_pkg)
+        if plugin_version:
+            info["plugin_version"] = str(plugin_version)
+        return info
+    return {
+        "package": method or UNKNOWN_VALUE,
+        "version": str(raw),
+        "source": "plugin",
+    }
 
 
 _DATA_EXTS: tuple[str, ...] = (

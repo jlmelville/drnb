@@ -47,6 +47,8 @@ __all__ = [
     "merge_experiments",
 ]
 
+UNKNOWN_VERSION_INFO = {"package": "unknown", "version": "unknown", "source": "unknown"}
+
 
 def ensure_experiment_name(experiment_name: str | None) -> str:
     """Ensure that the experiment name is not empty and return a default name if it is."""
@@ -250,6 +252,7 @@ class Experiment:
                     status=status_update,
                     evals_completed=completed_update,
                     evals_expected=expected_update,
+                    version_info=method_results[dataset].get("version_info"),
                 )
 
                 self._write_manifest(run_info_updates)
@@ -267,6 +270,7 @@ class Experiment:
         status: str = RUN_STATUS_COMPLETED,
         evals_completed: int | None = None,
         evals_expected: int | None = None,
+        version_info: Any | None = None,
     ):
         if method_name not in run_info_updates:
             run_info_updates[method_name] = {}
@@ -280,6 +284,8 @@ class Experiment:
             entry["evals_completed"] = evals_completed
         if evals_expected is not None:
             entry["evals_expected"] = evals_expected
+        if version_info is not None:
+            entry["version_info"] = json_safe(version_info)
         run_info_updates[method_name][dataset] = entry
 
     def _write_manifest(self, run_info_updates: dict):
@@ -389,6 +395,9 @@ class Experiment:
                     status=status_update,
                     evals_completed=completed_update,
                     evals_expected=expected_update,
+                    version_info=(
+                        result.get("version_info") if isinstance(result, dict) else None
+                    ),
                 )
         self._write_manifest(run_info_updates)
 
@@ -402,6 +411,103 @@ class Experiment:
         metrics: list[str] | None = None,
     ):
         return to_df_report(self, datasets=datasets, methods=methods, metrics=metrics)
+
+    def _version_for(self, method_name: str, dataset: str) -> Any:
+        run_entry = self.run_info.get(method_name, {}).get(dataset)
+        if run_entry and "version_info" in run_entry:
+            return run_entry["version_info"]
+        res = self.results.get(method_name, {}).get(dataset)
+        if isinstance(res, LazyResult):
+            try:
+                res = res.materialize()
+            except FileNotFoundError:
+                res = None
+        if isinstance(res, dict) and "version_info" in res:
+            return res["version_info"]
+        return dict(UNKNOWN_VERSION_INFO)
+
+    def versions(self, *, as_df: bool = False):
+        """Return embedder version metadata per method/dataset.
+
+        By default returns a nested dict of the form:
+        {method_name: {dataset: version_info or [version_info,...]}}.
+        If ``as_df`` is True, returns a DataFrame with one row per version entry
+        (chained embedders create multiple rows, one per component).
+        """
+
+        def _version_row(
+            method: str, dataset: str, info: Any, *, component_idx: int | None
+        ) -> dict[str, Any]:
+            if not isinstance(info, dict):
+                info = {
+                    "package": UNKNOWN_VERSION_INFO["package"],
+                    "version": str(info),
+                    "source": UNKNOWN_VERSION_INFO["source"],
+                }
+            return {
+                "method": method,
+                "dataset": dataset,
+                "package": info.get("package", UNKNOWN_VERSION_INFO["package"]),
+                "version": info.get("version", UNKNOWN_VERSION_INFO["version"]),
+                "source": info.get("source", UNKNOWN_VERSION_INFO["source"]),
+                "component": component_idx,
+                "plugin_package": info.get("plugin_package"),
+                "plugin_version": info.get("plugin_version"),
+            }
+
+        version_map: dict[str, dict[str, Any]] = {}
+        for _, method_name in self.methods:
+            datasets = set(self.run_info.get(method_name, {}).keys()) | set(
+                self.results.get(method_name, {}).keys()
+            )
+            if not datasets:
+                continue
+            ordered_datasets = [ds for ds in self.datasets if ds in datasets]
+            for ds in datasets:
+                if ds not in ordered_datasets:
+                    ordered_datasets.append(ds)
+            method_versions: dict[str, Any] = {}
+            for dataset in ordered_datasets:
+                method_versions[dataset] = self._version_for(method_name, dataset)
+            if method_versions:
+                version_map[method_name] = method_versions
+
+        if not as_df:
+            return version_map
+
+        rows: list[dict[str, Any]] = []
+        for method, ds_map in version_map.items():
+            for dataset, info in ds_map.items():
+                if isinstance(info, list):
+                    for idx, component in enumerate(info):
+                        rows.append(
+                            _version_row(
+                                method, dataset, component, component_idx=idx
+                            )
+                        )
+                else:
+                    rows.append(
+                        _version_row(method, dataset, info, component_idx=None)
+                    )
+
+        try:
+            import pandas as pd
+        except ModuleNotFoundError as exc:  # pragma: no cover - dependency guard
+            raise RuntimeError(
+                "pandas is required to return versions as a DataFrame"
+            ) from exc
+
+        columns = [
+            "method",
+            "dataset",
+            "package",
+            "version",
+            "source",
+            "component",
+            "plugin_package",
+            "plugin_version",
+        ]
+        return pd.DataFrame(rows, columns=columns)
 
     def plot(
         self,

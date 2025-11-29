@@ -15,6 +15,7 @@ from drnb.embed import (
 from drnb.embed.base import Embedder
 from drnb.embed.context import EmbedContext
 from drnb.embed.factory import create_embedder
+from drnb.embed.version import get_embedder_version_info
 from drnb.eval.base import EmbeddingEval, EvalResult, evaluate_embedding
 from drnb.eval.factory import create_evaluators
 from drnb.io.embed import create_embed_exporter
@@ -259,6 +260,10 @@ class EmbedderPipeline:
         if not isinstance(embedding_result, dict):
             embedding_result = {"coords": embedding_result}
         embedding_result = cast(dict[str, Any], embedding_result)
+        if "version_info" not in embedding_result:
+            embedding_result["version_info"] = get_embedder_version_info(
+                self.embedder, self.embed_method_name
+            )
 
         if self.exporter is not None:
             log.info("Caching data")
