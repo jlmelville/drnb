@@ -34,9 +34,7 @@ _PLUGIN_ONLY_PARAMS = {
     "gradient_descent_params",
 }
 
-VERSION_INFO = build_version_payload(
-    package="openTSNE", plugin_package="drnb-plugin-tsne"
-)
+VERSION_INFO = build_version_payload(package="openTSNE")
 
 
 def tsne_init(

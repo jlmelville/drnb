@@ -10,9 +10,7 @@ from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.runner import run_plugin
 from drnb_plugin_sdk.helpers.version import build_version_payload
 
-VERSION_INFO = build_version_payload(
-    package="ncvis", plugin_package="drnb-plugin-ncvis"
-)
+VERSION_INFO = build_version_payload(package="ncvis")
 
 
 def run_ncvis(req: sdk_protocol.PluginRequest) -> dict[str, str]:

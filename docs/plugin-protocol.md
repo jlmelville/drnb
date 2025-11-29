@@ -44,10 +44,9 @@ and always contains:
    optional `snap_*` arrays in a consistent format.
 4. Write the final JSON response (e.g., `{"ok": true, "result_npz": ...}` or
    `{"ok": false, "message": ...}`) to `req.output.response_path`. Include a
-   `version` payload describing the embedder library and, optionally, the plugin
-   runner itself. A typical payload looks like
-   `{"package": "pacmap", "version": "0.8.2", "plugin_package": "drnb-plugin-pacmap", "plugin_version": "0.0.1"}`.
-   Use the SDK helper `helpers.version.build_version_payload` (which relies on
+   `version` payload describing the embedder library, e.g.
+   `{"package": "pacmap", "version": "0.8.2"}`. Use the SDK helper
+   `helpers.version.build_version_payload` (which relies on
    `importlib.metadata.version`) to avoid parsing lock files or pyproject tables.
    The helper `save_result_npz` accepts this payload via its `version` argument.
    The helper
@@ -126,9 +125,7 @@ copy/pasted serialization code.
     "result_npz": "/tmp/drnb-tsne-XXXX/result.npz",
     "version": {
       "package": "openTSNE",
-      "version": "1.0.0",
-      "plugin_package": "drnb-plugin-tsne",
-      "plugin_version": "0.0.1"
+      "version": "1.0.0"
     }
   }
 

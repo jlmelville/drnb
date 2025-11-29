@@ -26,19 +26,9 @@ def get_package_version(package: str | None) -> str | None:
         return None
 
 
-def build_version_payload(
-    package: str, *, plugin_package: str | None = None, plugin_version: str | None = None
-) -> dict[str, str]:
+def build_version_payload(package: str) -> dict[str, str]:
     """Construct a standard version payload for plugin responses."""
-    payload: dict[str, str] = {
+    return {
         "package": package,
         "version": get_package_version(package) or UNKNOWN_VALUE,
     }
-    if plugin_package:
-        payload["plugin_package"] = plugin_package
-        payload["plugin_version"] = (
-            plugin_version
-            or get_package_version(plugin_package)
-            or UNKNOWN_VALUE
-        )
-    return payload

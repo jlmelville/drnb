@@ -22,9 +22,7 @@ from pymde.functions import penalties
 from pymde.preprocess.graph import Graph
 from pymde.recipes import _remove_anchor_anchor_edges
 
-VERSION_INFO = build_version_payload(
-    package="pymde", plugin_package="drnb-plugin-pymde"
-)
+VERSION_INFO = build_version_payload(package="pymde")
 
 def embed_pymde_nbrs(
     x: np.ndarray, seed: int, params: dict, graph: Graph | None = None

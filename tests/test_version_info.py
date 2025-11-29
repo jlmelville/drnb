@@ -28,7 +28,6 @@ def test_get_embedder_version_info_prefers_metadata(monkeypatch) -> None:
     info = get_embedder_version_info(Pca(), "pca")
     assert info["package"] == "scikit-learn"
     assert info["version"] == "1.2.3"
-    assert info["source"] == "core"
     assert "scikit-learn" in calls
 
 
@@ -50,9 +49,6 @@ def test_experiment_versions_returns_dict_and_df() -> None:
                 "version_info": {
                     "package": "pkg2",
                     "version": "2.0",
-                    "source": "plugin",
-                    "plugin_package": "plugin-demo",
-                    "plugin_version": "9.9.9",
                 },
             },
         }
@@ -61,15 +57,14 @@ def test_experiment_versions_returns_dict_and_df() -> None:
     versions = exp.versions()
     assert versions["dummy"]["ds1"]["package"] == "pkg1"
     assert versions["dummy"]["ds1"]["version"] == "0.1"
-    assert versions["dummy"]["ds2"]["source"] == "plugin"
-    assert versions["dummy"]["ds2"]["plugin_package"] == "plugin-demo"
+    assert versions["dummy"]["ds2"]["version"] == "2.0"
 
     df = exp.versions(as_df=True)
     assert set(df["method"]) == {"dummy"}
     assert set(df["dataset"]) == {"ds1", "ds2"}
     row_ds2 = df[df["dataset"] == "ds2"].iloc[0]
     assert row_ds2["package"] == "pkg2"
-    assert row_ds2["plugin_version"] == "9.9.9"
+    assert row_ds2["version"] == "2.0"
 
     unknown_exp = Experiment(name="empty")
     assert unknown_exp.versions() == {}
@@ -80,8 +75,5 @@ def test_experiment_versions_returns_dict_and_df() -> None:
         "dataset",
         "package",
         "version",
-        "source",
         "component",
-        "plugin_package",
-        "plugin_version",
     ]

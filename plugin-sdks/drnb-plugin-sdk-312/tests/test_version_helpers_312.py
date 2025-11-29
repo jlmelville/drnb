@@ -28,15 +28,10 @@ def test_build_version_payload_prefers_metadata(monkeypatch, tmp_path) -> None:
         ),
     )
 
-    payload = build_version_payload("demo", plugin_package="plugin-demo")
-    assert payload == {
-        "package": "demo",
-        "version": "1.2.3",
-        "plugin_package": "plugin-demo",
-        "plugin_version": "9.9.9",
-    }
+    payload = build_version_payload("demo")
+    assert payload == {"package": "demo", "version": "1.2.3"}
     assert "demo" in calls
-    assert "plugin-demo" in calls
+    assert "plugin-demo" not in calls
 
 
 def test_get_package_version_returns_none_on_missing(monkeypatch) -> None:

@@ -14,12 +14,12 @@ All files live under `DRNB_HOME/experiments/<name>/`:
 `manifest.json` contains:
 - `format_version`: `2`
 - `name`, `datasets`, `methods` (serialized configs), `evaluations`
-- `run_info`: map of `method -> dataset -> {status, signature, updated_at, shard, evals_completed, evals_expected}`
+- `run_info`: map of `method -> dataset -> {status, signature, updated_at, shard, evals_completed, evals_expected, version_info}`
   - `status`: `missing`, `evals_partial`, or `completed`
   - `signature`: stable hash of method config + evaluations (drives skip/rerun)
   - `shard`: relative path to the shard directory
   - `evals_completed` / `evals_expected`: counts for partial-eval tracking
-  - `version_info`: embedder version payload (`package`, `version`, `source`, optional `plugin_package` / `plugin_version`)
+  - `version_info`: embedder version payload (`package`, `version`)
 
 ## Shards
 
@@ -79,7 +79,7 @@ Each shard directory holds:
         "shard": "results/pca/iris",
         "evals_completed": 2,
         "evals_expected": 2,
-        "version_info": {"package": "scikit-learn", "version": "1.2.3", "source": "core"}
+        "version_info": {"package": "scikit-learn", "version": "1.2.3"}
       }
     }
   }
@@ -101,7 +101,7 @@ Each shard directory holds:
     },
     "version_info": {
       "type": "json",
-      "value": {"package": "scikit-learn", "version": "1.2.3", "source": "core"}
+      "value": {"package": "scikit-learn", "version": "1.2.3"}
     },
     "context": {
       "type": "context",

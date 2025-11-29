@@ -18,9 +18,7 @@ from drnb_plugin_sdk.helpers.version import build_version_payload
 from localscale import locally_scaled_neighbors
 from neighbor_pairs import create_neighbor_pairs
 
-VERSION_INFO = build_version_payload(
-    package="pacmap", plugin_package="drnb-plugin-pacmap"
-)
+VERSION_INFO = build_version_payload(package="pacmap")
 
 
 def _load_initialization(

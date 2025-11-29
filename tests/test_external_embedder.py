@@ -92,8 +92,6 @@ def test_decode_plugin_result_captures_version(tmp_path) -> None:
         "version": {
             "package": "demo-lib",
             "version": "1.0.0",
-            "plugin_package": "drnb-plugin-demo",
-            "plugin_version": "0.0.1",
         },
     }
 
@@ -102,6 +100,5 @@ def test_decode_plugin_result_captures_version(tmp_path) -> None:
         request=None,
         response=response,
     )
-    assert result["version_info"]["source"] == "plugin"
     assert result["version_info"]["package"] == "demo-lib"
-    assert result["version_info"]["plugin_package"] == "drnb-plugin-demo"
+    assert result["version_info"]["version"] == "1.0.0"

@@ -14,9 +14,7 @@ from drnb_plugin_sdk.helpers.version import build_version_payload
 
 DEFAULT_HUB_NUM = 300
 
-VERSION_INFO = build_version_payload(
-    package="umato", plugin_package="drnb-plugin-umato"
-)
+VERSION_INFO = build_version_payload(package="umato")
 
 
 def _adjust_hub_num(x: np.ndarray, params: dict[str, Any]) -> None:

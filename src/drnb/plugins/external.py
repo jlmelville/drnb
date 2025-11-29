@@ -358,23 +358,8 @@ def _normalize_version_info(raw: Any, method: str) -> dict[str, Any] | None:
     if isinstance(raw, dict):
         package = str(raw.get("package") or method or UNKNOWN_VALUE)
         version = str(raw.get("version") or UNKNOWN_VALUE)
-        info: dict[str, Any] = {
-            "package": package,
-            "version": version,
-            "source": "plugin",
-        }
-        plugin_pkg = raw.get("plugin_package")
-        plugin_version = raw.get("plugin_version")
-        if plugin_pkg:
-            info["plugin_package"] = str(plugin_pkg)
-        if plugin_version:
-            info["plugin_version"] = str(plugin_version)
-        return info
-    return {
-        "package": method or UNKNOWN_VALUE,
-        "version": str(raw),
-        "source": "plugin",
-    }
+        return {"package": package, "version": version}
+    return {"package": method or UNKNOWN_VALUE, "version": str(raw)}
 
 
 _DATA_EXTS: tuple[str, ...] = (

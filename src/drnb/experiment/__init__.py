@@ -47,7 +47,7 @@ __all__ = [
     "merge_experiments",
 ]
 
-UNKNOWN_VERSION_INFO = {"package": "unknown", "version": "unknown", "source": "unknown"}
+UNKNOWN_VERSION_INFO = {"package": "unknown", "version": "unknown"}
 
 
 def ensure_experiment_name(experiment_name: str | None) -> str:
@@ -442,17 +442,13 @@ class Experiment:
                 info = {
                     "package": UNKNOWN_VERSION_INFO["package"],
                     "version": str(info),
-                    "source": UNKNOWN_VERSION_INFO["source"],
                 }
             return {
                 "method": method,
                 "dataset": dataset,
                 "package": info.get("package", UNKNOWN_VERSION_INFO["package"]),
                 "version": info.get("version", UNKNOWN_VERSION_INFO["version"]),
-                "source": info.get("source", UNKNOWN_VERSION_INFO["source"]),
                 "component": component_idx,
-                "plugin_package": info.get("plugin_package"),
-                "plugin_version": info.get("plugin_version"),
             }
 
         version_map: dict[str, dict[str, Any]] = {}
@@ -502,10 +498,7 @@ class Experiment:
             "dataset",
             "package",
             "version",
-            "source",
             "component",
-            "plugin_package",
-            "plugin_version",
         ]
         return pd.DataFrame(rows, columns=columns)
 

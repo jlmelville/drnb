@@ -133,11 +133,7 @@ def _resolve_single_version(embedder: Any, method_hint: str | None) -> dict[str,
     if package is None:
         package = UNKNOWN_VALUE
 
-    return {
-        "package": package,
-        "version": version,
-        "source": "core",
-    }
+    return {"package": package, "version": version}
 
 
 def get_embedder_version_info(
