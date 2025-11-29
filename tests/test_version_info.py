@@ -40,7 +40,7 @@ def test_experiment_versions_returns_dict_and_df() -> None:
     exp.run_info = {
         "dummy": {
             "ds1": {
-                "version_info": {"package": "pkg1", "version": "0.1", "source": "core"}
+                "version_info": {"package": "pkg1", "version": "0.1"}
             }
         }
     }
@@ -50,24 +50,23 @@ def test_experiment_versions_returns_dict_and_df() -> None:
             "ds2": {
                 "coords": np.zeros((1, 2), dtype=np.float32),
                 "version_info": {
-                    "package": "pkg2",
-                    "version": "2.0",
+                    "package": "pkg1",
+                    "version": "0.1",
                 },
             },
         }
     }
 
     versions = exp.versions()
-    assert versions["dummy"]["ds1"]["package"] == "pkg1"
-    assert versions["dummy"]["ds1"]["version"] == "0.1"
-    assert versions["dummy"]["ds2"]["version"] == "2.0"
+    assert versions["dummy"]["package"] == "pkg1"
+    assert versions["dummy"]["version"] == "0.1"
 
     df = exp.versions(as_df=True)
     assert set(df["method"]) == {"dummy"}
     assert set(df["dataset"]) == {"ds1", "ds2"}
     row_ds2 = df[df["dataset"] == "ds2"].iloc[0]
-    assert row_ds2["package"] == "pkg2"
-    assert row_ds2["version"] == "2.0"
+    assert row_ds2["package"] == "pkg1"
+    assert row_ds2["version"] == "0.1"
 
     unknown_exp = Experiment(name="empty")
     assert unknown_exp.versions() == {}
@@ -80,3 +79,21 @@ def test_experiment_versions_returns_dict_and_df() -> None:
         "version",
         "component",
     ]
+
+
+def test_experiment_versions_warns_on_mismatch(caplog) -> None:
+    exp = Experiment(name="versions-mismatch")
+    exp.datasets = ["a", "b"]
+    exp.methods = [(("dummy", {"params": {}}), "dummy")]
+    exp.results = {
+        "dummy": {
+            "a": {"version_info": {"package": "pkg", "version": "1.0"}},
+            "b": {"version_info": {"package": "pkg", "version": "2.0"}},
+        }
+    }
+    with caplog.at_level("WARNING"):
+        versions = exp.versions()
+    assert "Multiple versions for method dummy" in caplog.text
+    assert isinstance(versions["dummy"], dict)
+    assert versions["dummy"]["a"]["version"] == "1.0"
+    assert versions["dummy"]["b"]["version"] == "2.0"

@@ -469,7 +469,22 @@ class Experiment:
                 version_map[method_name] = method_versions
 
         if not as_df:
-            return version_map
+            condensed: dict[str, Any] = {}
+            for method, ds_versions in version_map.items():
+                unique: dict[str, Any] = {}
+                for ds, info in ds_versions.items():
+                    serialized = json.dumps(info, sort_keys=True, default=str)
+                    unique.setdefault(serialized, info)
+                if len(unique) == 1:
+                    condensed[method] = next(iter(unique.values()))
+                else:
+                    condensed[method] = ds_versions
+                    log.warning(
+                        "Multiple versions for method %s: %s",
+                        method,
+                        list(unique.values()),
+                    )
+            return condensed
 
         rows: list[dict[str, Any]] = []
         for method, ds_map in version_map.items():
