@@ -24,7 +24,8 @@ def test_build_version_payload_prefers_metadata(monkeypatch) -> None:
     monkeypatch.setattr(
         "drnb_plugin_sdk.helpers.version.metadata",
         SimpleNamespace(
-            version=fake_version, PackageNotFoundError=importlib_metadata.PackageNotFoundError
+            version=fake_version,
+            PackageNotFoundError=importlib_metadata.PackageNotFoundError,
         ),
     )
 
@@ -41,7 +42,8 @@ def test_get_package_version_returns_none_on_missing(monkeypatch) -> None:
     monkeypatch.setattr(
         "drnb_plugin_sdk.helpers.version.metadata",
         SimpleNamespace(
-            version=missing, PackageNotFoundError=importlib_metadata.PackageNotFoundError
+            version=missing,
+            PackageNotFoundError=importlib_metadata.PackageNotFoundError,
         ),
     )
     assert get_package_version("absent") is None

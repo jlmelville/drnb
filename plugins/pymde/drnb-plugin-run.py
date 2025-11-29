@@ -24,6 +24,7 @@ from pymde.recipes import _remove_anchor_anchor_edges
 
 VERSION_INFO = build_version_payload(package="pymde")
 
+
 def embed_pymde_nbrs(
     x: np.ndarray, seed: int, params: dict, graph: Graph | None = None
 ) -> np.ndarray:

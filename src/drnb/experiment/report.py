@@ -210,9 +210,7 @@ def get_metric_names(results: dict[str, Any]) -> list[str]:
     return [short_col(ev.label) for ev in first["evaluations"]]
 
 
-def results_to_df(
-    results: dict[str, Any], datasets: list[str] | None = None
-):
+def results_to_df(results: dict[str, Any], datasets: list[str] | None = None):
     """Convert the results of an experiment to a DataFrame."""
     import pandas as pd
 

@@ -461,9 +461,15 @@ def test_partial_eval_rerun_only_missing(monkeypatch, tmp_path):
         return DummyPipeline()
 
     monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
-    monkeypatch.setattr("drnb.experiment.expected_eval_labels", lambda _: ["ev1", "ev2"])
-    monkeypatch.setattr("drnb.experiment.common.expected_eval_labels", lambda _: ["ev1", "ev2"])
-    monkeypatch.setattr("drnb.experiment.merge.expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr(
+        "drnb.experiment.expected_eval_labels", lambda _: ["ev1", "ev2"]
+    )
+    monkeypatch.setattr(
+        "drnb.experiment.common.expected_eval_labels", lambda _: ["ev1", "ev2"]
+    )
+    monkeypatch.setattr(
+        "drnb.experiment.merge.expected_eval_labels", lambda _: ["ev1", "ev2"]
+    )
 
     exp = Experiment(name="exp-partial-evals")
     exp.add_method(("dummy", {"params": {}}), name="dummy")
@@ -519,9 +525,15 @@ def test_partial_eval_with_lazy_result(monkeypatch, tmp_path):
         return DummyPipeline()
 
     monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
-    monkeypatch.setattr("drnb.experiment.expected_eval_labels", lambda _: ["ev1", "ev2"])
-    monkeypatch.setattr("drnb.experiment.common.expected_eval_labels", lambda _: ["ev1", "ev2"])
-    monkeypatch.setattr("drnb.experiment.merge.expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr(
+        "drnb.experiment.expected_eval_labels", lambda _: ["ev1", "ev2"]
+    )
+    monkeypatch.setattr(
+        "drnb.experiment.common.expected_eval_labels", lambda _: ["ev1", "ev2"]
+    )
+    monkeypatch.setattr(
+        "drnb.experiment.merge.expected_eval_labels", lambda _: ["ev1", "ev2"]
+    )
 
     exp1 = Experiment(name="exp1", drnb_home=tmp_path)
     exp1.add_method(("dummy", {"params": {}}), name="dummy")

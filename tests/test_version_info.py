@@ -21,7 +21,8 @@ def test_get_embedder_version_info_prefers_metadata(monkeypatch) -> None:
     monkeypatch.setattr(
         "drnb.embed.version.metadata",
         SimpleNamespace(
-            version=fake_version, PackageNotFoundError=importlib_metadata.PackageNotFoundError
+            version=fake_version,
+            PackageNotFoundError=importlib_metadata.PackageNotFoundError,
         ),
     )
 
@@ -38,7 +39,9 @@ def test_experiment_versions_returns_dict_and_df() -> None:
 
     exp.run_info = {
         "dummy": {
-            "ds1": {"version_info": {"package": "pkg1", "version": "0.1", "source": "core"}}
+            "ds1": {
+                "version_info": {"package": "pkg1", "version": "0.1", "source": "core"}
+            }
         }
     }
     exp.results = {

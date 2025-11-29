@@ -198,8 +198,10 @@ def normalize_evaluations(evaluations: Any | list[Any]) -> list[Any]:
     """Normalize evaluation input to a list without breaking tuple-based eval specs."""
     if evaluations is None:
         return []
-    if isinstance(evaluations, tuple) and len(evaluations) == 2 and isinstance(
-        evaluations[0], str
+    if (
+        isinstance(evaluations, tuple)
+        and len(evaluations) == 2
+        and isinstance(evaluations[0], str)
     ):
         return [evaluations]
     if isinstance(evaluations, (list, tuple)):

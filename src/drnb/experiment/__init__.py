@@ -477,14 +477,10 @@ class Experiment:
                 if isinstance(info, list):
                     for idx, component in enumerate(info):
                         rows.append(
-                            _version_row(
-                                method, dataset, component, component_idx=idx
-                            )
+                            _version_row(method, dataset, component, component_idx=idx)
                         )
                 else:
-                    rows.append(
-                        _version_row(method, dataset, info, component_idx=None)
-                    )
+                    rows.append(_version_row(method, dataset, info, component_idx=None))
 
         try:
             import pandas as pd
