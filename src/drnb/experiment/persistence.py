@@ -7,7 +7,7 @@ from typing import Any, Callable, Iterator
 
 import numpy as np
 
-from drnb.experiment_common import (
+from drnb.experiment.common import (
     MANIFEST_JSON,
     RESULT_FORMAT_VERSION,
     RESULT_JSON,

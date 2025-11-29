@@ -4,20 +4,20 @@ from typing import Any
 
 import numpy as np
 
-from drnb.experiment_common import (
+from drnb.experiment.common import (
     RUN_STATUS_PARTIAL_EVALS,
     expected_eval_labels,
     param_signature,
     short_col,
 )
-from drnb.experiment_persistence import LazyResult
+from drnb.experiment.persistence import LazyResult
 
 
 def status(experiment: "Experiment"):
     """Return a status summary DataFrame (rows=datasets, columns=methods)."""
     import pandas as pd
 
-    from drnb.experiment_runner import result_progress
+    from drnb.experiment.runner import result_progress
 
     methods = [name for _, name in experiment.methods]
     expected_labels = expected_eval_labels(experiment.evaluations)
@@ -210,7 +210,9 @@ def get_metric_names(results: dict[str, Any]) -> list[str]:
     return [short_col(ev.label) for ev in first["evaluations"]]
 
 
-def results_to_df(results: dict[str, Any], datasets: list[str] | None = None):
+def results_to_df(
+    results: dict[str, Any], datasets: list[str] | None = None
+):
     """Convert the results of an experiment to a DataFrame."""
     import pandas as pd
 

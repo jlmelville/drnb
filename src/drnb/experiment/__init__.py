@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from drnb.embed import check_embed_method, get_embedder_name
-from drnb.experiment_common import (
+from drnb.experiment.common import (
     EXPERIMENT_FORMAT_VERSION,
     MANIFEST_JSON,
     RUN_STATUS_COMPLETED,
@@ -20,9 +20,10 @@ from drnb.experiment_common import (
     normalize_evaluations,
     now_iso,
     param_signature,
+    short_col,
 )
-from drnb.experiment_merge import merge_experiments
-from drnb.experiment_persistence import (
+from drnb.experiment.merge import merge_experiments
+from drnb.experiment.persistence import (
     LazyResult,
     experiment_dir,
     experiment_storage_state,
@@ -31,16 +32,12 @@ from drnb.experiment_persistence import (
     shard_dir,
     write_result_shard,
 )
-from drnb.experiment_report import (
+from drnb.experiment.report import (
     plot as plot_report,
-)
-from drnb.experiment_report import (
     status as status_report,
-)
-from drnb.experiment_report import (
     to_df as to_df_report,
 )
-from drnb.experiment_runner import result_progress, run_missing_evaluations
+from drnb.experiment.runner import result_progress, run_missing_evaluations
 from drnb.log import log
 from drnb.util import dts_to_str
 
@@ -426,7 +423,7 @@ class Experiment:
         )
 
     @classmethod
-    def _from_manifest(cls, manifest_path: Path) -> Experiment:
+    def _from_manifest(cls, manifest_path: Path) -> "Experiment":
         with open(manifest_path, "r", encoding="utf-8") as f:
             manifest = json.load(f)
 

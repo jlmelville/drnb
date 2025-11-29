@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from drnb.experiment_common import (
+from drnb.experiment.common import (
     RUN_STATUS_COMPLETED,
     RUN_STATUS_MISSING,
     RUN_STATUS_PARTIAL_EVALS,
@@ -14,12 +14,12 @@ from drnb.experiment_common import (
     now_iso,
     param_signature,
 )
-from drnb.experiment_persistence import (
+from drnb.experiment.persistence import (
     LazyResult,
     experiment_dir,
     experiment_storage_state,
 )
-from drnb.experiment_runner import result_progress
+from drnb.experiment.runner import result_progress
 
 if TYPE_CHECKING:
     from drnb.experiment import Experiment
@@ -45,8 +45,6 @@ def merge_experiments(
 
     merged = Experiment(name=merged_name, warn_on_existing=False)
     merged.drnb_home = merged_home
-
-    import drnb.experiment as exp_mod
 
     merged_datasets: list[str] = []
     seen = set()

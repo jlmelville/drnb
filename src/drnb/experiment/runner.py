@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from drnb.eval.base import evaluate_embedding
-from drnb.experiment_common import (
+from drnb.experiment.common import (
     RUN_STATUS_COMPLETED,
     RUN_STATUS_MISSING,
     RUN_STATUS_PARTIAL_EVALS,
@@ -12,7 +12,7 @@ from drnb.experiment_common import (
     labels_for_evaluator,
     merge_eval_results_by_label,
 )
-from drnb.experiment_persistence import LazyResult
+from drnb.experiment.persistence import LazyResult
 
 
 def result_progress(

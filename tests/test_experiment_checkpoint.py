@@ -9,8 +9,8 @@ import pytest
 from drnb.embed.context import EmbedContext
 from drnb.eval.base import EvalResult
 from drnb.experiment import Experiment, merge_experiments, read_experiment
-from drnb.experiment_common import expected_eval_labels, param_signature, short_col
-from drnb.experiment_persistence import LazyResult, experiment_dir
+from drnb.experiment.common import expected_eval_labels, param_signature, short_col
+from drnb.experiment.persistence import LazyResult, experiment_dir
 
 
 def _install_dummy_pipeline(monkeypatch, calls):
@@ -462,8 +462,8 @@ def test_partial_eval_rerun_only_missing(monkeypatch, tmp_path):
 
     monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
     monkeypatch.setattr("drnb.experiment.expected_eval_labels", lambda _: ["ev1", "ev2"])
-    monkeypatch.setattr("drnb.experiment_common.expected_eval_labels", lambda _: ["ev1", "ev2"])
-    monkeypatch.setattr("drnb.experiment_merge.expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr("drnb.experiment.common.expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr("drnb.experiment.merge.expected_eval_labels", lambda _: ["ev1", "ev2"])
 
     exp = Experiment(name="exp-partial-evals")
     exp.add_method(("dummy", {"params": {}}), name="dummy")
@@ -520,8 +520,8 @@ def test_partial_eval_with_lazy_result(monkeypatch, tmp_path):
 
     monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
     monkeypatch.setattr("drnb.experiment.expected_eval_labels", lambda _: ["ev1", "ev2"])
-    monkeypatch.setattr("drnb.experiment_common.expected_eval_labels", lambda _: ["ev1", "ev2"])
-    monkeypatch.setattr("drnb.experiment_merge.expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr("drnb.experiment.common.expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr("drnb.experiment.merge.expected_eval_labels", lambda _: ["ev1", "ev2"])
 
     exp1 = Experiment(name="exp1", drnb_home=tmp_path)
     exp1.add_method(("dummy", {"params": {}}), name="dummy")
