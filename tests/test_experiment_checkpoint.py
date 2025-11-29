@@ -93,7 +93,6 @@ def test_rerun_on_mismatch_and_clear(monkeypatch, tmp_path):
     assert len(calls) == 1  # skipped because signature matches
 
     exp.methods = [(("dummy", {"params": {"alpha": 1}}), "dummy")]
-    exp.uniq_method_names = {"dummy"}
     exp.run()
     assert len(calls) == 2  # reran due to signature mismatch
     df = exp.to_df()
@@ -150,9 +149,7 @@ def test_to_df_respects_dataset_order(monkeypatch, tmp_path):
     monkeypatch.setenv("DRNB_HOME", str(tmp_path))
     exp = Experiment(name="exp-order")
     exp.datasets = ["ds1", "ds2"]
-    exp.uniq_datasets = set(exp.datasets)
     exp.methods = [(("dummy", {"params": {}}), "dummy")]
-    exp.uniq_method_names = {"dummy"}
     exp.results = {
         "dummy": {
             "ds2": {
@@ -182,9 +179,7 @@ def test_plot_with_partial_results(monkeypatch, tmp_path):
 
     exp = Experiment(name="exp-partial")
     exp.datasets = ["ds1", "ds2"]
-    exp.uniq_datasets = set(exp.datasets)
     exp.methods = [(("dummy", {"params": {}}), "dummy")]
-    exp.uniq_method_names = {"dummy"}
     exp.results = {
         "dummy": {
             "ds1": {
@@ -420,6 +415,20 @@ def test_merge_fails_when_dest_exists_without_overwrite(monkeypatch, tmp_path):
         merge_experiments(exp1, Experiment(name="exp2"), name="merged")
 
 
+def test_merge_raises_on_method_config_conflict(monkeypatch, tmp_path):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+    exp1 = Experiment(name="exp1")
+    exp1.add_dataset("ds1")
+    exp1.add_method(("dummy", {"params": {}}), name="dup")
+
+    exp2 = Experiment(name="exp2")
+    exp2.add_dataset("ds2")
+    exp2.add_method(("dummy", {"params": {"alpha": 1}}), name="dup")
+
+    with pytest.raises(ValueError):
+        merge_experiments(exp1, exp2, name="merged-conflict", overwrite=True)
+
+
 def test_partial_eval_rerun_only_missing(monkeypatch, tmp_path):
     monkeypatch.setenv("DRNB_HOME", str(tmp_path))
 
@@ -562,3 +571,90 @@ def test_add_evaluations_accepts_single_and_list():
     exp.add_evaluations(("nnp", {"n_neighbors": [15]}))
     exp.add_evaluations(["rte", ("nnp", {"n_neighbors": [15]}), "rpc"])
     assert exp.evaluations == ["rte", ("nnp", {"n_neighbors": [15]}), "rpc"]
+
+
+def test_shard_dir_defaults_when_shard_path_missing(monkeypatch, tmp_path):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+    exp = Experiment(name="exp-shard", drnb_home=tmp_path)
+    exp.add_method(("dummy", {"params": {}}), name="dummy")
+    exp.add_dataset("ds1")
+    exp.run_info = {
+        "dummy": {"ds1": {"status": "missing", "signature": "sig", "shard": ""}}
+    }
+    res = {"coords": np.array([[0.0, 0.0]]), "context": None}
+    shard_rel = exp._write_result_shard("dummy", "ds1", res)
+    expected_dir = tmp_path / "experiments" / "exp-shard" / shard_rel
+    assert expected_dir.is_dir()
+    assert "results" in expected_dir.parts
+
+
+def test_manifest_written_per_dataset_on_failure(monkeypatch, tmp_path):
+    monkeypatch.setenv("DRNB_HOME", str(tmp_path))
+    calls: list[str] = []
+
+    def _create_pipeline_fail(**kwargs):
+        class DummyPipeline:
+            def run(self, dataset):
+                calls.append(dataset)
+                if dataset == "ds2":
+                    raise RuntimeError("boom")
+                ctx = EmbedContext(
+                    dataset_name=dataset,
+                    embed_method_name="dummy",
+                    experiment_name="exp-crash",
+                    drnb_home=tmp_path,
+                )
+                return {
+                    "coords": np.array([[1.0, 0.0]]),
+                    "evaluations": [
+                        EvalResult(eval_type="dummy", label="score", value=1.0)
+                    ],
+                    "context": ctx,
+                }
+
+        return DummyPipeline()
+
+    monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline_fail)
+
+    exp = Experiment(name="exp-crash", drnb_home=tmp_path)
+    exp.add_method(("dummy", {"params": {}}), name="dummy")
+    exp.add_dataset("ds1")
+    exp.add_dataset("ds2")
+
+    with pytest.raises(RuntimeError):
+        exp.run()
+
+    manifest_path = tmp_path / "experiments" / "exp-crash" / "manifest.json"
+    assert manifest_path.exists()
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+    assert "ds1" in manifest["run_info"].get("dummy", {})
+
+    calls.clear()
+
+    def _create_pipeline_ok(**kwargs):
+        class DummyPipeline:
+            def run(self, dataset):
+                calls.append(dataset)
+                ctx = EmbedContext(
+                    dataset_name=dataset,
+                    embed_method_name="dummy",
+                    experiment_name="exp-crash",
+                    drnb_home=tmp_path,
+                )
+                return {
+                    "coords": np.array([[2.0, 0.0]]),
+                    "evaluations": [
+                        EvalResult(eval_type="dummy", label="score", value=2.0)
+                    ],
+                    "context": ctx,
+                }
+
+        return DummyPipeline()
+
+    monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline_ok)
+
+    loaded = read_experiment("exp-crash")
+    loaded.run()
+
+    assert calls == ["ds2"]

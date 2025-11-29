@@ -26,7 +26,6 @@ RESULT_FORMAT_VERSION = 1
 RUN_STATUS_COMPLETED = "completed"
 RUN_STATUS_MISSING = "missing"
 RUN_STATUS_PARTIAL_EVALS = "evals_partial"
-RUN_STATUS_FAILED = "failed"
 RESULT_JSON = "result.json"
 MANIFEST_JSON = "manifest.json"
 
@@ -163,6 +162,13 @@ def _param_signature(method: Any, evaluations: list[Any]) -> str:
     return hashlib.sha1(serialized.encode("utf-8")).hexdigest()
 
 
+def _method_signature(method: Any) -> str:
+    """Stable signature for an embedding method independent of evaluations."""
+    payload = _method_to_manifest(method)
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha1(serialized.encode("utf-8")).hexdigest()
+
+
 def _experiment_dir(
     name: str, drnb_home: Path | str | None, *, create: bool = True
 ) -> Path:
@@ -234,9 +240,7 @@ class Experiment:
 
     name: str = ""
     datasets: list[str] = field(default_factory=list)
-    uniq_datasets: set[str] = field(default_factory=set)
     methods: list = field(default_factory=list)
-    uniq_method_names: set[str] = field(default_factory=set)
     results: dict[str, dict[str, Any]] = field(default_factory=dict)
     evaluations: list = field(default_factory=list)
     verbose: bool = False
@@ -263,10 +267,9 @@ class Experiment:
         method = check_embed_method(method, params)
         if not name:
             name = get_embedder_name(method)
-        if name in self.uniq_method_names:
+        if self._has_method_name(name):
             raise ValueError(f"Experiment already has a embedding method '{name}'")
         self.methods.append((method, name))
-        self.uniq_method_names.add(name)
 
     def add_datasets(self, datasets: list[str]):
         """Add a list of datasets to the experiment."""
@@ -275,15 +278,24 @@ class Experiment:
 
     def add_dataset(self, dataset: str):
         """Add a dataset to the experiment."""
-        if dataset in self.uniq_datasets:
+        if dataset in self.datasets:
             raise ValueError(f"Experiment already has a dataset '{dataset}'")
-        self.uniq_datasets.add(dataset)
         self.datasets.append(dataset)
 
     def add_evaluations(self, evaluations: Any | list[Any]):
         """Add one or more evaluation metrics (deduped by equality)."""
         normalized = _normalize_evaluations(evaluations)
         self.evaluations = _merge_evaluations(self.evaluations, normalized)
+
+    def _has_method_name(self, name: str) -> bool:
+        return any(method_name == name for _, method_name in self.methods)
+
+    def _ensure_unique(self):
+        if len(self.datasets) != len(set(self.datasets)):
+            raise ValueError("Duplicate datasets configured in experiment")
+        method_names = [name for _, name in self.methods]
+        if len(method_names) != len(set(method_names)):
+            raise ValueError("Duplicate method names configured in experiment")
 
     def run(self):
         """Run the experiment, checkpointing each dataset/method pair as soon as it
@@ -296,7 +308,7 @@ class Experiment:
         import drnb.embed.pipeline as pl
 
         self.name = ensure_experiment_name(self.name)
-        self._ensure_sets()
+        self._ensure_unique()
         exp_dir = self._ensure_exp_dir()
         log.info("Experiment %s writing to %s", self.name, exp_dir)
         expected_labels = _expected_eval_labels(self.evaluations)
@@ -385,38 +397,22 @@ class Experiment:
                     evals_expected=expected_update,
                 )
 
+                self._write_manifest(run_info_updates)
+                run_info_updates = {}
+
         self._write_manifest(run_info_updates)
 
-    def _ensure_sets(self):
-        if not self.uniq_method_names and self.methods:
-            self.uniq_method_names = {name for _, name in self.methods}
-        if not self.uniq_datasets and self.datasets:
-            self.uniq_datasets = set(self.datasets)
-
     def _ensure_exp_dir(self) -> Path:
-        exp_dir_existing, manifest_existing = _experiment_storage_state(
-            self.name, self.drnb_home
-        )
-        exp_dir = _experiment_dir(self.name, self.drnb_home, create=True)
-        if (
-            self.warn_on_existing
-            and (exp_dir_existing is not None or manifest_existing is not None)
-            and not self.run_info
-        ):
-            log.warning(
-                "Experiment directory already exists: %s. Existing shards may be reused; "
-                "use a new name or clear_storage() if you want a fresh run.",
-                exp_dir,
-            )
-        return exp_dir
+        return _experiment_dir(self.name, self.drnb_home, create=True)
 
     def _shard_dir(
         self, method_name: str, dataset: str, *, create: bool = True
     ) -> Path:
         exp_dir = _experiment_dir(self.name, self.drnb_home, create=create)
         run_record = self.run_info.get(method_name, {}).get(dataset)
-        if run_record and "shard" in run_record:
-            return exp_dir / run_record["shard"]
+        shard_rel = run_record.get("shard") if run_record else None
+        if shard_rel:
+            return exp_dir / shard_rel
         return (
             exp_dir
             / "results"
@@ -460,10 +456,7 @@ class Experiment:
                     "value": [_eval_to_dict(v) for v in value],
                 }
                 continue
-            try:
-                entries[key] = {"type": "json", "value": _json_safe(value)}
-            except TypeError:
-                entries[key] = {"type": "text", "value": str(value)}
+            entries[key] = {"type": "json", "value": _json_safe(value)}
 
         meta = {"version": RESULT_FORMAT_VERSION, "entries": entries}
         with open(shard_dir / RESULT_JSON, "w", encoding="utf-8") as f:
@@ -475,6 +468,11 @@ class Experiment:
         meta_path = shard_dir / RESULT_JSON
         with open(meta_path, "r", encoding="utf-8") as f:
             meta = json.load(f)
+        version = meta.get("version")
+        if version not in (None, RESULT_FORMAT_VERSION):
+            raise ValueError(
+                f"Unsupported result format version {version} in {meta_path}"
+            )
         entries = meta.get("entries", {})
         result = {}
         for key, entry in entries.items():
@@ -569,9 +567,7 @@ class Experiment:
         self.results.clear()
         self.run_info.clear()
         self.datasets = []
-        self.uniq_datasets = set()
         self.methods = []
-        self.uniq_method_names = set()
         self.evaluations = []
 
     def clear_storage(self):
@@ -598,17 +594,13 @@ class Experiment:
         exp.name = manifest.get("name") or manifest_path.parent.name
         exp.drnb_home = manifest_path.parent.parent.parent
         exp.datasets = manifest.get("datasets", [])
-        exp.uniq_datasets = set(exp.datasets)
         exp.evaluations = manifest.get("evaluations", [])
         exp.run_info = manifest.get("run_info", {})
         exp.methods = []
-        exp.uniq_method_names = set()
         for method_entry in manifest.get("methods", []):
             method_name = method_entry.get("name", "")
             method_config = _method_from_manifest(method_entry.get("method", {}))
             exp.methods.append((method_config, method_name))
-            if method_name:
-                exp.uniq_method_names.add(method_name)
 
         exp.results = {}
         for _, method_name in exp.methods:
@@ -842,7 +834,7 @@ class Experiment:
             self.name = name
             log.info("Renaming experiment to %s", self.name)
         self.name = ensure_experiment_name(self.name)
-        self._ensure_sets()
+        self._ensure_unique()
         exp_dir = _experiment_dir(self.name, self.drnb_home, create=True)
         run_info_updates: dict[str, dict[str, dict[str, Any]]] = {}
         for method, method_name in self.methods:
@@ -1069,8 +1061,15 @@ def merge_experiments(
         src_exp_dir = _experiment_dir(exp_src.name, exp_src.drnb_home, create=False)
         src_expected_label_set = set(_expected_eval_labels(exp_src.evaluations))
         for method, method_name in exp_src.methods:
-            if method_name not in merged.uniq_method_names:
+            if not merged._has_method_name(method_name):
                 merged.add_method(method, name=method_name)
+            else:
+                merged_method = next(m for m, n in merged.methods if n == method_name)
+                if _method_signature(method) != _method_signature(merged_method):
+                    raise ValueError(
+                        f"Method '{method_name}' has conflicting configurations "
+                        "across experiments; rename the method or align configs before merging."
+                    )
             if method_name not in merged.results:
                 merged.results[method_name] = {}
             merged_method = next(m for m, n in merged.methods if n == method_name)

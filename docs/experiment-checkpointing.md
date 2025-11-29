@@ -46,6 +46,7 @@ Each shard directory holds:
   - Copies shards into the destination experiment directory (overwriting shard paths when `overwrite=True`).
   - Recomputes status/eval counts against the merged evaluation set; partial evals stay partial until rerun.
   - Errors if the destination experiment directory already exists and `overwrite` is `False`.
+  - Raises a `ValueError` when the same method name exists in both sources with different configurations; rename the method or align configs before merging.
 
 ## Helpers
 
@@ -103,8 +104,3 @@ Each shard directory holds:
 }
 ```
 
-## Notes and Expectations
-
-- No backward-compat handling for older manifests/shards beyond v2; we control read/write.
-- Overwrite semantics are explicit (`overwrite=True` on merge, or use `clear_storage`/`clear_task`).
-- Logs are concise: skips/reruns/partial-eval fills are reported during `run()`.
