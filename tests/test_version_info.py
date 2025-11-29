@@ -38,11 +38,7 @@ def test_experiment_versions_returns_dict_and_df() -> None:
     exp.methods = [(("dummy", {"params": {}}), "dummy")]
 
     exp.run_info = {
-        "dummy": {
-            "ds1": {
-                "version_info": {"package": "pkg1", "version": "0.1"}
-            }
-        }
+        "dummy": {"ds1": {"version_info": {"package": "pkg1", "version": "0.1"}}}
     }
     exp.results = {
         "dummy": {

@@ -34,7 +34,11 @@ from drnb.experiment.persistence import (
 )
 from drnb.experiment.report import (
     plot as plot_report,
+)
+from drnb.experiment.report import (
     status as status_report,
+)
+from drnb.experiment.report import (
     to_df as to_df_report,
 )
 from drnb.experiment.runner import result_progress, run_missing_evaluations

@@ -2,7 +2,6 @@ from importlib import metadata as importlib_metadata
 from types import SimpleNamespace
 
 import numpy as np
-
 from drnb_plugin_sdk.helpers.results import save_result_npz
 from drnb_plugin_sdk.helpers.version import (
     UNKNOWN_VALUE,
