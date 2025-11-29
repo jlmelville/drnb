@@ -8,16 +8,9 @@ import pytest
 
 from drnb.embed.context import EmbedContext
 from drnb.eval.base import EvalResult
-from drnb.experiment import (
-    Experiment,
-    LazyResult,
-    short_col,
-    _param_signature,
-    _expected_eval_labels,
-    _experiment_dir,
-    merge_experiments,
-    read_experiment,
-)
+from drnb.experiment import Experiment, merge_experiments, read_experiment
+from drnb.experiment_common import expected_eval_labels, param_signature, short_col
+from drnb.experiment_persistence import LazyResult, experiment_dir
 
 
 def _install_dummy_pipeline(monkeypatch, calls):
@@ -280,7 +273,7 @@ def test_status_reports_completed_with_parametrized_evals(monkeypatch, tmp_path)
 
 
 def test_expected_eval_labels_expand_parametrized_evals():
-    labels = _expected_eval_labels(["rte", ("nnp", {"n_neighbors": [15, 50]})])
+    labels = expected_eval_labels(["rte", ("nnp", {"n_neighbors": [15, 50]})])
     assert labels == ["rte-5", "nnp-15", "nnp-50"]
 
 
@@ -290,7 +283,7 @@ def test_merge_allows_union_and_missing(monkeypatch, tmp_path):
     exp1.add_dataset("ds1")
     exp1.evaluations = ["rte", ("nnp", {"n_neighbors": [15, 50]})]
     exp1.add_method(("dummy", {"params": {}}), name="dummy")
-    sig1 = _param_signature(exp1.methods[0][0], exp1.evaluations)
+    sig1 = param_signature(exp1.methods[0][0], exp1.evaluations)
     exp1.results = {
         "dummy": {
             "ds1": {
@@ -312,7 +305,7 @@ def test_merge_allows_union_and_missing(monkeypatch, tmp_path):
         ("rpc", {"metric": "euclidean"}),
     ]
     exp2.add_method(("dummy", {"params": {}}), name="dummy")
-    sig2 = _param_signature(exp2.methods[0][0], exp2.evaluations)
+    sig2 = param_signature(exp2.methods[0][0], exp2.evaluations)
     exp2.results = {
         "dummy": {
             "ds2": {
@@ -342,7 +335,7 @@ def test_merge_allows_union_and_missing(monkeypatch, tmp_path):
     ]
     # run_info signatures align with merged evaluations
     method = next(m for m, n in merged.methods if n == "dummy")
-    sig = _param_signature(method, merged.evaluations)
+    sig = param_signature(method, merged.evaluations)
     assert merged.run_info["dummy"]["ds1"]["signature"] == sig
     assert merged.run_info["dummy"]["ds2"]["signature"] == sig
 
@@ -363,7 +356,7 @@ def test_merge_overwrites_existing_shards(monkeypatch, tmp_path):
         ],
         "context": None,
     }
-    sig1 = _param_signature(exp1.methods[0][0], exp1.evaluations)
+    sig1 = param_signature(exp1.methods[0][0], exp1.evaluations)
     shard_rel = exp1._write_result_shard("dummy", "ds1", res1)
     exp1.results = {"dummy": {"ds1": res1}}
     exp1.run_info = {
@@ -400,7 +393,7 @@ def test_merge_fails_when_dest_exists_without_overwrite(monkeypatch, tmp_path):
     exp1.evaluations = []
     res1 = {"coords": np.array([[0.0, 0.0]]), "context": None}
     shard_rel = exp1._write_result_shard("dummy", "ds1", res1)
-    sig1 = _param_signature(exp1.methods[0][0], exp1.evaluations)
+    sig1 = param_signature(exp1.methods[0][0], exp1.evaluations)
     exp1.results = {"dummy": {"ds1": res1}}
     exp1.run_info = {
         "dummy": {
@@ -409,7 +402,7 @@ def test_merge_fails_when_dest_exists_without_overwrite(monkeypatch, tmp_path):
     }
 
     # create target dir to trigger the safety check
-    _experiment_dir("merged", tmp_path, create=True)
+    experiment_dir("merged", tmp_path, create=True)
 
     with pytest.raises(ValueError):
         merge_experiments(exp1, Experiment(name="exp2"), name="merged")
@@ -468,9 +461,9 @@ def test_partial_eval_rerun_only_missing(monkeypatch, tmp_path):
         return DummyPipeline()
 
     monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
-    monkeypatch.setattr(
-        "drnb.experiment._expected_eval_labels", lambda _: ["ev1", "ev2"]
-    )
+    monkeypatch.setattr("drnb.experiment.expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr("drnb.experiment_common.expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr("drnb.experiment_merge.expected_eval_labels", lambda _: ["ev1", "ev2"])
 
     exp = Experiment(name="exp-partial-evals")
     exp.add_method(("dummy", {"params": {}}), name="dummy")
@@ -526,9 +519,9 @@ def test_partial_eval_with_lazy_result(monkeypatch, tmp_path):
         return DummyPipeline()
 
     monkeypatch.setattr("drnb.embed.pipeline.create_pipeline", _create_pipeline)
-    monkeypatch.setattr(
-        "drnb.experiment._expected_eval_labels", lambda _: ["ev1", "ev2"]
-    )
+    monkeypatch.setattr("drnb.experiment.expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr("drnb.experiment_common.expected_eval_labels", lambda _: ["ev1", "ev2"])
+    monkeypatch.setattr("drnb.experiment_merge.expected_eval_labels", lambda _: ["ev1", "ev2"])
 
     exp1 = Experiment(name="exp1", drnb_home=tmp_path)
     exp1.add_method(("dummy", {"params": {}}), name="dummy")
@@ -539,7 +532,7 @@ def test_partial_eval_with_lazy_result(monkeypatch, tmp_path):
         "evaluations": [EvalResult(eval_type="dummy", label="ev1", value=1.0)],
         "context": None,
     }
-    sig1 = _param_signature(exp1.methods[0][0], exp1.evaluations)
+    sig1 = param_signature(exp1.methods[0][0], exp1.evaluations)
     shard_rel = exp1._write_result_shard("dummy", "ds1", res1)
     exp1.results = {"dummy": {"ds1": res1}}
     exp1.run_info = {
