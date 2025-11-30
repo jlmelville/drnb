@@ -33,8 +33,6 @@ def create_plotters(
     if "backend" in plot_kwargs:
         backend = plot_kwargs["backend"]
         del plot_kwargs["backend"]
-    if "plot" in plot_kwargs:
-        raise ValueError("Use 'backend' in plot kwargs instead of 'plot'")
 
     if isinstance(plot, str):
         backend = plot
