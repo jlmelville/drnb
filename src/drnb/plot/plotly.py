@@ -428,7 +428,9 @@ class PlotlyPlotter:
             fig.show(renderer=self.renderer)
 
     def make_clickable(
-        self, fig: go.Figure, ctx: EmbedContext | None
+        self,
+        fig: go.Figure,
+        ctx: EmbedContext | None,
     ) -> go.FigureWidget | go.Figure:
         """Make the PlotlyPlotter object clickable."""
         if ctx is None:
@@ -510,6 +512,11 @@ def clickable_neighbors(plot: go.Figure, nn: NearestNeighbors) -> go.FigureWidge
             plot_idx[idx[0]] = (i, j)
 
     selected_point: tuple[int, int] | None = None
+
+    # For some reason, when using the FigureWidget, a default outline_width is applied
+    # which is not present with `fig.show`, so force it to 0.0 here
+    for datum in f.data:
+        datum.marker.line.width = 0.0
 
     def reset_styles():
         for i, datum in enumerate(f.data):
