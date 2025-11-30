@@ -189,6 +189,8 @@ def plotly_embed_plot(
             axis=1,
         )
         scatter_kwargs["hover_data"] = hover_data
+    # always carry the original index as custom data for click handling
+    scatter_kwargs["custom_data"] = ["idx"]
 
     # pylint:disable=no-member
     plot = (
