@@ -457,7 +457,23 @@ def color_by_rte(
 
 
 def diag_plots(metric: str = "euclidean") -> list[PlotterProtocol]:
-    """Create some default diagnostic plots."""
+    """Create some default diagnostic plots:
+
+    - ColorByKo -- color by the k-occurrence. A measure of hubness. Bigger means an item is considered
+    a neighbor by a larger number of other items in the dataset. The value of the k-occurrence can go
+    between 0 and N.
+    - ColorBySo -- color by the s-occurrence. Another measure of hubness. Bigger means an item appears
+    as a neighbor of its own neighbors (rather than the whole dataset as measured by k-occurrence).
+    - ColorByLid -- color by the local intrinsic dimension estimate, using the nearest neighbor approach
+    of [Levina and Bickel](https://papers.nips.cc/paper_files/paper/2004/hash/74934548253bcab8490ebd74afed7031-Abstract.html).
+    - ColorByNbrPres -- color by neighbor preservation: of the k-nearest neighbors of each item in the
+    2D output, how many of the high-dimensional neighbors are preserved? Normalized to a number between
+    0 (no neighbors preserved) and 1 (all of them).
+    - ColorByRte -- color by random triplet evaluation: The triangle distances between three randomly
+    sampled points are evaluated in the low and high dimensions and the RTE is the proportion of those
+    ordered distances where the ordering is the same in the high and low dimensions. 5 triplets are
+    used for each item in the dataset.
+    """
     return [
         color_by_ko(15, color_scale={"palette": "Spectral"}),
         color_by_so(15, color_scale={"palette": "Spectral"}),
@@ -468,7 +484,16 @@ def diag_plots(metric: str = "euclidean") -> list[PlotterProtocol]:
 
 
 def extra_plots(metric: str = "euclidean") -> list[ActionConfig]:
-    """Create some extra diagnostic plots."""
+    """Create some extra diagnostic plots. These are not scatterplots of the embedded
+    coordinates. Plots are:
+
+    - `nnphist` -- a histogram of the nearest neighbor preservation values.
+    - `rthist` -- a histogram of the random triplet preservation values.
+    - `rpscatter` -- a scatter plot of embedded against ambient distances. Distances are
+    sampled randomly with 5 distances sampled per point in the dataset.
+    - `lidhist` -- a histogram of the local intrinsic dimensionality (using the
+    Levina-Bickel method).
+    """
     return [
         ("nnphist", {"metric": metric}),
         ("rthist", {"metric": metric}),
