@@ -99,11 +99,9 @@ def codes_to_categories(
 ) -> pd.Series:
     """Convert the numpy array of integer codes or Pandas series to a Pandas category series with name
     col_name using the list of category_names."""
-    return pd.Series(
-        list(map(category_names.__getitem__, y.astype(int))),
-        name=col_name,
-        dtype="category",
-    )
+    codes = y.astype(int)
+    cat = pd.Categorical.from_codes(codes, categories=category_names)
+    return pd.Series(cat, name=col_name)
 
 
 def evenly_spaced(s: list, n: int) -> list:
