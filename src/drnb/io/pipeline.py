@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import sklearn.decomposition
 
-from drnb.io import FileExporter, stringify_paths, write_json, write_pickle
+from drnb.io import FileExporter, stringify_paths, write_json
 from drnb.io.dataset import create_dataset_exporters
 from drnb.log import log, log_verbosity
 from drnb.neighbors.compute import NeighborsRequest, create_neighbors_request
@@ -255,7 +255,7 @@ class DatasetPipeline:
         else:
             target_output_paths = self.export_target(target, name)
         if target_palette:
-            target_palette_path = write_pickle(
+            target_palette_path = write_json(
                 target_palette,
                 name,
                 suffix="target-palette",
@@ -264,7 +264,7 @@ class DatasetPipeline:
                 create_sub_dir=True,
                 verbose=True,
             )
-            target_output_paths.append(stringify_paths([target_palette_path]))
+            target_output_paths.append(stringify_paths([target_palette_path])[0])
         return target_shape, target_output_paths
 
     def export_data(

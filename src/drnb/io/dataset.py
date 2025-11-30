@@ -88,14 +88,27 @@ def read_palette(
     suffix: str = "target-palette",
     verbose: bool = False,
 ) -> dict:
-    """Read the palette for the given dataset."""
-    return read_pickle(
-        dataset,
-        suffix=suffix,
-        drnb_home=drnb_home,
-        sub_dir=sub_dir,
-        verbose=verbose,
-    )
+    """Read the palette for the given dataset.
+
+    Attempt JSON first for forward compatibility; fall back to pickle if the JSON file
+    is not present so legacy palettes continue to load.
+    """
+    try:
+        return read_json(
+            dataset,
+            suffix=suffix,
+            drnb_home=drnb_home,
+            sub_dir=sub_dir,
+            verbose=verbose,
+        )
+    except FileNotFoundError:
+        return read_pickle(
+            dataset,
+            suffix=suffix,
+            drnb_home=drnb_home,
+            sub_dir=sub_dir,
+            verbose=verbose,
+        )
 
 
 @dataclass
