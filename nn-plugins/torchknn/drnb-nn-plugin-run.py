@@ -57,7 +57,8 @@ def exact_knn_pytorch_batched(
 
     N = data.shape[0]
     if not (1 <= k <= N):
-        raise ValueError("k must be between 1 and N (inclusive)")
+        log(f"[torchknn] k > N: k={k} N={N}, using k={N}")
+        k = N
 
     if batch_size <= 0:
         raise ValueError("batch_size must be greater than 0")
