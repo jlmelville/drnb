@@ -25,6 +25,11 @@ from drnb.util import dts_to_str
 
 if TYPE_CHECKING:
     from drnb.plot.protocol import PlotterProtocol
+    from drnb.plot.scale.ko import ColorByKo
+    from drnb.plot.scale.lid import ColorByLid
+    from drnb.plot.scale.nbrpres import ColorByNbrPres
+    from drnb.plot.scale.rte import ColorByRte
+    from drnb.plot.scale.so import ColorBySo
 
 
 @dataclass
@@ -422,6 +427,9 @@ def color_by_nbr_pres(
     metric: str = "euclidean",
 ) -> ColorByNbrPres:
     """Create a Color by Neighbor Preservation plotter."""
+    from drnb.plot.scale import ColorScale
+    from drnb.plot.scale.nbrpres import ColorByNbrPres
+
     return ColorByNbrPres(
         n_neighbors,
         normalize=normalize,
@@ -437,6 +445,9 @@ def color_by_rte(
     metric: str = "euclidean",
 ) -> ColorByRte:
     """Create a Color by Random Triplet Error plotter."""
+    from drnb.plot.scale import ColorScale
+    from drnb.plot.scale.rte import ColorByRte
+
     return ColorByRte(
         n_triplets_per_point=n_triplets_per_point,
         normalize=normalize,
