@@ -5,10 +5,9 @@ import numpy as np
 
 import drnb.io as nbio
 import drnb.io.dataset as dataio
-from drnb.neighbors import (
-    NearestNeighbors,
-    get_neighbors,
-)
+from drnb.neighbors.compute import get_neighbors
+from drnb.neighbors.nbrinfo import NearestNeighbors
+from drnb.neighbors.store import read_neighbors
 from drnb.types import DataSet
 
 
@@ -63,8 +62,9 @@ def get_neighbors_with_ctx(
     knn_params: dict | None = None,
     ctx: EmbedContext | None = None,
     return_distance: bool = True,
+    quiet_failures: bool = False,
 ) -> NearestNeighbors:
-    """Get nearest neighbors using the provided context."""
+    """Read or compute nearest neighbors using the provided context."""
     if knn_params is None:
         knn_params = {}
     knn_defaults = {"method": "exact", "cache": False, "verbose": True, "name": None}
@@ -88,11 +88,43 @@ def get_neighbors_with_ctx(
         metric=metric,
         return_distance=return_distance,
         **full_knn_params,
+        quiet_plugin_failures=quiet_failures,
     )
     # let's just make sure we get the dist member
     if return_distance and result.dist is None:
         raise ValueError("return_distance was True but no distance data was returned")
     return result
+
+
+def read_neighbors_with_ctx(
+    metric: str,
+    n_neighbors: int,
+    ctx: EmbedContext | None = None,
+    *,
+    method: str | None = None,
+    exact: bool | None = None,
+    return_distance: bool = True,
+    verbose: bool = False,
+) -> NearestNeighbors | None:
+    """Read precomputed neighbors using only context metadata (never computes).
+
+    This helper mirrors :func:`get_neighbors_with_ctx` but skips any on-demand
+    computation. If no matching neighbor file exists on disk it simply returns
+    ``None`` so callers can fall back to their own logic.
+    """
+    if ctx is None:
+        return None
+    return read_neighbors(
+        name=ctx.dataset_name,
+        n_neighbors=n_neighbors,
+        metric=metric,
+        method=method,
+        exact=exact,
+        drnb_home=ctx.drnb_home,
+        sub_dir=ctx.nn_sub_dir,
+        return_distance=return_distance,
+        verbose=verbose,
+    )
 
 
 def read_dataset_from_ctx(ctx: EmbedContext, verbose: bool = False) -> DataSet:

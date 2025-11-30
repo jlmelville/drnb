@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 
 import numpy as np
 
@@ -13,35 +15,27 @@ from drnb.embed import (
 from drnb.embed.base import Embedder
 from drnb.embed.context import EmbedContext
 from drnb.embed.factory import create_embedder
+from drnb.embed.version import get_embedder_version_info
 from drnb.eval.base import EmbeddingEval, EvalResult, evaluate_embedding
 from drnb.eval.factory import create_evaluators
 from drnb.io.embed import create_embed_exporter
 from drnb.log import log, log_verbosity
-from drnb.neighbors import (
-    create_neighbors_request,
-    find_candidate_neighbors_info,
-)
-from drnb.plot.factory import create_plotters
-from drnb.plot.protocol import PlotterProtocol
-from drnb.plot.scale import ColorScale
-from drnb.plot.scale.ko import ColorByKo
-from drnb.plot.scale.nbrpres import ColorByNbrPres
-from drnb.plot.scale.rte import ColorByRte
-from drnb.plot.scale.so import ColorBySo
-from drnb.triplets import create_triplets_request, find_triplet_files
-from drnb.types import ActionConfig
-from drnb.util import dts_to_str, islisty
+from drnb.types import ActionConfig, EmbedConfig
+from drnb.util import dts_to_str
+
+if TYPE_CHECKING:
+    from drnb.plot.protocol import PlotterProtocol
 
 
 @dataclass
 class EmbedPipelineExporter:
     """Exporter for embedded data and data useful for evaluation (e.g neighbors)."""
 
-    out_types: List[str] = field(default_factory=list)
-    export_dict: Dict = field(default_factory=dict)
+    out_types: list[str] = field(default_factory=list)
+    export_dict: dict = field(default_factory=dict)
 
     def cache_data(
-        self, requirers: List[dict], embedding_result: dict, ctx: EmbedContext
+        self, requirers: list[dict], embedding_result: dict, ctx: EmbedContext
     ):
         """Cache derived data (neighbors, triplets) if needed."""
         embed_coords = embedding_result["coords"]
@@ -65,6 +59,8 @@ class EmbedPipelineExporter:
         self, require: dict, embed_coords: np.ndarray, ctx: EmbedContext
     ):
         """Cache the triplets if needed."""
+        from drnb.triplets import create_triplets_request, find_triplet_files
+
         triplet_info = find_triplet_files(
             name=ctx.embed_triplets_name,
             n_triplets_per_point=require["n_triplets_per_point"],
@@ -116,6 +112,9 @@ class EmbedPipelineExporter:
         self, require: dict, embed_coords: np.ndarray, ctx: EmbedContext
     ):
         """Cache the nearest neighbors if needed."""
+        from drnb.neighbors.compute import create_neighbors_request
+        from drnb.neighbors.store import find_candidate_neighbors_info
+
         neighbors_info = find_candidate_neighbors_info(
             name=ctx.embed_nn_name,
             n_neighbors=require["n_neighbors"],
@@ -205,14 +204,14 @@ class EmbedderPipeline:
     # e.g. the method might be umap, but you may want to refer to it as densvis
     embed_method_variant: str = ""
     reader: dataio.DatasetReader = field(default_factory=dataio.DatasetReader)
-    embedder: Embedder | List[Embedder] = field(default_factory=list)
-    evaluators: List[EmbeddingEval] = field(default_factory=list)
-    plotters: List[PlotterProtocol] = field(default_factory=list)
+    embedder: Embedder | list[Embedder] = field(default_factory=list)
+    evaluators: list[EmbeddingEval] = field(default_factory=list)
+    plotters: list[PlotterProtocol] = field(default_factory=list)
     exporter: EmbedPipelineExporter | None = None
     verbose: bool = False
     pipeline_name: str | None = None
 
-    def run_many(self, dataset_names: List[str], verbose: bool | None = None) -> dict:
+    def run_many(self, dataset_names: list[str], verbose: bool | None = None) -> dict:
         """Run the pipeline on multiple datasets. Returns a dictionary mapping from the
         dataset name to the embedding result."""
         if verbose is None:
@@ -224,7 +223,7 @@ class EmbedderPipeline:
                 results[dataset_name] = self._run(dataset_name)
         return results
 
-    def run(self, dataset_name: str, verbose: bool = None) -> dict:
+    def run(self, dataset_name: str, verbose: bool | None = None) -> dict:
         """Run the pipeline. Returns the embedding result."""
         if verbose is None:
             verbose = self.verbose
@@ -260,7 +259,11 @@ class EmbedderPipeline:
             embedding_result = self.embedder.embed(x, ctx=ctx)
         if not isinstance(embedding_result, dict):
             embedding_result = {"coords": embedding_result}
-        embedding_result = cast(Dict[str, Any], embedding_result)
+        embedding_result = cast(dict[str, Any], embedding_result)
+        if "version_info" not in embedding_result:
+            embedding_result["version_info"] = get_embedder_version_info(
+                self.embedder, self.embed_method_name
+            )
 
         if self.exporter is not None:
             log.info("Caching data")
@@ -287,13 +290,13 @@ class EmbedderPipeline:
 
 
 def create_exporter(
-    export: str | List[str] | bool | None,
+    export: str | list[str] | bool | None,
 ) -> EmbedPipelineExporter | None:
     """Create an exporter for the pipeline, using the file types specified in `export`.
     If `export` is None, no exporter is created. If `export` is True, the default file
     type is used (pkl)."""
     if export is not None:
-        if not islisty(export):
+        if not isinstance(export, (list, tuple)):
             if isinstance(export, bool):
                 if export:
                     export = ["pkl"]
@@ -309,11 +312,11 @@ def create_exporter(
 
 
 def create_pipeline(
-    method: ActionConfig | list | Callable,
+    method: EmbedConfig | ActionConfig | list | Callable,
     data_config: dict | None = None,
     plot: bool | dict | str = True,
-    eval_metrics: str | List[str] | None = None,
-    export: str | List[str] | bool | None = None,
+    eval_metrics: str | list[str] | None = None,
+    export: str | list[str] | bool | None = None,
     verbose: bool = False,
     embed_method_variant: str = "",
 ) -> EmbedderPipeline:
@@ -335,7 +338,11 @@ def create_pipeline(
     # shut up pylint
     _embedder = create_embedder(method)
     evaluators = create_evaluators(eval_metrics)
-    plotters = create_plotters(plot)
+    plotters = []
+    if plot:
+        from drnb.plot.factory import create_plotters
+
+        plotters = create_plotters(plot)
     exporter = create_exporter(export)
 
     return EmbedderPipeline(
@@ -350,86 +357,65 @@ def create_pipeline(
     )
 
 
-def color_by_ko(
-    n_neighbors: int,
-    color_scale: dict | None = None,
-    normalize: bool = True,
-    log1p: bool = False,
-) -> ColorByKo:
-    """Create a Color by K-Occurrence plotter."""
-    return ColorByKo(
-        n_neighbors,
-        scale=ColorScale.new(color_scale),
-        normalize=normalize,
-        log1p=log1p,
-    )
+def diag_plots(metric: str = "euclidean") -> list[ActionConfig]:
+    """Return default diagnostic color-by plots as ActionConfigs for the plot factory.
 
-
-def color_by_so(
-    n_neighbors: int,
-    color_scale: dict | None = None,
-    normalize: bool = True,
-    log1p: bool = False,
-) -> ColorBySo:
-    """Create a Color by S-Occurrence plotter."""
-    return ColorBySo(
-        n_neighbors,
-        scale=ColorScale.new(color_scale),
-        normalize=normalize,
-        log1p=log1p,
-    )
-
-
-def color_by_nbr_pres(
-    n_neighbors: int,
-    normalize: bool = True,
-    color_scale: dict | None = None,
-    metric: str = "euclidean",
-) -> ColorByNbrPres:
-    """Create a Color by Neighbor Preservation plotter."""
-    return ColorByNbrPres(
-        n_neighbors,
-        normalize=normalize,
-        scale=ColorScale.new(color_scale),
-        metric=metric,
-    )
-
-
-def color_by_rte(
-    n_triplets_per_point: int,
-    normalize: bool = True,
-    color_scale: dict | None = None,
-    metric: str = "euclidean",
-) -> ColorByRte:
-    """Create a Color by Random Triplet Error plotter."""
-    return ColorByRte(
-        n_triplets_per_point=n_triplets_per_point,
-        normalize=normalize,
-        scale=ColorScale.new(color_scale),
-        metric=metric,
-    )
-
-
-def diag_plots(metric: str = "euclidean") -> List[PlotterProtocol]:
-    """Create some default diagnostic plots."""
+    - `ko`: k-occurrence (hubness) with Spectral palette.
+    - `so`: s-occurrence (mutual hubness) with Spectral palette.
+    - `lid`: local intrinsic dimensionality (Levina-Bickel) with Spectral palette.
+    - `nbrpres`: neighbor preservation, Spectral palette.
+    - `rte`: random triplet evaluation, Spectral palette.
+    """
     return [
-        color_by_ko(15, color_scale={"palette": "Spectral"}),
-        color_by_so(15, color_scale={"palette": "Spectral"}),
-        color_by_nbr_pres(15, color_scale={"palette": "Spectral"}, metric=metric),
-        color_by_rte(5, color_scale={"palette": "Spectral"}, metric=metric),
+        ("ko", {"n_neighbors": 15, "color_scale": {"palette": "Spectral"}}),
+        ("so", {"n_neighbors": 15, "color_scale": {"palette": "Spectral"}}),
+        (
+            "lid",
+            {
+                "n_neighbors": 15,
+                "metric": metric,
+                "color_scale": {"palette": "Spectral"},
+            },
+        ),
+        (
+            "nbrpres",
+            {
+                "n_neighbors": 15,
+                "color_scale": {"palette": "Spectral"},
+                "metric": metric,
+            },
+        ),
+        (
+            "rte",
+            {
+                "n_triplets_per_point": 5,
+                "color_scale": {"palette": "Spectral"},
+                "metric": metric,
+            },
+        ),
     ]
 
 
-def extra_plots(metric: str = "euclidean") -> List[ActionConfig]:
-    """Create some extra diagnostic plots."""
+def extra_plots(metric: str = "euclidean") -> list[ActionConfig]:
+    """Create some extra diagnostic plots. These are not scatterplots of the embedded
+    coordinates. Plots are:
+
+    - `nnphist` -- a histogram of the nearest neighbor preservation values.
+    - `rthist` -- a histogram of the random triplet preservation values.
+    - `rpscatter` -- a scatter plot of embedded against ambient distances. Distances are
+    sampled randomly with 5 distances sampled per point in the dataset.
+    - `lidhist` -- a histogram of the local intrinsic dimensionality (using the
+    Levina-Bickel method).
+    """
     return [
         ("nnphist", {"metric": metric}),
         ("rthist", {"metric": metric}),
         ("rpscatter", {"metric": metric}),
+        ("lidhist", {"metric": metric}),
     ]
 
 
-def standard_metrics() -> List[ActionConfig]:
+def standard_metrics() -> list[ActionConfig]:
     """Create a list of standard evaluation metrics."""
     return [
         "rte",
@@ -443,11 +429,11 @@ def standard_metrics() -> List[ActionConfig]:
 
 # Automatically adds usual eval and plotting
 def standard_pipeline(
-    method: str | list | tuple,
+    method: EmbedConfig | str | list | tuple,
     *,
     params: dict | None = None,
     verbose: bool = False,
-    extra_eval: str | List[str] | None = None,
+    extra_eval: str | list[str] | None = None,
     extra_plot: bool | dict | str | None = None,
 ) -> EmbedderPipeline:
     """Create a standard embedding pipeline, with default evaluation metrics and
@@ -475,9 +461,9 @@ def standard_eval(
     *,
     params: dict | None = None,
     verbose: bool = False,
-    extra_eval: str | List[str] | None = None,
+    extra_eval: str | list[str] | None = None,
     extra_plot: bool | dict | str | None = None,
-) -> List[EvalResult]:
+) -> list[EvalResult]:
     """Run a one-off standard pipeline and return the evaluation results."""
     return standard_pipeline(
         method,

@@ -1,0 +1,11 @@
+[plugins."annoy"]
+folder = "annoy"
+
+[plugins."hnsw"]
+folder = "hnsw"
+
+[plugins."faiss"]
+folder = "faiss"
+
+[plugins."torchknn"]
+folder = "torchknn"

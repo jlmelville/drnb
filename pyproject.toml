@@ -1,6 +1,6 @@
 [project]
 name = "drnb"
-version = "0.2.1"
+version = "0.3.0"
 description = "Dimensionality reduction notebooks"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
@@ -8,26 +8,24 @@ authors = [{name = "James Melville", email = "jlmelville@gmail.com"}]
 license = {text = "MIT"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dependencies = [
-    "annoy>=1.17.3",
     "glasbey>=0.2.1",
-    "hnswlib>=0.8.0",
     "httpx>=0.28.1",
     "ipykernel>=6.29.5",
-    "nbformat>=5.10.4",
     # dependency of numba 0.6.0 leaves us little room to manoeuvre with numpy
     "numpy>=1.22,<2.1",
-    "opentsne>=1.0.2",
-    "pacmap>=0.7.6",
     "pandas>=2.2.3",
     "plotly>=5.24.1",
     "pyarrow>=18.1.0",
     "pynndescent>=0.5.13",
-    "rich[jupyter]>=13.9.4",
+    "rich>=14.2.0",
     "scikit-learn>=1.6.0",
     "seaborn>=0.13.2",
-    "trimap>=1.1.4",
     "umap-learn>=0.5.9.post2",
-    "umato>=0.1.3",
+    "drnb-plugin-sdk-312>=0.1.0",
+    "drnb-nn-plugin-sdk-312>=0.1.0",
+    "ipywidgets>=8.1.8",
+    # nbformat needed for plotly support
+    "nbformat>=5.10.4",
 ]
 
 
@@ -49,10 +47,12 @@ disable = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8.3.4",
     "ruff>=0.8.5",
 ]
 
-
+[tool.uv.sources]
+drnb-plugin-sdk-312 = { path = "plugin-sdks/drnb-plugin-sdk-312" }
+drnb-nn-plugin-sdk-312 = { path = "nn-plugin-sdks/drnb-nn-plugin-sdk-312" }

@@ -45,7 +45,7 @@ def ivhd(
     eps: float = 1e-5,
     random_state: int = 42,
     X: np.ndarray | None = None,
-    init_scale: float = None,
+    init_scale: float | None = None,
     clip_grad: float = 4.0,
 ) -> np.ndarray:
     """Embed data using IVHD."""
@@ -256,7 +256,7 @@ def xvhd(
     eps: float = 1e-5,
     random_state: int = 42,
     X: np.ndarray | None = None,
-    init_scale: float = None,
+    init_scale: float | None = None,
     clip_grad: float = 4.0,
 ) -> np.ndarray:
     """Embed data using XVHD."""

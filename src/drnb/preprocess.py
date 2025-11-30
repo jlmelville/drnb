@@ -1,4 +1,4 @@
-from typing import List, Literal
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -80,7 +80,7 @@ def robust_scale(data: np.ndarray) -> np.ndarray:
 
 
 def filter_columns(
-    data: np.ndarray | pd.DataFrame, cols: List[int] | List[str] | None
+    data: np.ndarray | pd.DataFrame, cols: list[int] | list[str] | None
 ) -> np.ndarray | pd.DataFrame:
     """Filter the columns of the data to keep only the ones in `cols`.
     If `cols` is None, keep all columns. If `data` is a pandas DataFrame,

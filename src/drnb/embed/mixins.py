@@ -2,9 +2,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
-import drnb.neighbors as nbrs
 from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.log import log
+from drnb.neighbors.nbrinfo import NearestNeighbors
 
 
 @dataclass
@@ -33,7 +33,7 @@ class KNNMixin:
         precomputed_knn: Optional precomputed NearestNeighbors.
     """
 
-    precomputed_knn: nbrs.NearestNeighbors | None = None
+    precomputed_knn: NearestNeighbors | None = None
 
     def handle_precomputed_knn(
         self,

@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import Any, Callable, Self, Tuple
+from typing import Any, Callable, Self
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,8 +26,9 @@ def sns_embed_plot(
     cex: float = 10.0,
     alpha_scale: float = 1.0,
     palette: dict | str | None = None,
+    hue_norm: tuple[float, float] | plt.Normalize | None = None,
     title: str = "",
-    figsize: Tuple[float, float] | None = None,
+    figsize: tuple[float, float] | None = None,
     legend: bool = True,
     pc_axes: bool = False,
     flipx: bool = False,
@@ -44,6 +45,7 @@ def sns_embed_plot(
         cex: The size of the points in the plot.
         alpha_scale: The alpha scale of the points in the plot.
         palette: The palette to use for the plot.
+        hue_norm: Optional normalization for numeric hues.
         title: The title of the plot.
         figsize: The size of the figure.
         legend: Whether to show the legend.
@@ -93,6 +95,8 @@ def sns_embed_plot(
         palette = None
     else:
         scatter_kwargs = {"hue": color_col}
+        if hue_norm is not None:
+            scatter_kwargs["hue_norm"] = hue_norm
 
     # At this point color_col should be one of: a range, a numpy array, a pandas series
     palette = palettize(color_col, palette)
@@ -226,10 +230,10 @@ class SeabornPlotter:
     cex: int | None = None
     alpha_scale: float | None = None
     title: str | None = None
-    figsize: Tuple[float, float] | None = None
+    figsize: tuple[float, float] | None = None
     legend: bool = True
     palette: dict | str | None = None
-    color_by: Any = None
+    color_by: Any | None = None
     vmin: float | None = None
     vmax: float | None = None
     pc_axes: bool = False
@@ -270,11 +274,14 @@ class SeabornPlotter:
 
         # used for a color bar (if needed)
         scalar_mappable = None
+        hue_norm = None
         if isinstance(self.color_by, Callable):
             y = self.color_by(data, y, coords, ctx)
             if hasattr(self.color_by, "scale") and self.color_by.scale is not None:
-                scalar_mappable = self.color_by.scale(y, self.vmin, self.vmax, palette)
-                palette = self.color_by.scale.palette
+                scale = self.color_by.scale
+                vmin, vmax, palette = scale.resolve(y, self.vmin, self.vmax, palette)
+                scalar_mappable = scale(y, vmin, vmax, palette)
+                hue_norm = scalar_mappable.norm
                 self.legend = False
                 if title is None:
                     title = self.color_by
@@ -312,14 +319,14 @@ class SeabornPlotter:
             ax=ax,
             show_axes=self.show_axes,
             equal_axes=self.equal_axes,
+            hue_norm=hue_norm,
         )
-        if ax is None:
-            plt.show()
         if scalar_mappable is not None:
             if ax_out.get_legend() is not None:
                 ax_out.get_legend().remove()
-            plt.colorbar(scalar_mappable, ax=ax_out)
-            # ax_out.figure.colorbar(scalar_mappable)
+            ax_out.figure.colorbar(scalar_mappable, ax=ax_out)
+        if ax is None:
+            plt.show()
         return ax_out
 
     def get_palette(self, ctx: EmbedContext | None) -> dict | None:

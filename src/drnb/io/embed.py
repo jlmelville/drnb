@@ -1,11 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 import numpy as np
 
 from drnb.io import FileExporter, ensure_suffix
-from drnb.util import islisty
 
 
 class NoEmbedExporter:
@@ -45,13 +43,13 @@ class FileEmbedExporter:
         self.file_exporter.export(name, coords)
 
     def export_extra(
-        self, name: str, embedded: dict, suffix: str | List[str] | None = None
+        self, name: str, embedded: dict, suffix: str | list[str] | None = None
     ):
         """Export extra data from the `embedded` dict."""
         if suffix is None:
             suffix = self.file_exporter.suffix
         suffix = ensure_suffix(suffix, self.file_exporter.sub_dir)
-        if not islisty(suffix):
+        if not isinstance(suffix, (list, tuple)):
             suffix = [suffix]
         for extra_data_name, extra_data in embedded.items():
             if extra_data_name == "coords":
@@ -67,18 +65,18 @@ class FileEmbedExporter:
 # export=dict(ext=["pkl", "csv"], sub_dir="umap-pl", embed_method_label="densvis")
 def create_embed_exporter(
     embed_method_label: str,
-    out_type: str | List[str],
+    out_type: str | list[str],
     sub_dir: str | None = None,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     create_sub_dir: bool = True,
     drnb_home: Path | str | None = None,
     verbose: bool = False,
-) -> List[FileEmbedExporter]:
+) -> list[FileEmbedExporter]:
     """Create exporters for embedded data."""
 
     if suffix is None:
         suffix = embed_method_label
-    if not islisty(out_type):
+    if not isinstance(out_type, (list, tuple)):
         out_type = [out_type]
 
     exporters = []

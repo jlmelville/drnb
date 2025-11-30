@@ -1,6 +1,6 @@
 import pickle
 from pathlib import Path
-from typing import List, Literal, Tuple, cast
+from typing import Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -12,11 +12,10 @@ from drnb.dimension import mle_global
 from drnb.io import data_relative_path
 from drnb.io.dataset import get_dataset_info, list_available_datasets
 from drnb.log import log
-from drnb.neighbors import NearestNeighbors, read_neighbors
 from drnb.neighbors.localscale import locally_scaled_neighbors
-from drnb.neighbors.nbrinfo import replace_n_neighbors_in_path
+from drnb.neighbors.nbrinfo import NearestNeighbors, replace_n_neighbors_in_path
 from drnb.neighbors.random import random_sample_nbrs
-from drnb.util import islisty
+from drnb.neighbors.store import read_neighbors
 
 
 def k_occurrences(idx: np.ndarray, n_neighbors: int | None = None) -> np.ndarray:
@@ -72,7 +71,7 @@ def _s_occurrences(idx: np.ndarray) -> np.ndarray:
 
 
 def n_components(
-    nbrs: np.ndarray | Tuple | NearestNeighbors,
+    nbrs: np.ndarray | tuple | NearestNeighbors,
 ) -> int:
     """Calculate the number of connected components in the nearest neighbor graph."""
     wadj_graph = nn_to_sparse(nbrs)
@@ -124,7 +123,7 @@ def _nn_to_sparse_binary(idx):
 # "or" to carry out OR operation (undirected nearest neighbors)
 # "mean" to carry out mean operation (average of matrix and its transpose)
 def nn_to_sparse(
-    nbrs: np.ndarray | Tuple | NearestNeighbors,
+    nbrs: np.ndarray | tuple | NearestNeighbors,
     symmetrize: Literal["or", "and", "mean"] | None = None,
 ) -> scipy.sparse.coo_matrix:
     """Convert nearest neighbors to a sparse matrix. Optionally symmetrize the matrix.
@@ -133,7 +132,7 @@ def nn_to_sparse(
     if isinstance(nbrs, np.ndarray):
         idx = nbrs
         dist = None
-    elif islisty(nbrs):
+    elif isinstance(nbrs, (list, tuple)):
         idx = nbrs[0]
         dist = nbrs[1]
     else:
@@ -340,8 +339,8 @@ def calculate_nbr_stats(
 
 
 def ko_data(
-    nbrs: np.ndarray | Tuple | NearestNeighbors, n_neighbors: int | None = None
-) -> Tuple[pd.Series, np.ndarray]:
+    nbrs: np.ndarray | tuple | NearestNeighbors, n_neighbors: int | None = None
+) -> tuple[pd.Series, np.ndarray]:
     """Get k-occurrences data for a dataset. Returns a pandas Series with the
     statistics and a numpy array with the actual data."""
     if n_neighbors is None:
@@ -353,8 +352,8 @@ def ko_data(
 
 
 def so_data(
-    nbrs: np.ndarray | Tuple | NearestNeighbors, n_neighbors: int | None = None
-) -> Tuple[pd.Series, np.ndarray]:
+    nbrs: np.ndarray | tuple | NearestNeighbors, n_neighbors: int | None = None
+) -> tuple[pd.Series, np.ndarray]:
     """Get s-occurrences data for a dataset. Returns a pandas Series with the
     statistics and a numpy array with the actual data."""
     if n_neighbors is None:
@@ -400,12 +399,12 @@ def read_nbr_stats(name: str, n_neighbors: int, metric: str = "euclidean") -> di
 def format_df(
     df: pd.DataFrame,
     nbr_stats: dict,
-    drop_cols: List[str] | None = None,
-    rename_cols: List[str] | None = None,
-    n_neighbors_norm_cols: List[str] | None = None,
-    n_items_pct_cols: List[str] | None = None,
-    int_cols: List[str] | None = None,
-    float_cols: List[str] | None = None,
+    drop_cols: list[str] | None = None,
+    rename_cols: list[str] | None = None,
+    n_neighbors_norm_cols: list[str] | None = None,
+    n_items_pct_cols: list[str] | None = None,
+    int_cols: list[str] | None = None,
+    float_cols: list[str] | None = None,
 ) -> pd.DataFrame:
     """Format and normalized a DataFrame containing neighbor statistics
 
@@ -509,7 +508,7 @@ def fetch_nbr_stats(
 
 def nbr_stats_summary(
     n_neighbors: int,
-    names: List[str] | str | None = None,
+    names: list[str] | str | None = None,
     metric: str = "euclidean",
     transform: Literal["local", "random"] | None = None,
     cache: bool = True,
@@ -528,7 +527,7 @@ def nbr_stats_summary(
 
         - None: analyzes all available datasets
         - str: analyzes a single dataset
-        - List[str]: analyzes multiple specified datasets
+        - list[str]: analyzes multiple specified datasets
 
         metric: Distance metric to use (default: "euclidean").
         cache: Whether to use/update cached statistics (default: True).
@@ -553,7 +552,7 @@ def nbr_stats_summary(
     """
     if names is None:
         names = list_available_datasets()
-    if not islisty(names):
+    if not isinstance(names, (list, tuple)):
         names = [names]
 
     summaries = []

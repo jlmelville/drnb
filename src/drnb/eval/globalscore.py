@@ -4,13 +4,12 @@ import numpy as np
 from sklearn.decomposition import PCA
 
 from drnb.embed.context import EmbedContext
-from drnb.util import Jsonizable
 
 from .base import EmbeddingEval, EvalResult
 
 
 @dataclass
-class GlobalScore(EmbeddingEval, Jsonizable):
+class GlobalScore(EmbeddingEval):
     """Compute the global structure preservation score of an embedding.
 
     The global structure preservation score compares the global structure

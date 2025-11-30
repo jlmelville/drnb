@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -8,7 +7,6 @@ import pandas as pd
 from drnb.io import (
     FileExporter,
     get_drnb_home,
-    islisty,
     log,
     read_data,
     read_json,
@@ -16,8 +14,6 @@ from drnb.io import (
 )
 from drnb.types import ActionConfig, DataSet
 from drnb.util import (
-    READABLE_DATETIME_FMT,
-    dts_to_str,
     get_method_and_args,
 )
 
@@ -28,7 +24,7 @@ def read_target(
     sub_dir: str = "data",
     verbose: bool = False,
     target_suffix: str = "target",
-    data: np.ndarray | pd.DataFrame = None,
+    data: np.ndarray | pd.DataFrame | None = None,
     data_suffix: str = "",
 ) -> pd.DataFrame:
     """Read the target data for the given dataset with the specified `target_suffix`.
@@ -92,21 +88,34 @@ def read_palette(
     suffix: str = "target-palette",
     verbose: bool = False,
 ) -> dict:
-    """Read the palette for the given dataset."""
-    return read_pickle(
-        dataset,
-        suffix=suffix,
-        drnb_home=drnb_home,
-        sub_dir=sub_dir,
-        verbose=verbose,
-    )
+    """Read the palette for the given dataset.
+
+    Attempt JSON first for forward compatibility; fall back to pickle if the JSON file
+    is not present so legacy palettes continue to load.
+    """
+    try:
+        return read_json(
+            dataset,
+            suffix=suffix,
+            drnb_home=drnb_home,
+            sub_dir=sub_dir,
+            verbose=verbose,
+        )
+    except FileNotFoundError:
+        return read_pickle(
+            dataset,
+            suffix=suffix,
+            drnb_home=drnb_home,
+            sub_dir=sub_dir,
+            verbose=verbose,
+        )
 
 
 @dataclass
 class DatasetReader:
     """Class to read datasets from the data repository."""
 
-    drnb_home: Path | None = None
+    drnb_home: Path = get_drnb_home()
     sub_dir: str = "data"
     data_suffix: str = "data"
     target_suffix: str = "target"
@@ -118,12 +127,9 @@ class DatasetReader:
 
     def read_data(self, name: str) -> DataSet:
         """Read the data and target for the given dataset name."""
-        drnb_home = self.drnb_home
-        if drnb_home is None:
-            drnb_home = get_drnb_home()
         data, target = read_dataset(
             name,
-            drnb_home=drnb_home,
+            drnb_home=self.drnb_home,
             sub_dir=self.sub_dir,
             data_suffix=self.data_suffix,
             target_suffix=self.target_suffix,
@@ -149,14 +155,14 @@ def create_dataset_exporter(export_config: ActionConfig) -> FileExporter:
 
 
 def create_dataset_exporters(
-    export_configs: List[ActionConfig] | ActionConfig | None,
-) -> List[FileExporter]:
+    export_configs: list[ActionConfig] | ActionConfig | None,
+) -> list[FileExporter]:
     """Create a list of dataset exporters from the given configuration. The
     configuration is either a list of export configurations, a single export
     configuration, or None. If None, an empty list is returned."""
     if export_configs is None:
         return []
-    if not islisty(export_configs):
+    if not isinstance(export_configs, (list, tuple)):
         export_configs = [export_configs]
     return [create_dataset_exporter(export_config) for export_config in export_configs]
 
@@ -182,7 +188,7 @@ def filter_bad_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_dataset_info(
-    names: str | List[str],
+    names: str | list[str],
     drnb_home: Path | str | None = None,
     sub_dir: str | None = "data",
 ) -> pd.DataFrame:
@@ -203,7 +209,7 @@ def get_dataset_info(
     - updated_on: the last update date of the dataset
     - url: the URL of the dataset
     """
-    if not islisty(names):
+    if not isinstance(names, (list, tuple)):
         return _get_dataset_info(names, drnb_home=drnb_home, sub_dir=sub_dir)
 
     df = pd.concat(

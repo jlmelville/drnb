@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Tuple, cast
+from typing import Any, cast
 
 import numpy as np
 import pynndescent
@@ -8,10 +8,10 @@ from scipy.sparse import coo_matrix
 
 import drnb.embed
 import drnb.embed.base
-import drnb.neighbors as nbrs
+import drnb.neighbors.compute as nbrs
 from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.log import log
-from drnb.neighbors import n_connected_components
+from drnb.neighbors.compute import n_connected_components
 from drnb.types import EmbedResult
 from drnb.util import get_method_and_args
 from drnb.yinit import (
@@ -34,7 +34,7 @@ class DummyNNDescent(pynndescent.NNDescent):
 
 def umap_knn(
     idx: np.ndarray, dist: np.ndarray
-) -> Tuple[np.ndarray, np.ndarray, pynndescent.NNDescent]:
+) -> tuple[np.ndarray, np.ndarray, pynndescent.NNDescent]:
     """Construct a tuple of nearest neighbors for UMAP."""
     # we aren't going to transform new data so we don't need the search index
     # to actually work
@@ -48,7 +48,7 @@ def umap_knn(
 
 def umap_spectral_init(
     x: np.ndarray,
-    knn: Tuple[np.ndarray, np.ndarray] | nbrs.NearestNeighbors | None = None,
+    knn: tuple[np.ndarray, np.ndarray] | nbrs.NearestNeighbors | None = None,
     metric: str = "euclidean",
     n_neighbors: int = 15,
     random_state: int = 42,
@@ -77,7 +77,8 @@ def umap_spectral_init(
 
 
 def umap_graph(
-    knn: Tuple[np.ndarray, np.ndarray] | nbrs.NearestNeighbors, x: np.ndarray = None
+    knn: tuple[np.ndarray, np.ndarray] | nbrs.NearestNeighbors,
+    x: np.ndarray | None = None,
 ) -> coo_matrix:
     """Construct the fuzzy simplicial set (symmetric affinity matrix) from a k-nearest
     neighbors graph."""
@@ -142,7 +143,7 @@ class Umap(drnb.embed.base.Embedder):
             params["init"] = self.precomputed_init
         elif self.drnb_init is not None:
             drnb_init, init_params = get_method_and_args(self.drnb_init, {})
-            init_params = cast(Dict[str, Any], init_params)
+            init_params = cast(dict[str, Any], init_params)
             if drnb_init == "spca":
                 params["init"] = spca(x)
             elif drnb_init == "global_spectral":

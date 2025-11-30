@@ -1,22 +1,20 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
 
 import numpy as np
 
 from drnb.embed.context import EmbedContext
 from drnb.eval.base import EmbeddingEval, EvalResult
-from drnb.neighbors import read_neighbors
 from drnb.neighbors.hubness import nn_to_sparse
 from drnb.neighbors.nbrinfo import NearestNeighbors
-from drnb.util import islisty
+from drnb.neighbors.store import read_neighbors
 
 from .nbrpres import get_xy_nbr_idxs
 
 
 def unn_accv(
-    approx_indices: np.ndarray | Tuple | NearestNeighbors,
-    true_indices: np.ndarray | Tuple | NearestNeighbors,
+    approx_indices: np.ndarray | tuple | NearestNeighbors,
+    true_indices: np.ndarray | tuple | NearestNeighbors,
 ) -> np.ndarray:
     """Calculate the undirected nearest neighbor accuracy for each point in the dataset.
     The accuracy is the Jaccard similarity between the sets of neighbors of the point in
@@ -42,8 +40,8 @@ def unn_accv(
 
 
 def unn_acc(
-    approx_indices: np.ndarray | Tuple | NearestNeighbors,
-    true_indices: np.ndarray | Tuple | NearestNeighbors,
+    approx_indices: np.ndarray | tuple | NearestNeighbors,
+    true_indices: np.ndarray | tuple | NearestNeighbors,
 ) -> float:
     """Calculate the mean undirected nearest neighbor accuracy for the dataset. The
     accuracy is the mean Jaccard similarity between the sets of neighbors of each point
@@ -55,7 +53,7 @@ def unn_acc(
 def unbr_pres(
     X: np.ndarray,
     Y: np.ndarray,
-    n_nbrs: int | List[int] = 15,
+    n_nbrs: int | list[int] = 15,
     x_nbrs: NearestNeighbors | None = None,
     y_nbrs: NearestNeighbors | None = None,
     include_self: bool = False,
@@ -69,7 +67,7 @@ def unbr_pres(
     name: str | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str = "nn",
-) -> List[float]:
+) -> list[float]:
     """Calculate the undirected nearest neighbor preservation for the dataset: the mean
     overlap of the symmetrized nearest neighbors of X and those of Y. The number of
     neighbors to consider can be a single integer or a list of integers. The accuracy
@@ -127,7 +125,7 @@ def unbr_pres(
 def unbr_presv(
     X: np.ndarray,
     Y: np.ndarray,
-    n_nbrs: int | List[int] = 15,
+    n_nbrs: int | list[int] = 15,
     x_nbrs: NearestNeighbors | None = None,
     y_nbrs: NearestNeighbors | None = None,
     x_method: str = "exact",
@@ -141,7 +139,7 @@ def unbr_presv(
     name: str | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str = "nn",
-) -> List[np.ndarray]:
+) -> list[np.ndarray]:
     """Calculate the per-item undirected nearest neighbor preservation for the dataset:
     the overlap of the symmetrized nearest neighbors of X and those of Y. The number of
     neighbors to consider can be a single integer or a list of integers. The accuracy
@@ -197,22 +195,22 @@ class UndirectedNbrPreservationEval(EmbeddingEval):
     of the symmetrized nearest neighbors of the original and embedded points.
 
     Attributes:
-    use_precomputed_neighbors: bool - use precomputed neighbors if available
+    use_precomputed_knn: bool - use precomputed neighbors if available
     metric: str - distance metric to use (default: "euclidean")
     n_neighbors: int | List[int] - number of neighbors to consider (default: 15)
     include_self: bool - include the item itself in the neighbors (default: False)
     verbose: bool - print progress information (default: False)
     """
 
-    use_precomputed_neighbors: bool = True
+    use_precomputed_knn: bool = True
     # this translates to the x-metric in the nbr_pres
     metric: str = "euclidean"
-    n_neighbors: int = 15  # can also be a list
+    n_neighbors: int | list[int] = 15  # can also be a list
     include_self: bool = False
     verbose: bool = False
 
     def _listify_n_neighbors(self):
-        if not islisty(self.n_neighbors):
+        if not isinstance(self.n_neighbors, (list, tuple)):
             self.n_neighbors = [self.n_neighbors]
 
     def requires(self):
@@ -225,7 +223,7 @@ class UndirectedNbrPreservationEval(EmbeddingEval):
 
     def _evaluate_setup(
         self, ctx: EmbedContext | None = None
-    ) -> Tuple[NearestNeighbors | None, NearestNeighbors | None, dict]:
+    ) -> tuple[NearestNeighbors | None, NearestNeighbors | None, dict]:
         self._listify_n_neighbors()
 
         if ctx is not None:
@@ -239,7 +237,7 @@ class UndirectedNbrPreservationEval(EmbeddingEval):
 
         x_nbrs = None
         y_nbrs = None
-        if self.use_precomputed_neighbors and ctx is not None:
+        if self.use_precomputed_knn and ctx is not None:
             n_nbrs = int(np.max(self.n_neighbors))
             if not self.include_self:
                 n_nbrs += 1
@@ -266,7 +264,7 @@ class UndirectedNbrPreservationEval(EmbeddingEval):
 
     def evaluatev(
         self, X: np.ndarray, coords: np.ndarray, ctx: EmbedContext | None = None
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Evaluate the per-item nearest neighbor preservation. Return a list of arrays
         of accuracies, one per value of n_neighbors in the evaluation."""
         x_nbrs, y_nbrs, nnp_kwargs = self._evaluate_setup(ctx)

@@ -24,7 +24,7 @@ from drnb.yinit import scale_coords, umap_random_init
 def mmds_init(
     init: np.ndarray | Literal["pca", "pcaw", "rand"],
     nobs: int,
-    X: np.ndarray = None,
+    X: np.ndarray | None = None,
     init_scale: float | None = None,
     random_state: int = 42,
 ) -> NDArray[np.float32]:

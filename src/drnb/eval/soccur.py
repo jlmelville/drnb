@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
 
 import numpy as np
 import scipy
@@ -8,15 +7,15 @@ import scipy
 from drnb.embed.context import EmbedContext
 from drnb.eval.base import EmbeddingEval, EvalResult
 from drnb.eval.nbrpres import get_xy_nbr_idxs
-from drnb.neighbors import NearestNeighbors, read_neighbors
 from drnb.neighbors.hubness import s_occurrences
-from drnb.util import islisty
+from drnb.neighbors.nbrinfo import NearestNeighbors
+from drnb.neighbors.store import read_neighbors
 
 
 def soccur(
     X: np.ndarray,
     Y: np.ndarray,
-    n_nbrs: int | List[int] = 15,
+    n_nbrs: int | list[int] = 15,
     x_nbrs: NearestNeighbors | None = None,
     y_nbrs: NearestNeighbors | None = None,
     include_self: bool = False,
@@ -30,7 +29,7 @@ def soccur(
     name: str | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str = "nn",
-) -> List[float]:
+) -> list[float]:
     """Calculate the correlation of the s-occurrences of each point in the
     nearest neighbors of X and Y for each value of n_nbrs.
     The s-occurrence of a point is the number of mutual nearest neighbors."""
@@ -77,21 +76,21 @@ class SOccurrenceEval(EmbeddingEval):
     original and new embeddings.
 
     Attributes:
-        use_precomputed_neighbors: Whether to use precomputed neighbors.
+        use_precomputed_knn: Whether to use precomputed neighbors.
         metric: Distance metric.
         n_neighbors: Number of neighbors to use for the evaluation. Can also be a list.
         include_self: Whether to include the point itself in the neighbors.
         verbose: Whether to print verbose output.
     """
 
-    use_precomputed_neighbors: bool = True
+    use_precomputed_knn: bool = True
     metric: str = "euclidean"
-    n_neighbors: int = 15  # can also be a list
+    n_neighbors: int | list[int] = 15  # can also be a list
     include_self: bool = False
     verbose: bool = False
 
     def _listify_n_neighbors(self):
-        if not islisty(self.n_neighbors):
+        if not isinstance(self.n_neighbors, (list, tuple)):
             self.n_neighbors = [self.n_neighbors]
 
     def requires(self):
@@ -104,7 +103,7 @@ class SOccurrenceEval(EmbeddingEval):
 
     def _evaluate_setup(
         self, ctx: EmbedContext | None = None
-    ) -> Tuple[NearestNeighbors | None, NearestNeighbors | None, dict]:
+    ) -> tuple[NearestNeighbors | None, NearestNeighbors | None, dict]:
         self._listify_n_neighbors()
 
         if ctx is not None:
@@ -118,7 +117,7 @@ class SOccurrenceEval(EmbeddingEval):
 
         x_nbrs = None
         y_nbrs = None
-        if self.use_precomputed_neighbors and ctx is not None:
+        if self.use_precomputed_knn and ctx is not None:
             n_nbrs = int(np.max(self.n_neighbors))
             if not self.include_self:
                 n_nbrs += 1

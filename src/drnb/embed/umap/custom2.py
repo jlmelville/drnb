@@ -1,6 +1,6 @@
 import abc
 from dataclasses import dataclass
-from typing import Any, List, NamedTuple, Tuple
+from typing import Any, NamedTuple
 
 import numba
 import numpy as np
@@ -34,9 +34,9 @@ def simplicial_set_embedding(
     grad_args,
     parallel: bool = False,
     verbose: bool = False,
-    tqdm_kwds: dict = None,
+    tqdm_kwds: dict | None = None,
     anneal_lr: bool = True,
-) -> Tuple[np.ndarray, dict]:
+) -> tuple[np.ndarray, dict]:
     """Embed data using a custom gradient function."""
     graph = graph.tocoo()
     graph.sum_duplicates()
@@ -123,7 +123,7 @@ def optimize_layout_euclidean(
     custom_grad_coeff_attr,
     custom_grad_coeff_rep,
     grad_args,
-) -> np.ndarray | List[np.ndarray]:
+) -> np.ndarray | list[np.ndarray]:
     """Optimize the low dimensional embedding using a stochastic gradient descent
     method and the custom gradient functions."""
 
@@ -372,7 +372,7 @@ class Umap2(drnb.embed.umap.Umap):
     """
 
     use_precomputed_knn: bool = True
-    drnb_init: str = None
+    drnb_init: str | None = None
 
     def embed_impl(
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None

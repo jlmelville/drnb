@@ -14,34 +14,53 @@ various datasets and that might be of interest to others.
 
 ## Installing
 
+*November 29 2025* The Plugin Update
+
+The problem that has bedeviled this repo has been too many dependencies. I have taken the nuclear
+option and created a "plugin" architecture: instead of one project, there is now one "core"
+project that does most of the work, and then several separate projects, one for each embedding
+method and nearest neighbor package. Communication between the core and the plugins is just by IPC,
+i.e. shelling out and running a python script in each plugin folder. There are also plugin SDKs
+to provide useful helper functions for reading and writing the request and responses.
+
+The main outcome is that installing is now a bit more involved because you must recursively install
+several packages in this repo.
+
 ### Setup
 
-*January 11 2025* Now using Python 3.12 and [uv](https://docs.astral.sh/uv/). Trying to use too
-many dependencies makes things way too brittle, so fewer embedding methods are supported.
+You will need [uv](https://docs.astral.sh/uv/) and [pyenv](https://github.com/pyenv/pyenv) to
+handle installation.
 
-Long term, trying to keep multiple Numba-using projects together just won't work if they are not
-being updated. We end up locked to older versions of numba, which means older versions of llvmlite,
-which means older versions of llvm and python. For now, we limp along with the following
-requirements:
+Run the script:
 
-1. Make sure LLVM version 14 is installed: `sudo apt-get install llvm-14`
-2. `export LLVM_CONFIG=/usr/bin/llvm-config-14`
-3. You must use python 3.12.
+```bash
+./scripts/install.sh
+```
 
-I will be deprecating packages that are giving trouble. Probably PaCMAP, UMAP and openTSNE will
-stick around. openTSNE doesn't rely on numba so doesn't cause trouble.
+to install everything. This will go through all the different projects and install them into
+virtual environments. Most packages should install ok but some are troublesome, so it shouldn't be
+a failure if some packages fail to install. Some may require different versions of python from the
+drnb core, which is where pyenv comes in.
+
+If you need to make changes to one of the plugins (e.g. adjusting the version of `pytorch`), then
+I recommend running `./scripts/install.sh -a` to reinstall all packages to avoid problems with not
+adjusting the version string.
+
+After installing, you can just usually work with the core of drnb (and the notebooks) with:
 
 ```bash
 uv venv
 source .venv/bin/activate
-uv pip install -e .
+uv sync
 # or if you want:
-# uv pip install -e .['dev']
+# uv sync --dev
 ```
 
 The `dev` extra identifier just installs some linting tools for use when developing `drnb` . If you
 are using VSCode then the `.vscode/settings.json` sets those tools up. I am trying to see how far
 I can get with just [ruff](https://docs.astral.sh/ruff/).
+
+See the `docs` folder for more details on the different plugins and the SDK they follow.
 
 ### Optional packages
 
@@ -52,6 +71,10 @@ With a recent CUDA update to
 and a Pascal-era card (GTX 1080). Unfortunately, generating nearest neighbors is a lot slower
 without it.
 
+#### ncvis
+
+Currently does not work on ARM Macs. It shouldn't be a failure to fail to install this.
+
 ## Data setup
 
 Before running anything, set a home directory for drnb, `DRNB_HOME` . Datasets will be imported to,
@@ -61,21 +84,26 @@ and embedding results exported to, folders underneath this directory, e.g.:
 export DRNB_HOME=~/dev/drnbhome
 ```
 
-## Importing data
+## Documentation
+
+### Importing data
 
 See the notebooks in `notebooks/data-pipeline` for how to get data processed and into a place where
 `drnb` can use it. Apart from cleaning and saving the numerical features to be processed, metadata
 used for labeling and coloring plots is specified, and nearest neighbor and triplet data is
 pre-calculated.
 
-## Embedding
+### Embedding
 
-See the notebooks in `notebooks/embed-pipeline`.
+See the notebooks in `notebooks/embed-pipeline` for example output from most of the embedding
+methods supported. `notebooks/experiments.ipynb` demonstrates how to compare multiple methods
+against different datasets. `notebooks/plot-options.ipynb` provides information on controlling plot
+output and extra diagnostic plots.
 
 ### Using plotly
 
-For the plotly charts, install the `jupyterlab-plotly` extension, which also requires node to
-be installed:
+For the plotly charts, you may need to install the `jupyterlab-plotly` extension, which also
+requires node to be installed:
 
 ```bash
 jupyter labextension install jupyterlab-plotly
@@ -84,3 +112,6 @@ jupyter labextension install jupyterlab-plotly
 If not installed, plotly charts will display as long as you set
 `clickable=False, renderer="iframe"`. You miss out on being able to create custom click and hover
 handlers.
+
+That said, as of 2025 I use the VSCode support for notebook rendering and it didn't need special
+treatment beyond installing the dependencies in the `pyproject.toml`.

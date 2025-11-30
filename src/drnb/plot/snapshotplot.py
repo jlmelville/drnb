@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,7 +24,7 @@ class EmbeddingSnapshotPlot:
         alpha_scale: The alpha value for the points in the scatterplots.
     """
 
-    figsize: Tuple[float, float] = (8, 6)
+    figsize: tuple[float, float] = (8, 6)
     n_cols: int = 1
     align: bool = True
     cex: int = 1
@@ -115,7 +114,7 @@ class EmbeddingSnapshotPlot:
 def plot_embedding_snapshots(
     embedding_result: EmbedResult,
     *,
-    figsize: Tuple[float, float] = (8, 6),
+    figsize: tuple[float, float] = (8, 6),
     n_cols: int = 1,
     align: bool = True,
     cex: int | None = None,

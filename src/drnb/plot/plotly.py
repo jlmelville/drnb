@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import Any, Callable, List, Self, Tuple
+from typing import Any, Callable, Self
 
 import numpy as np
 import pandas as pd
@@ -13,13 +13,32 @@ from matplotlib.axes import Axes
 from drnb.embed import get_coords
 from drnb.embed.context import (
     EmbedContext,
-    get_neighbors_with_ctx,
     read_dataset_from_ctx,
+    read_neighbors_with_ctx,
 )
 from drnb.io.dataset import read_palette
+from drnb.log import log
 from drnb.neighbors.nbrinfo import NearestNeighbors
 from drnb.plot.palette import palettize
 from drnb.types import EmbedResult
+
+
+def _to_plotly_colorscale(
+    color_scale: list[str] | str | None,
+) -> list[str] | str | None:
+    """Convert common color scale types into a Plotly-friendly format."""
+    if color_scale is None:
+        return None
+    try:
+        import matplotlib.colors as mcolors
+
+        if isinstance(color_scale, mcolors.Colormap):
+            # downsample the colormap to a small set of hex colors
+            return [mcolors.to_hex(c) for c in color_scale(np.linspace(0, 1, 10))]
+    except Exception:  # pragma: no cover - matplotlib might not be installed
+        return color_scale
+
+    return color_scale
 
 
 # pylint: disable=too-many-statements
@@ -29,8 +48,11 @@ def plotly_embed_plot(
     cex: float = 10.0,
     alpha_scale: float = 1.0,
     palette: dict | str | None = None,
+    color_continuous_scale: list[str] | str | None = None,
+    range_color: tuple[float, float] | None = None,
+    show_colorbar: bool | None = None,
     title: str = "",
-    figsize: Tuple[float, float] | None = None,
+    figsize: tuple[float, float] | None = None,
     legend: bool = True,
     pc_axes: bool = False,
     flipx: bool = False,
@@ -47,6 +69,9 @@ def plotly_embed_plot(
         cex: The size of the points in the plot.
         alpha_scale: The alpha scale of the points in the plot.
         palette: The palette to use for the plot.
+        color_continuous_scale: Continuous colorscale for numeric color columns.
+        range_color: Value range to map to the color scale.
+        show_colorbar: Whether to show the color bar (defaults to legend flag if None).
         title: The title of the plot.
         figsize: The size of the figure.
         legend: Whether to show the legend.
@@ -84,12 +109,31 @@ def plotly_embed_plot(
         # series -> numpy array
         color_col = color_col.values
 
-    palette = palettize(color_col, palette)
-    if palette is not None:
-        if isinstance(palette, dict):
-            scatter_kwargs["color_discrete_map"] = palette
-        else:
-            scatter_kwargs["color_discrete_sequence"] = palette
+    color_array = np.asarray(color_col)
+    try:
+        color_is_categorical = pd.api.types.is_categorical_dtype(color_col)
+    except TypeError:
+        color_is_categorical = False
+    color_is_numeric = np.issubdtype(color_array.dtype, np.number) and not (
+        color_is_categorical
+    )
+
+    if color_is_numeric:
+        color_scale = color_continuous_scale
+        if color_scale is None:
+            color_scale = palette
+        color_scale = _to_plotly_colorscale(color_scale)
+        if color_scale is not None:
+            scatter_kwargs["color_continuous_scale"] = color_scale
+        if range_color is not None:
+            scatter_kwargs["range_color"] = range_color
+    else:
+        palette = palettize(color_col, palette)
+        if palette is not None:
+            if isinstance(palette, dict):
+                scatter_kwargs["color_discrete_map"] = palette
+            else:
+                scatter_kwargs["color_discrete_sequence"] = palette
 
     if pc_axes:
         coords = sklearn.decomposition.PCA(n_components=2).fit_transform(coords)
@@ -107,7 +151,7 @@ def plotly_embed_plot(
         scatter_kwargs["labels"] = {"color": color_col_name}
 
     # use any category ordering rather than data ordering for the legend/colors
-    if pd.api.types.is_categorical_dtype(color_col):
+    if color_is_categorical:
         if isinstance(color_col, pd.Categorical):
             cats = color_col.categories
         else:
@@ -116,6 +160,9 @@ def plotly_embed_plot(
 
     if title is None:
         title = ""
+
+    if show_colorbar is None:
+        show_colorbar = legend
 
     # I was unable to find a way to get plotly to take an arbitrary vector of hover_data
     # so we must bind everything into a dataframe
@@ -142,6 +189,8 @@ def plotly_embed_plot(
             axis=1,
         )
         scatter_kwargs["hover_data"] = hover_data
+    # always carry the original index as custom data for click handling
+    scatter_kwargs["custom_data"] = ["idx"]
 
     # pylint:disable=no-member
     plot = (
@@ -158,7 +207,7 @@ def plotly_embed_plot(
         .update_traces(marker={"size": cex, "opacity": alpha_scale})
         .update_layout(
             showlegend=legend,
-            coloraxis_showscale=legend,
+            coloraxis_showscale=show_colorbar,
             plot_bgcolor="rgba(0, 0, 0, 0)",
             # praise be Anton Björk for this partial workaround to marker size in the
             # legend being tied to the scatterplot marker size
@@ -238,7 +287,7 @@ class PlotlyPlotter:
     cex: float | None = None
     alpha_scale: float | None = None
     title: str | None = None
-    figsize: Tuple[float, float] = None
+    figsize: tuple[float, float] | None = None
     legend: bool = True
     palette: dict | str | None = None
     color_by: Any | None = None
@@ -247,7 +296,7 @@ class PlotlyPlotter:
     pc_axes: bool = False
     flipx: bool = False
     flipy: bool = False
-    hover: List[str] | None = None
+    hover: list[str] | None = None
     show_axes: bool = False
     equal_axes: bool = False
     renderer: str = "jupyterlab"
@@ -282,6 +331,9 @@ class PlotlyPlotter:
 
         title = self.title
         palette = self.palette
+        color_continuous_scale = None
+        range_color = None
+        show_colorbar = None
         if palette is None:
             palette = self.get_palette(ctx)
         # Setting the palette to "False" means to force the palette off so you get
@@ -304,11 +356,19 @@ class PlotlyPlotter:
                 yname_break = 5
             yname = yname[:yname_break]
 
-            y = pd.Series(y, name=yname)
             if hasattr(self.color_by, "scale") and self.color_by.scale is not None:
-                palette = self.color_by.scale.palette
+                scale = self.color_by.scale
+                vmin, vmax, scale_palette = scale.resolve(
+                    np.asarray(y), self.vmin, self.vmax, palette
+                )
+                range_color = (vmin, vmax)
+                color_continuous_scale = scale_palette
+                palette = scale_palette
+                show_colorbar = True
                 if title is None:
                     title = self.color_by
+
+            y = pd.Series(y, name=yname)
 
         # did a log-log plot of N vs the average 15-NN distance in the embedded space
         # multiplying the 15-NN distance by 100 gave a good-enough value for the
@@ -354,6 +414,9 @@ class PlotlyPlotter:
             hover=hover,
             show_axes=self.show_axes,
             equal_axes=self.equal_axes,
+            color_continuous_scale=color_continuous_scale,
+            range_color=range_color,
+            show_colorbar=show_colorbar,
         )
 
         if self.clickable:
@@ -365,21 +428,30 @@ class PlotlyPlotter:
             fig.show(renderer=self.renderer)
 
     def make_clickable(
-        self, fig: go.Figure, ctx: EmbedContext | None
+        self,
+        fig: go.Figure,
+        ctx: EmbedContext | None,
     ) -> go.FigureWidget | go.Figure:
         """Make the PlotlyPlotter object clickable."""
         if ctx is None:
             return fig
-        knn = get_neighbors_with_ctx(
-            data=None,
+        knn = read_neighbors_with_ctx(
             metric=self.clickable_metric,
             n_neighbors=self.clickable_n_neighbors + 1,
-            return_distance=False,
             ctx=ctx,
+            return_distance=False,
         )
-        knn = knn.idx[:, 1:]
+        if knn is None:
+            log.warning(
+                "Clickable Plotly plot requested %d %s neighbors but none were found; "
+                "falling back to a static figure",
+                self.clickable_n_neighbors,
+                self.clickable_metric,
+            )
+            return fig
+        neighbor_idx = knn.idx[:, 1:]
 
-        return clickable_neighbors(fig, knn)
+        return clickable_neighbors(fig, neighbor_idx)
 
     def get_palette(self, ctx: EmbedContext | None) -> dict | None:
         """Get the palette for the PlotlyPlotter object, if it exists."""
@@ -423,9 +495,6 @@ def clickable_neighbors(plot: go.Figure, nn: NearestNeighbors) -> go.FigureWidge
     # keep track of if a point has been clicked so we know whether to set or unset the
     # formatting
     clicked = [None] * len(f.data)
-
-    # the size and symbols in the marker are scalars, but we are going to selectively
-    # change some. This requires storing the full array of each property
     sizes = [None] * len(f.data)
     symbols = [None] * len(f.data)
 
@@ -435,15 +504,34 @@ def clickable_neighbors(plot: go.Figure, nn: NearestNeighbors) -> go.FigureWidge
     for i, datum in enumerate(f.data):
         datum.marker.size = [datum.marker.size] * len(datum.x)
         clicked[i] = [False] * len(datum.x)
-        sizes[i] = list(datum.marker.size)
+        sizes[i] = [normal_size] * len(datum.x)
         symbols[i] = [unselected_symbol] * len(datum.x)
         # assumes that the first element of each point's custom data is its index in
         # the original data
         for j, idx in enumerate(datum.customdata):
             plot_idx[idx[0]] = (i, j)
 
+    selected_point: tuple[int, int] | None = None
+
+    # For some reason, when using the FigureWidget, a default outline_width is applied
+    # which is not present with `fig.show`, so force it to 0.0 here
+    for datum in f.data:
+        datum.marker.line.width = 0.0
+
+    def reset_styles():
+        for i, datum in enumerate(f.data):
+            n_points = len(datum.x)
+            sizes[i] = [normal_size] * n_points
+            symbols[i] = [unselected_symbol] * n_points
+            clicked[i] = [False] * n_points
+        with f.batch_update():
+            for i, datum in enumerate(f.data):
+                datum.marker.size = sizes[i]
+                datum.marker.symbol = symbols[i]
+
     # pylint:disable=unused-argument
     def highlight_nbrs(selector, points, trace):
+        nonlocal selected_point
         if not points.point_inds:
             return
 
@@ -454,15 +542,20 @@ def clickable_neighbors(plot: go.Figure, nn: NearestNeighbors) -> go.FigureWidge
         old_idx = f.data[trace_index].customdata[idx][0]
         idx_nbrs = nn[old_idx]
 
-        if clicked[trace_index][idx]:
-            new_size = normal_size
-            new_symbol = unselected_symbol
-            click_size = normal_size
-        else:
-            new_size = nbr_size
-            new_symbol = selected_symbol
-            click_size = selected_size
-        clicked[trace_index][idx] = not clicked[trace_index][idx]
+        # toggle off if the same point is clicked again
+        if selected_point == (trace_index, idx):
+            reset_styles()
+            selected_point = None
+            return
+
+        # reset any prior selection before applying a new one
+        reset_styles()
+        selected_point = (trace_index, idx)
+
+        new_size = nbr_size
+        new_symbol = selected_symbol
+        click_size = selected_size
+        clicked[trace_index][idx] = True
         symbols[trace_index][idx] = new_symbol
         sizes[trace_index][idx] = click_size
 
@@ -473,7 +566,7 @@ def clickable_neighbors(plot: go.Figure, nn: NearestNeighbors) -> go.FigureWidge
         with f.batch_update():
             for i, datum in enumerate(f.data):
                 datum.marker.size = sizes[i]
-            f.data[trace_index].marker.symbol = symbols[trace_index]
+                datum.marker.symbol = symbols[i]
 
     for datum in f.data:
         datum.on_click(highlight_nbrs)

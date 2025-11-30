@@ -5,9 +5,9 @@ import gzip
 import json
 import os
 import pickle
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Iterable, List, Literal, cast
+from typing import Any, Iterable, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -15,7 +15,6 @@ from numpy.typing import DTypeLike
 
 from drnb.log import log
 from drnb.preprocess import numpyfy
-from drnb.util import Jsonizable, islisty
 
 DRNB_HOME_ENV_VAR = "DRNB_HOME"
 DEBUG = False
@@ -45,7 +44,7 @@ def data_relative_path(path: Path) -> Path:
     return path
 
 
-def stringify_paths(paths: Iterable[Path]) -> List[str]:
+def stringify_paths(paths: Iterable[Path]) -> list[str]:
     """Convert a list of Path objects to a list of strings."""
     return [str(data_relative_path(path)) for path in paths]
 
@@ -86,7 +85,7 @@ def get_path(
 
 
 def ensure_suffix(
-    suffix: str | List[str] | None, default_suffix: str | List[str] | None = ""
+    suffix: str | list[str] | None, default_suffix: str | list[str] | None = ""
 ) -> str:
     """Ensure that the suffix is a string starting with a hyphen or period. If suffix is
     None, return default_suffix. If suffix is an empty string, return it. If suffix is a
@@ -99,7 +98,7 @@ def ensure_suffix(
         suffix = default_suffix
     if suffix == "":
         return suffix
-    if islisty(suffix):
+    if isinstance(suffix, (list, tuple)):
         return "".join(s if s[0] in (".", "-", "_") else f"-{s}" for s in suffix)
     if not suffix[0] in (".", "-", "_"):
         suffix = f"-{suffix}"
@@ -122,7 +121,7 @@ def ensure_file_extension(filename: Path | str, ext: str) -> str:
 def get_data_file_path(
     name: str,
     ext: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     create_sub_dir: bool = True,
@@ -143,7 +142,7 @@ def get_data_file_path(
 
 def read_data(
     dataset: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str = "data",
     as_numpy: bool | DTypeLike = False,
@@ -189,7 +188,7 @@ def read_data(
 
 def read_npy(
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     verbose: bool = False,
@@ -229,11 +228,11 @@ def get_pkl_ext(compression: Literal["gzip", "bz2", ""] | None = None) -> str:
 
 def read_pickle(
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     verbose: bool = False,
-    compression: Literal["gzip", "bz2", "any", ""] | List[str] = "any",
+    compression: Literal["gzip", "bz2", "any", ""] | list[str] = "any",
 ) -> pd.DataFrame | np.ndarray | dict:
     """Read a pickle file from the data repository and return the data. The compression
     type can be specified as "gzip", "bz2", "any", or an empty string. If "any" is
@@ -280,7 +279,7 @@ def read_pickle(
 
 def read_pandas_csv(
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     verbose: bool = False,
@@ -311,7 +310,7 @@ def read_pandas_csv(
 
 def read_json(
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     verbose: bool = False,
@@ -335,7 +334,7 @@ def read_json(
 
 def read_parquet(
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     verbose: bool = False,
@@ -360,7 +359,7 @@ def read_parquet(
 
 def read_feather(
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     verbose: bool = False,
@@ -386,7 +385,7 @@ def read_feather(
 def write_csv(
     x: pd.DataFrame | pd.Series | np.ndarray,
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     create_sub_dir: bool = True,
@@ -415,7 +414,7 @@ def write_csv(
 def write_npy(
     x: np.ndarray,
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     create_sub_dir: bool = True,
@@ -438,7 +437,7 @@ def write_npy(
 def write_pickle(
     x: pd.DataFrame | pd.Series | np.ndarray,
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     create_sub_dir: bool = True,
@@ -474,16 +473,16 @@ def write_pickle(
 
 
 def write_json(
-    x: dict | Jsonizable,
+    x: dict | Any,
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     create_sub_dir: bool = True,
     verbose: bool = False,
 ) -> Path:
     """Write data to a JSON file in the data repository. Success is not guaranteed
-    unless the object is a dictionary or implements the Jsonizable mixin class.
+    unless the object is a dictionary or a dataclass instance.
     The data is written to a file with the given name, suffix, and extension. The file
     is located in the subdirectory of the data repository specified by sub_dir. If the
     subdirectory does not exist, it is created if create_sub_dir is True, otherwise an
@@ -495,8 +494,8 @@ def write_json(
         log.info("Writing JSON format to %s", data_relative_path(output_path))
 
     with open(output_path, "w", encoding="utf-8") as f:
-        if hasattr(x, "to_json"):
-            f.write(x.to_json(indent=2))
+        if is_dataclass(x):
+            f.write(json.dumps(asdict(x), indent=2, ensure_ascii=False))
         else:
             # here goes nothing
             f.write(json.dumps(x, indent=2, ensure_ascii=False))
@@ -506,7 +505,7 @@ def write_json(
 def write_parquet(
     x: pd.DataFrame,
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     create_sub_dir: bool = True,
@@ -529,7 +528,7 @@ def write_parquet(
 def write_feather(
     x: pd.DataFrame,
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     create_sub_dir: bool = True,
@@ -552,7 +551,7 @@ def write_feather(
 def is_file_type(
     target_file_type: str,
     file_type: str | None = None,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
 ) -> bool:
     """Check if the file type matches the target file type or ends with the target file
     type. For example, if the target file type is "csv", compare to "csv" or ".csv"."""
@@ -564,13 +563,13 @@ def is_file_type(
 def write_data(
     x: pd.DataFrame | pd.Series | np.ndarray,
     name: str,
-    suffix: str | List[str] | None = None,
+    suffix: str | list[str] | None = None,
     drnb_home: Path | str | None = None,
     sub_dir: str | None = None,
     create_sub_dir: bool = True,
     verbose: bool = False,
-    file_type: str | List[str] = "csv",
-) -> List[Path]:
+    file_type: str | list[str] = "csv",
+) -> list[Path]:
     """Write data to one or more files in the data repository. The data can be a pandas
     DataFrame, a pandas Series, or a numpy array. The data is written to one or more
     files with the given name, suffix, and extension. The file is located in the
@@ -619,10 +618,10 @@ class FileExporter:
 
     drnb_home: Path | str | None = None
     sub_dir: str | None = None
-    suffix: str | List[str] | None = None
+    suffix: str | list[str] | None = None
     create_sub_dir: bool = True
     verbose: bool = False
-    file_type: str | List[str] = "csv"
+    file_type: str | list[str] = "csv"
 
     @classmethod
     def new(cls, **kwargs):
@@ -631,10 +630,10 @@ class FileExporter:
         Arguments:
         - drnb_home: Path | str | None = None. The root directory for the data repository.
         - sub_dir: str | None = None. The subdirectory within the data repository.
-        - suffix: str | List[str] | None = None. The suffix to add to the file name.
+        - suffix: str | list[str] | None = None. The suffix to add to the file name.
         - create_sub_dir: bool = True. Whether to create the subdirectory if it does not exist.
         - verbose: bool = False. Whether to print verbose output.
-        - file_type: str | List[str] = "csv". The type of file or files to export to.
+        - file_type: str | list[str] = "csv". The type of file or files to export to.
         """
         return cls(**kwargs)
 
@@ -642,10 +641,10 @@ class FileExporter:
         self,
         name: str,
         data: pd.DataFrame | pd.Series | np.ndarray,
-        suffix: str | List[str] | None = None,
+        suffix: str | list[str] | None = None,
         sub_dir: str | None = None,
         drnb_home: Path | str | None = None,
-    ) -> List[Path]:
+    ) -> list[Path]:
         """Export data to one or more files in the data repository. The data can be a
         pandas DataFrame, a pandas Series, or a numpy array. The data is written to one
         or more files with the given name, suffix, and extension. The file is located in
@@ -657,6 +656,7 @@ class FileExporter:
             suffix = self.suffix
         if sub_dir is None:
             sub_dir = self.sub_dir
+        log.info("Exporting data of type %s to %s", type(data).__name__, self.file_type)
         output_paths = write_data(
             data,
             name,

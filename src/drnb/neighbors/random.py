@@ -1,14 +1,14 @@
-from typing import Tuple, cast
+from typing import cast
 
 import numpy as np
 from numpy.typing import NDArray
 from sklearn.utils import check_random_state
 
-from . import NearestNeighbors
 from .distances import neighbor_distances
+from .nbrinfo import NearestNeighbors
 
 
-def sort_neighbors(idx: np.ndarray, dist: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+def sort_neighbors(idx: np.ndarray, dist: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Sort the neighbors by distance."""
     # sort each row by ascending distance
     dist_ind = dist.argsort()
@@ -26,7 +26,7 @@ def logn_neighbors(n_items: int | NDArray) -> int:
 
 def random_neighbors(
     data: np.ndarray,
-    n_neighbors: int = None,
+    n_neighbors: int | None = None,
     distance: str = "euclidean",
     random_state: int = 42,
 ) -> NearestNeighbors:
@@ -65,7 +65,7 @@ def mid_near_neighbors(
     neighbor, n_random random neighbors are generated and after ordering by distance,
     the mid_index-th neighbor is selected."""
     if mid_index > n_random - 1:
-        raise ValueError(f"mid_index must be in range [0, {n_random-1}]")
+        raise ValueError(f"mid_index must be in range [0, {n_random - 1}]")
     n = data.shape[0]
     mn_idx = np.empty((n, n_neighbors), dtype=int)
     mn_dist = np.empty((n, n_neighbors), dtype=float)

@@ -1,13 +1,11 @@
 import abc
 from dataclasses import dataclass, field
-from typing import List
 
 import numpy as np
 
 from drnb.embed import get_coords
 from drnb.embed.context import EmbedContext
 from drnb.log import log
-from drnb.util import islisty
 
 
 @dataclass
@@ -46,11 +44,11 @@ class EmbeddingEval(abc.ABC):
 
 
 def evaluate_embedding(
-    evaluators: List[EmbeddingEval],
+    evaluators: list[EmbeddingEval],
     X: np.ndarray,
     embedding: tuple | dict | np.ndarray,
     ctx: EmbedContext | None = None,
-) -> List[EvalResult]:
+) -> list[EvalResult]:
     """Evaluate an embedding using a list of EmbeddingEval evaluators. Return a list of
     EvalResult objects."""
 
@@ -60,7 +58,7 @@ def evaluate_embedding(
     for evaluator in evaluators:
         log.info(evaluator)
         eval_result = evaluator.evaluate(X, coords, ctx=ctx)
-        if islisty(eval_result):
+        if isinstance(eval_result, (list, tuple)):
             eval_results += eval_result
         else:
             eval_results.append(eval_result)

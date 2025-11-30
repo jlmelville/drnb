@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import List
 
 import numpy as np
 
@@ -93,7 +92,7 @@ class RandomTripletEval(EmbeddingEval):
 
     def evaluatev(
         self, X: np.ndarray, coords: np.ndarray, ctx: EmbedContext | None = None
-    ) -> List[np.ndarray]:
+    ) -> np.ndarray:
         """Evaluate the Random Triplet Evaluation (RTE) score for each point in the
         dataset. The RTE score is the fraction of triplets that are correctly ordered
         in the new embedding. A triplet is correctly ordered if the distance between

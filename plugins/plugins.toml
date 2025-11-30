@@ -1,0 +1,29 @@
+[plugins."trimap"]
+folder = "trimap"
+
+[plugins."pacmap"]
+folder = "pacmap"
+
+[plugins."localmap"]
+folder = "pacmap"
+
+[plugins."tsne"]
+folder = "tsne"
+
+[plugins."umato"]
+folder = "umato"
+
+[plugins."ncvis"]
+folder = "ncvis"
+runner = "uv run --color never --quiet --preview-features extra-build-dependencies drnb-plugin-run.py"
+
+[plugins."pymde"]
+folder = "pymde"
+
+
+[plugins."topometry"]
+folder = "topometry"
+
+
+[plugins."cne"]
+folder = "cne"

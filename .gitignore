@@ -4,7 +4,8 @@ __pycache__/
 build/
 dist/
 wheels/
-src/*.egg-info
+*.egg-info/
+
 
 .ipynb_checkpoints
 
@@ -18,3 +19,8 @@ DONTCHECKMEIN/
 
 .cursorrules
 .cursor/rules
+AGENTS.md
+PLANS.md
+
+plans_pending/
+plugin-sdks/drnb-plugin-sdk-312/src/drnb_plugin_sdk_312.egg-info/SOURCES.txt

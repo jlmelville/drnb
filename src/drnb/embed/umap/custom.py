@@ -1,4 +1,4 @@
-from typing import List, Literal, Tuple
+from typing import Literal
 
 import numba
 import numpy as np
@@ -106,7 +106,7 @@ def simplicial_set_embedding(
     tqdm_kwds=None,
     custom_epoch_func=_optimize_layout_euclidean_single_epoch,
     anneal_lr=True,
-) -> Tuple[np.ndarray, dict]:
+) -> tuple[np.ndarray, dict]:
     """Embed the UMAP graph into n_components dimensions using the UMAP algorithm."""
     graph = graph.tocoo()
     graph.sum_duplicates()
@@ -193,7 +193,7 @@ def optimize_layout(
     move_other=False,
     custom_epoch_func=_optimize_layout_euclidean_single_epoch,
     anneal_lr=True,
-) -> np.ndarray | List[np.ndarray]:
+) -> np.ndarray | list[np.ndarray]:
     """Optimize the low dimensional embedding using the given epochs and optimization
     function."""
     dim = head_embedding.shape[1]
@@ -264,7 +264,7 @@ class CustomGradientUMAP(umap.UMAP):
 
     def _fit_embed_data(
         self, X, n_epochs, init, random_state, **_
-    ) -> Tuple[np.ndarray, dict]:
+    ) -> tuple[np.ndarray, dict]:
         return simplicial_set_embedding(
             X,
             self.graph_,

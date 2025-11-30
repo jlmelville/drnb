@@ -75,7 +75,7 @@ class Htumap(drnb.embed.umap.Umap):
     """Embedder for HT-UMAP."""
 
     use_precomputed_knn: bool = True
-    drnb_init: str = None
+    drnb_init: str | None = None
 
     def embed_impl(
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None
@@ -152,7 +152,7 @@ class Htnegumap(drnb.embed.umap.Umap):
     """Embedder for HT-NegUMAP."""
 
     use_precomputed_knn: bool = True
-    drnb_init: str = None
+    drnb_init: str | None = None
 
     def embed_impl(
         self, x: np.ndarray, params: dict, ctx: EmbedContext | None = None

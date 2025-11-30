@@ -1,0 +1,18 @@
+[project]
+name = "drnb-plugin-sdk-312"
+version = "0.1.0"
+description = "Shared helpers for drnb plugin runners (Python 3.12)"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy>=1.22,<2.1",
+]
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "James Melville"}]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3.4"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"

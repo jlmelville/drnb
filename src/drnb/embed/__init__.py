@@ -1,9 +1,9 @@
-from typing import Any, List
+from typing import Any
 
 import numpy as np
 
 from drnb.log import log
-from drnb.types import EmbedResult
+from drnb.types import EmbedConfig, EmbedResult
 
 
 # helper method to create an embedder configuration
@@ -17,7 +17,7 @@ from drnb.types import EmbedResult
 #     anneal_exaggeration=True,
 #     params=dict(n_iter=2000),
 # )
-def embedder(name: str, params: dict | None = None, **kwargs) -> tuple[str, dict]:
+def embedder(name: str, params: dict | None = None, **kwargs) -> EmbedConfig:
     """Create an embedder configuration.
     `name` is the name of the embedder, e.g. "tsne"
     `params` is an optional dictionary of parameters which will be passed to the
@@ -32,12 +32,54 @@ def embedder(name: str, params: dict | None = None, **kwargs) -> tuple[str, dict
     or as complex as:
     `embedder("tsne", affinity="uniform", n_neighbors=10, anneal_exaggeration=True, params={ "n_iter": 2000 })`
     """
-    return (name, kwargs | {"params": params})
+    return EmbedConfig(
+        name=name,
+        params=params or {},
+        wrapper_kwds=kwargs,
+    )
+
+
+def _normalize_to_embed_config(
+    method: str | tuple | EmbedConfig, params: dict | None = None
+) -> EmbedConfig:
+    """Normalize old format (str, tuple) into EmbedConfig.
+
+    This helper converts various input formats into a single EmbedConfig representation.
+    If method is already an EmbedConfig, merges params with override semantics.
+    """
+    if isinstance(method, EmbedConfig):
+        # Already an EmbedConfig, merge params if provided
+        if params is not None:
+            method = EmbedConfig(
+                name=method.name,
+                params=method.params | params,  # params argument overrides
+                wrapper_kwds=method.wrapper_kwds,
+            )
+        return method
+
+    if isinstance(method, tuple):
+        if len(method) != 2:
+            raise ValueError("Unexpected format for method")
+        name, config_dict = method
+        # Extract params from config_dict if present
+        config_params = config_dict.pop("params", None) or {}
+        # Merge with params argument (params argument takes precedence)
+        if params is not None:
+            merged_params = config_params | params
+        else:
+            merged_params = config_params
+        # Remaining items in config_dict are wrapper_kwds
+        return EmbedConfig(
+            name=name, params=merged_params, wrapper_kwds=config_dict.copy()
+        )
+
+    # String input
+    return embedder(method, params=params or {})
 
 
 def check_embed_method(
-    method: str | list | tuple, params: dict | None = None
-) -> str | list | tuple:
+    method: str | list | tuple | EmbedConfig, params: dict | None = None
+) -> tuple | list | EmbedConfig:
     """Ensure that the embedder method is in the correct format. Chained embedders
     can be provided as a list of pre-computed embedder configurations, but in this case
     the params must be None.
@@ -55,41 +97,31 @@ def check_embed_method(
     params=dict(apply_pca=False),
     ```
 
-    will return:
-
-    ```
-    ('pacmap',
-    {'local_scale': False, 'params': {'n_neighbors': 15, 'apply_pca': False}})
-    ```
+    will return an EmbedConfig with merged params.
     """
-    # in most cases you pass the method name and params to pass to the embedder
-    # or a list of chained pre-computed embedder config
-    if not isinstance(method, list):
-        # or a pre-computed embedder config to allow for drnb keywords
-        # config looks like('pacmap', {'use_precomputed_knn': False, 'params': None})
-        if isinstance(method, tuple):
-            if len(method) != 2:
-                raise ValueError("Unexpected format for method")
-            # remove params from the config if it exists and merge with params arg
-            # if provided
-            if params is None:
-                params = {}
-            if "params" in method[1]:
-                params = (method[1]["params"] or {}) | params
-                del method[1]["params"]
-            method = embedder(method[0], params=params, **method[1])
-        if not isinstance(method, tuple):
-            method = embedder(method, params=params)
-    elif params is not None:
-        raise ValueError("params must be None when chained embedder provided")
-    return method
+    if isinstance(method, list):
+        if params is not None:
+            raise ValueError("params must be None when chained embedder provided")
+        # Normalize each element in the list
+        normalized = [_normalize_to_embed_config(m) for m in method]
+        # For backward compatibility, convert back to list of tuples
+        return [
+            (cfg.name, {**cfg.wrapper_kwds, "params": cfg.params}) for cfg in normalized
+        ]
+
+    # Normalize to EmbedConfig
+    normalized = _normalize_to_embed_config(method, params)
+    # For backward compatibility, convert back to tuple format
+    return (normalized.name, {**normalized.wrapper_kwds, "params": normalized.params})
 
 
-def get_embedder_name(method: List[str] | tuple | str) -> str:
+def get_embedder_name(method: list[str] | tuple | str | EmbedConfig) -> str:
     """Get the name of the embedder."""
     # chained embedder is a list of embedder names
     if isinstance(method, list):
         return "+".join(get_embedder_name(m) for m in method)
+    if isinstance(method, EmbedConfig):
+        return method.name
     if isinstance(method, tuple):
         # method is either just the string name or a tuple of (name, params)
         if len(method) != 2:

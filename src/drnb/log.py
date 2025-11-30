@@ -3,6 +3,7 @@ from contextlib import contextmanager
 from typing import Any, Generator
 
 import rich
+from drnb_plugin_sdk import env_flag
 from rich.console import Console
 from rich.logging import RichHandler
 
@@ -10,15 +11,25 @@ from rich.logging import RichHandler
 rich.jupyter.JUPYTER_HTML_FORMAT = """\
 <pre style="white-space:pre;overflow-x:auto;line-height:normal;font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace;margin-bottom:0px;margin-top:0px">{code}</pre>
 """
-console = Console(width=100)
 FORMAT = "%(message)s"
+
+# we need to not emit any fancy formatting if we are reading from a pipe -- the main
+# process is already formatting the logs for us
+_plain_logs = env_flag("DRNB_LOG_PLAIN")
+
+if _plain_logs:
+    handler = logging.StreamHandler()
+else:
+    console = Console(width=100)
+    handler = RichHandler(console=console)
+
 logging.basicConfig(
     level=logging.INFO,
     format=FORMAT,
     datefmt="[%X]",
-    handlers=[RichHandler(console=console)],
+    handlers=[handler],
 )
-log = logging.getLogger("rich")
+log = logging.getLogger("drnb")
 
 
 def set_verbosity(verbose: bool = False) -> int:

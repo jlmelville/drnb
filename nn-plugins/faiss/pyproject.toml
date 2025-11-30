@@ -1,0 +1,18 @@
+[project]
+name = "drnb-nn-plugin-faiss"
+version = "0.0.1"
+description = "FAISS nearest-neighbor plugin runner for drnb for MANUAL INSTALLATION"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "drnb-nn-plugin-sdk-312>=0.1.0",
+    # "faiss-cpu>=1.8.0",
+    "setuptools>=80.9.0",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv.sources]
+drnb-nn-plugin-sdk-312 = { path = "../../nn-plugin-sdks/drnb-nn-plugin-sdk-312" }

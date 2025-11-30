@@ -1,6 +1,5 @@
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -10,13 +9,14 @@ from drnb.embed.context import EmbedContext
 from drnb.eval.base import EmbeddingEval, EvalResult
 from drnb.io.dataset import read_target
 from drnb.log import log
-from drnb.neighbors import NearestNeighbors, calculate_neighbors
+from drnb.neighbors.compute import calculate_neighbors
+from drnb.neighbors.nbrinfo import NearestNeighbors
 
 
 def label_pres(
     labels: np.ndarray | None,
     nbr_idxs: np.ndarray,
-    n_neighbors: List[int],
+    n_neighbors: list[int],
     balanced: bool = True,
 ):
     """
@@ -53,7 +53,7 @@ def label_pres(
 def label_presv(
     labels: np.ndarray,
     nbr_idxs: np.ndarray,
-    n_neighbors: List[int],
+    n_neighbors: list[int],
 ) -> np.ndarray:
     """Compute the label preservation score for each sample in the dataset. The label
     preservation score is the fraction of the nearest neighbors of each sample (in
@@ -246,7 +246,7 @@ class LabelPreservationEval(EmbeddingEval):
     """
 
     metric: str = "euclidean"
-    n_neighbors: List[int] = field(default_factory=lambda: [15])
+    n_neighbors: list[int] = field(default_factory=lambda: [15])
     label_id: int | str = -1
     balanced: bool = True
     verbose: bool = False
@@ -287,7 +287,7 @@ class LabelPreservationEval(EmbeddingEval):
 
     def evaluatev(
         self, _, coords: np.ndarray, ctx: EmbedContext | None = None
-    ) -> List[np.ndarray]:
+    ) -> list[np.ndarray]:
         """Evaluate the per-item label preservation. Return a list of arrays
         of accuracies, one per value of n_neighbors in the evaluation."""
         labels, nbr_idxs = self._evaluate_setup(coords, ctx)
