@@ -4,7 +4,7 @@ version = "0.0.1"
 description = "TorchKNN nearest-neighbor plugin runner for drnb"
 requires-python = ">=3.12"
 dependencies = [
-    "torch>=2.6,<2.7",
+    "torch>=2.9,<2.10",
     "drnb-nn-plugin-sdk-312>=0.1.0",
 ]
 
