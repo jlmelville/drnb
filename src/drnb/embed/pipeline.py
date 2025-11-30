@@ -473,6 +473,7 @@ def extra_plots(metric: str = "euclidean") -> list[ActionConfig]:
         ("nnphist", {"metric": metric}),
         ("rthist", {"metric": metric}),
         ("rpscatter", {"metric": metric}),
+        ("lidhist", {"metric": metric}),
     ]
 
 

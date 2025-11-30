@@ -78,6 +78,10 @@ def create_plotters(
             from drnb.plot.rpdscatterplot import RandomPairDistanceScatterplot
 
             plotters.append(RandomPairDistanceScatterplot(**extra_kwds))
+        elif extra == "lidhist":
+            from drnb.plot.lidhistogram import LidHistogram
+
+            plotters.append(LidHistogram(**extra_kwds))
         else:
             raise ValueError(f"Unknown plot type '{extra}'")
     return plotters
