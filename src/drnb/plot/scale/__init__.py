@@ -24,6 +24,34 @@ class ColorScale:
             return cls()
         return cls(**kwds)
 
+    def resolve(
+        self,
+        y: np.ndarray,
+        vmin: float | None,
+        vmax: float | None,
+        palette: str | Colormap | None,
+    ) -> tuple[float, float, str | Colormap | None]:
+        """Resolve the effective vmin, vmax and palette for a set of values."""
+        values = np.asarray(y)
+
+        _vmin = self.vmin
+        if _vmin is None:
+            _vmin = vmin
+        if _vmin is None:
+            _vmin = values.min()
+
+        _vmax = self.vmax
+        if _vmax is None:
+            _vmax = vmax
+        if _vmax is None:
+            _vmax = values.max()
+
+        _palette = self.palette
+        if _palette is None:
+            _palette = palette
+
+        return _vmin, _vmax, _palette
+
     def __call__(
         self,
         y: np.ndarray,
@@ -31,21 +59,7 @@ class ColorScale:
         vmax: float | None,
         palette: str | Colormap | None,
     ) -> plt.cm.ScalarMappable:
-        _vmin = self.vmin
-        if _vmin is None:
-            _vmin = vmin
-        if _vmin is None:
-            _vmin = y.min()
-
-        _vmax = self.vmax
-        if _vmax is None:
-            _vmax = vmax
-        if _vmax is None:
-            _vmax = y.max()
-
-        _palette = self.palette
-        if _palette is None:
-            _palette = palette
+        _vmin, _vmax, _palette = self.resolve(y, vmin, vmax, palette)
 
         norm = plt.Normalize(_vmin, _vmax)
         sm = plt.cm.ScalarMappable(cmap=_palette, norm=norm)

@@ -23,6 +23,24 @@ from drnb.plot.palette import palettize
 from drnb.types import EmbedResult
 
 
+def _to_plotly_colorscale(
+    color_scale: list[str] | str | None,
+) -> list[str] | str | None:
+    """Convert common color scale types into a Plotly-friendly format."""
+    if color_scale is None:
+        return None
+    try:
+        import matplotlib.colors as mcolors
+
+        if isinstance(color_scale, mcolors.Colormap):
+            # downsample the colormap to a small set of hex colors
+            return [mcolors.to_hex(c) for c in color_scale(np.linspace(0, 1, 10))]
+    except Exception:  # pragma: no cover - matplotlib might not be installed
+        return color_scale
+
+    return color_scale
+
+
 # pylint: disable=too-many-statements
 def plotly_embed_plot(
     coords: np.ndarray,
@@ -30,6 +48,9 @@ def plotly_embed_plot(
     cex: float = 10.0,
     alpha_scale: float = 1.0,
     palette: dict | str | None = None,
+    color_continuous_scale: list[str] | str | None = None,
+    range_color: tuple[float, float] | None = None,
+    show_colorbar: bool | None = None,
     title: str = "",
     figsize: tuple[float, float] | None = None,
     legend: bool = True,
@@ -48,6 +69,9 @@ def plotly_embed_plot(
         cex: The size of the points in the plot.
         alpha_scale: The alpha scale of the points in the plot.
         palette: The palette to use for the plot.
+        color_continuous_scale: Continuous colorscale for numeric color columns.
+        range_color: Value range to map to the color scale.
+        show_colorbar: Whether to show the color bar (defaults to legend flag if None).
         title: The title of the plot.
         figsize: The size of the figure.
         legend: Whether to show the legend.
@@ -85,12 +109,31 @@ def plotly_embed_plot(
         # series -> numpy array
         color_col = color_col.values
 
-    palette = palettize(color_col, palette)
-    if palette is not None:
-        if isinstance(palette, dict):
-            scatter_kwargs["color_discrete_map"] = palette
-        else:
-            scatter_kwargs["color_discrete_sequence"] = palette
+    color_array = np.asarray(color_col)
+    try:
+        color_is_categorical = pd.api.types.is_categorical_dtype(color_col)
+    except TypeError:
+        color_is_categorical = False
+    color_is_numeric = np.issubdtype(color_array.dtype, np.number) and not (
+        color_is_categorical
+    )
+
+    if color_is_numeric:
+        color_scale = color_continuous_scale
+        if color_scale is None:
+            color_scale = palette
+        color_scale = _to_plotly_colorscale(color_scale)
+        if color_scale is not None:
+            scatter_kwargs["color_continuous_scale"] = color_scale
+        if range_color is not None:
+            scatter_kwargs["range_color"] = range_color
+    else:
+        palette = palettize(color_col, palette)
+        if palette is not None:
+            if isinstance(palette, dict):
+                scatter_kwargs["color_discrete_map"] = palette
+            else:
+                scatter_kwargs["color_discrete_sequence"] = palette
 
     if pc_axes:
         coords = sklearn.decomposition.PCA(n_components=2).fit_transform(coords)
@@ -108,7 +151,7 @@ def plotly_embed_plot(
         scatter_kwargs["labels"] = {"color": color_col_name}
 
     # use any category ordering rather than data ordering for the legend/colors
-    if pd.api.types.is_categorical_dtype(color_col):
+    if color_is_categorical:
         if isinstance(color_col, pd.Categorical):
             cats = color_col.categories
         else:
@@ -117,6 +160,9 @@ def plotly_embed_plot(
 
     if title is None:
         title = ""
+
+    if show_colorbar is None:
+        show_colorbar = legend
 
     # I was unable to find a way to get plotly to take an arbitrary vector of hover_data
     # so we must bind everything into a dataframe
@@ -159,7 +205,7 @@ def plotly_embed_plot(
         .update_traces(marker={"size": cex, "opacity": alpha_scale})
         .update_layout(
             showlegend=legend,
-            coloraxis_showscale=legend,
+            coloraxis_showscale=show_colorbar,
             plot_bgcolor="rgba(0, 0, 0, 0)",
             # praise be Anton Björk for this partial workaround to marker size in the
             # legend being tied to the scatterplot marker size
@@ -283,6 +329,9 @@ class PlotlyPlotter:
 
         title = self.title
         palette = self.palette
+        color_continuous_scale = None
+        range_color = None
+        show_colorbar = None
         if palette is None:
             palette = self.get_palette(ctx)
         # Setting the palette to "False" means to force the palette off so you get
@@ -305,11 +354,19 @@ class PlotlyPlotter:
                 yname_break = 5
             yname = yname[:yname_break]
 
-            y = pd.Series(y, name=yname)
             if hasattr(self.color_by, "scale") and self.color_by.scale is not None:
-                palette = self.color_by.scale.palette
+                scale = self.color_by.scale
+                vmin, vmax, scale_palette = scale.resolve(
+                    np.asarray(y), self.vmin, self.vmax, palette
+                )
+                range_color = (vmin, vmax)
+                color_continuous_scale = scale_palette
+                palette = scale_palette
+                show_colorbar = True
                 if title is None:
                     title = self.color_by
+
+            y = pd.Series(y, name=yname)
 
         # did a log-log plot of N vs the average 15-NN distance in the embedded space
         # multiplying the 15-NN distance by 100 gave a good-enough value for the
@@ -355,6 +412,9 @@ class PlotlyPlotter:
             hover=hover,
             show_axes=self.show_axes,
             equal_axes=self.equal_axes,
+            color_continuous_scale=color_continuous_scale,
+            range_color=range_color,
+            show_colorbar=show_colorbar,
         )
 
         if self.clickable:
