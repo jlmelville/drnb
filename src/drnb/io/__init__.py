@@ -656,6 +656,7 @@ class FileExporter:
             suffix = self.suffix
         if sub_dir is None:
             sub_dir = self.sub_dir
+        log.info("Exporting data of type %s to %s", type(data).__name__, self.file_type)
         output_paths = write_data(
             data,
             name,
