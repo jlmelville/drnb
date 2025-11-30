@@ -11,6 +11,8 @@ def create_plotters(
 ) -> list[PlotterProtocol]:
     """Create a list of plotters based on the plot and plot_kwargs arguments."""
 
+    backend = "seaborn"
+
     def _load_seaborn_plotter():
         from drnb.plot.seaborn import SeabornPlotter
 
@@ -28,18 +30,23 @@ def create_plotters(
     if isinstance(plot, dict):
         plot_kwargs = plot
         plot = True
+    if "backend" in plot_kwargs:
+        backend = plot_kwargs["backend"]
+        del plot_kwargs["backend"]
     if "plot" in plot_kwargs:
-        plot = plot_kwargs["plot"]
-        del plot_kwargs["plot"]
+        raise ValueError("Use 'backend' in plot kwargs instead of 'plot'")
 
     if isinstance(plot, str):
-        if plot == "seaborn":
-            plotter_cls_factory = _load_seaborn_plotter
-        elif plot == "plotly":
-            plotter_cls_factory = _load_plotly_plotter
-        else:
-            raise ValueError(f"Unknown plot type {plot}")
+        backend = plot
         plot = True
+
+    if backend == "seaborn":
+        plotter_cls_factory = _load_seaborn_plotter
+    elif backend == "plotly":
+        plotter_cls_factory = _load_plotly_plotter
+    else:
+        raise ValueError(f"Unknown plot backend {backend}")
+
     if not plot:
         return []
 
