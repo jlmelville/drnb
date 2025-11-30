@@ -493,9 +493,6 @@ def clickable_neighbors(plot: go.Figure, nn: NearestNeighbors) -> go.FigureWidge
     # keep track of if a point has been clicked so we know whether to set or unset the
     # formatting
     clicked = [None] * len(f.data)
-
-    # the size and symbols in the marker are scalars, but we are going to selectively
-    # change some. This requires storing the full array of each property
     sizes = [None] * len(f.data)
     symbols = [None] * len(f.data)
 
@@ -505,15 +502,29 @@ def clickable_neighbors(plot: go.Figure, nn: NearestNeighbors) -> go.FigureWidge
     for i, datum in enumerate(f.data):
         datum.marker.size = [datum.marker.size] * len(datum.x)
         clicked[i] = [False] * len(datum.x)
-        sizes[i] = list(datum.marker.size)
+        sizes[i] = [normal_size] * len(datum.x)
         symbols[i] = [unselected_symbol] * len(datum.x)
         # assumes that the first element of each point's custom data is its index in
         # the original data
         for j, idx in enumerate(datum.customdata):
             plot_idx[idx[0]] = (i, j)
 
+    selected_point: tuple[int, int] | None = None
+
+    def reset_styles():
+        for i, datum in enumerate(f.data):
+            n_points = len(datum.x)
+            sizes[i] = [normal_size] * n_points
+            symbols[i] = [unselected_symbol] * n_points
+            clicked[i] = [False] * n_points
+        with f.batch_update():
+            for i, datum in enumerate(f.data):
+                datum.marker.size = sizes[i]
+                datum.marker.symbol = symbols[i]
+
     # pylint:disable=unused-argument
     def highlight_nbrs(selector, points, trace):
+        nonlocal selected_point
         if not points.point_inds:
             return
 
@@ -524,15 +535,20 @@ def clickable_neighbors(plot: go.Figure, nn: NearestNeighbors) -> go.FigureWidge
         old_idx = f.data[trace_index].customdata[idx][0]
         idx_nbrs = nn[old_idx]
 
-        if clicked[trace_index][idx]:
-            new_size = normal_size
-            new_symbol = unselected_symbol
-            click_size = normal_size
-        else:
-            new_size = nbr_size
-            new_symbol = selected_symbol
-            click_size = selected_size
-        clicked[trace_index][idx] = not clicked[trace_index][idx]
+        # toggle off if the same point is clicked again
+        if selected_point == (trace_index, idx):
+            reset_styles()
+            selected_point = None
+            return
+
+        # reset any prior selection before applying a new one
+        reset_styles()
+        selected_point = (trace_index, idx)
+
+        new_size = nbr_size
+        new_symbol = selected_symbol
+        click_size = selected_size
+        clicked[trace_index][idx] = True
         symbols[trace_index][idx] = new_symbol
         sizes[trace_index][idx] = click_size
 
@@ -543,7 +559,7 @@ def clickable_neighbors(plot: go.Figure, nn: NearestNeighbors) -> go.FigureWidge
         with f.batch_update():
             for i, datum in enumerate(f.data):
                 datum.marker.size = sizes[i]
-            f.data[trace_index].marker.symbol = symbols[trace_index]
+                datum.marker.symbol = symbols[i]
 
     for datum in f.data:
         datum.on_click(highlight_nbrs)
