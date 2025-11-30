@@ -102,8 +102,8 @@ output and extra diagnostic plots.
 
 ### Using plotly
 
-For the plotly charts, install the `jupyterlab-plotly` extension, which also requires node to
-be installed:
+For the plotly charts, you may need to install the `jupyterlab-plotly` extension, which also
+requires node to be installed:
 
 ```bash
 jupyter labextension install jupyterlab-plotly
@@ -112,3 +112,6 @@ jupyter labextension install jupyterlab-plotly
 If not installed, plotly charts will display as long as you set
 `clickable=False, renderer="iframe"`. You miss out on being able to create custom click and hover
 handlers.
+
+That said, as of 2025 I use the VSCode support for notebook rendering and it didn't need special
+treatment beyond installing the dependencies in the `pyproject.toml`.
