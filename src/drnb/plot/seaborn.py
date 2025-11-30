@@ -285,13 +285,6 @@ class SeabornPlotter:
                 self.legend = False
                 if title is None:
                     title = self.color_by
-            else:
-                if not hasattr(self.color_by, "scale"):
-                    log.warning("self.color_by has no scale")
-                if self.color_by.scale is None:
-                    log.warning("self.color_by.scale is None")
-        else:
-            log.warning("self.color_by is not a callable")
 
         # did a log-log plot of N vs the average 15-NN distance in the embedded space
         # multiplying the 15-NN distance by 100 gave a good-enough value for the
