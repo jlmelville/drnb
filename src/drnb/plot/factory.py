@@ -53,6 +53,11 @@ def create_plotters(
             color_by = [color_by]
         del plot_kwargs["color_by"]
 
+    if color_by:
+        from drnb.plot.colorby import create_color_by
+
+        color_by = [create_color_by(cby) for cby in color_by]
+
     extras = []
     if "extras" in plot_kwargs:
         extras = plot_kwargs["extras"]

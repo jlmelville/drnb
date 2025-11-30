@@ -84,18 +84,21 @@ and embedding results exported to, folders underneath this directory, e.g.:
 export DRNB_HOME=~/dev/drnbhome
 ```
 
-## Importing data
+## Documentation
+
+### Importing data
 
 See the notebooks in `notebooks/data-pipeline` for how to get data processed and into a place where
 `drnb` can use it. Apart from cleaning and saving the numerical features to be processed, metadata
 used for labeling and coloring plots is specified, and nearest neighbor and triplet data is
 pre-calculated.
 
-## Embedding
+### Embedding
 
-See the notebooks in `notebooks/embed-pipeline`. See the `notebooks/experiments.ipynb` for
-comparing multiple methods against different datasets. See `notebooks/plot-options.ipynb` for more
-information on controlling plot output.
+See the notebooks in `notebooks/embed-pipeline` for example output from most of the embedding
+methods supported. `notebooks/experiments.ipynb` demonstrates how to compare multiple methods
+against different datasets. `notebooks/plot-options.ipynb` provides information on controlling plot
+output and extra diagnostic plots.
 
 ### Using plotly
 

@@ -25,11 +25,6 @@ from drnb.util import dts_to_str
 
 if TYPE_CHECKING:
     from drnb.plot.protocol import PlotterProtocol
-    from drnb.plot.scale.ko import ColorByKo
-    from drnb.plot.scale.lid import ColorByLid
-    from drnb.plot.scale.nbrpres import ColorByNbrPres
-    from drnb.plot.scale.rte import ColorByRte
-    from drnb.plot.scale.so import ColorBySo
 
 
 @dataclass
@@ -362,124 +357,42 @@ def create_pipeline(
     )
 
 
-def color_by_ko(
-    n_neighbors: int,
-    color_scale: dict | None = None,
-    normalize: bool = True,
-    log1p: bool = False,
-) -> ColorByKo:
-    """Create a Color by K-Occurrence plotter."""
-    from drnb.plot.scale import ColorScale
-    from drnb.plot.scale.ko import ColorByKo
+def diag_plots(metric: str = "euclidean") -> list[ActionConfig]:
+    """Return default diagnostic color-by plots as ActionConfigs for the plot factory.
 
-    return ColorByKo(
-        n_neighbors,
-        scale=ColorScale.new(color_scale),
-        normalize=normalize,
-        log1p=log1p,
-    )
-
-
-def color_by_so(
-    n_neighbors: int,
-    color_scale: dict | None = None,
-    normalize: bool = True,
-    log1p: bool = False,
-) -> ColorBySo:
-    """Create a Color by S-Occurrence plotter."""
-    from drnb.plot.scale import ColorScale
-    from drnb.plot.scale.so import ColorBySo
-
-    return ColorBySo(
-        n_neighbors,
-        scale=ColorScale.new(color_scale),
-        normalize=normalize,
-        log1p=log1p,
-    )
-
-
-def color_by_lid(
-    n_neighbors: int,
-    metric: str = "euclidean",
-    color_scale: dict | None = None,
-    remove_self: bool = True,
-    eps: float = 1.0e-10,
-    knn_params: dict | None = None,
-) -> ColorByLid:
-    """Create a Color by Local Intrinsic Dimensionality plotter."""
-    from drnb.plot.scale import ColorScale
-    from drnb.plot.scale.lid import ColorByLid
-
-    return ColorByLid(
-        n_neighbors=n_neighbors,
-        metric=metric,
-        scale=ColorScale.new(color_scale),
-        remove_self=remove_self,
-        eps=eps,
-        knn_params=knn_params,
-    )
-
-
-def color_by_nbr_pres(
-    n_neighbors: int,
-    normalize: bool = True,
-    color_scale: dict | None = None,
-    metric: str = "euclidean",
-) -> ColorByNbrPres:
-    """Create a Color by Neighbor Preservation plotter."""
-    from drnb.plot.scale import ColorScale
-    from drnb.plot.scale.nbrpres import ColorByNbrPres
-
-    return ColorByNbrPres(
-        n_neighbors,
-        normalize=normalize,
-        scale=ColorScale.new(color_scale),
-        metric=metric,
-    )
-
-
-def color_by_rte(
-    n_triplets_per_point: int,
-    normalize: bool = True,
-    color_scale: dict | None = None,
-    metric: str = "euclidean",
-) -> ColorByRte:
-    """Create a Color by Random Triplet Error plotter."""
-    from drnb.plot.scale import ColorScale
-    from drnb.plot.scale.rte import ColorByRte
-
-    return ColorByRte(
-        n_triplets_per_point=n_triplets_per_point,
-        normalize=normalize,
-        scale=ColorScale.new(color_scale),
-        metric=metric,
-    )
-
-
-def diag_plots(metric: str = "euclidean") -> list[PlotterProtocol]:
-    """Create some default diagnostic plots:
-
-    - ColorByKo -- color by the k-occurrence. A measure of hubness. Bigger means an item is considered
-    a neighbor by a larger number of other items in the dataset. The value of the k-occurrence can go
-    between 0 and N.
-    - ColorBySo -- color by the s-occurrence. Another measure of hubness. Bigger means an item appears
-    as a neighbor of its own neighbors (rather than the whole dataset as measured by k-occurrence).
-    - ColorByLid -- color by the local intrinsic dimension estimate, using the nearest neighbor approach
-    of [Levina and Bickel](https://papers.nips.cc/paper_files/paper/2004/hash/74934548253bcab8490ebd74afed7031-Abstract.html).
-    - ColorByNbrPres -- color by neighbor preservation: of the k-nearest neighbors of each item in the
-    2D output, how many of the high-dimensional neighbors are preserved? Normalized to a number between
-    0 (no neighbors preserved) and 1 (all of them).
-    - ColorByRte -- color by random triplet evaluation: The triangle distances between three randomly
-    sampled points are evaluated in the low and high dimensions and the RTE is the proportion of those
-    ordered distances where the ordering is the same in the high and low dimensions. 5 triplets are
-    used for each item in the dataset.
+    - `ko`: k-occurrence (hubness) with Spectral palette.
+    - `so`: s-occurrence (mutual hubness) with Spectral palette.
+    - `lid`: local intrinsic dimensionality (Levina-Bickel) with Spectral palette.
+    - `nbrpres`: neighbor preservation, Spectral palette.
+    - `rte`: random triplet evaluation, Spectral palette.
     """
     return [
-        color_by_ko(15, color_scale={"palette": "Spectral"}),
-        color_by_so(15, color_scale={"palette": "Spectral"}),
-        color_by_lid(15, metric=metric, color_scale={"palette": "Spectral"}),
-        color_by_nbr_pres(15, color_scale={"palette": "Spectral"}, metric=metric),
-        color_by_rte(5, color_scale={"palette": "Spectral"}, metric=metric),
+        ("ko", {"n_neighbors": 15, "color_scale": {"palette": "Spectral"}}),
+        ("so", {"n_neighbors": 15, "color_scale": {"palette": "Spectral"}}),
+        (
+            "lid",
+            {
+                "n_neighbors": 15,
+                "metric": metric,
+                "color_scale": {"palette": "Spectral"},
+            },
+        ),
+        (
+            "nbrpres",
+            {
+                "n_neighbors": 15,
+                "color_scale": {"palette": "Spectral"},
+                "metric": metric,
+            },
+        ),
+        (
+            "rte",
+            {
+                "n_triplets_per_point": 5,
+                "color_scale": {"palette": "Spectral"},
+                "metric": metric,
+            },
+        ),
     ]
 
 
