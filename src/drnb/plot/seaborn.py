@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import Any, Callable, Self
+from typing import Any, Callable, Self, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,7 +14,13 @@ from drnb.embed import get_coords
 from drnb.embed.context import EmbedContext, read_dataset_from_ctx
 from drnb.io.dataset import read_palette
 from drnb.log import log
+from drnb.plot.color_helpers import (
+    FixedVectorColorBy,
+    get_ctx_from_embed_result,
+    normalize_color_values,
+)
 from drnb.plot.palette import palettize
+from drnb.plot.scale import ColorScale
 from drnb.plot.util import hex_to_rgb, is_hex
 from drnb.types import EmbedResult
 
@@ -350,8 +356,43 @@ class SeabornPlotter:
         return {}
 
 
-def sns_result_plot(embed_result: dict, *, ax=None, **kwargs):
+def sns_result_plot(embed_result: dict, *, ax=None, **kwargs) -> Axes:
     """Plot the result of an embedding using Seaborn."""
-    SeabornPlotter(**kwargs).plot(
+    return SeabornPlotter(**kwargs).plot(
         embed_result["coords"], ctx=embed_result["context"], ax=ax
     )
+
+
+def plot_color(
+    embed_result: EmbedResult | dict[str, Any],
+    values: np.ndarray | Sequence[float],
+    **plot_kwargs,
+) -> Axes:
+    """Convenience helper to color an existing embedding with a numeric vector.
+
+    - Pulls coords (and context) from a pipeline `result` dict.
+    - Uses a ColorScale so a colorbar is attached automatically.
+    - Reads data/targets lazily via the context if the plotter needs them.
+    - Accepts any SeabornPlotter init kwargs (cex, alpha_scale, etc.) via **plot_kwargs.
+    """
+    coords = get_coords(embed_result)
+    values = normalize_color_values(values, coords.shape[0])
+    ctx = get_ctx_from_embed_result(embed_result)
+
+    plotter_kwargs = dict(plot_kwargs)
+    label = plotter_kwargs.pop("label", None)
+    ax = plotter_kwargs.pop("ax", None)
+
+    palette = plotter_kwargs.get("palette", "magma")
+    vmin = plotter_kwargs.get("vmin")
+    vmax = plotter_kwargs.get("vmax")
+
+    plotter_kwargs["palette"] = palette
+    plotter_kwargs["color_by"] = FixedVectorColorBy(
+        values=values,
+        scale=ColorScale(vmin=vmin, vmax=vmax, palette=palette),
+        label=label,
+    )
+
+    plotter = SeabornPlotter.new(**plotter_kwargs)
+    return plotter.plot(embed_result, ctx=ctx, ax=ax)

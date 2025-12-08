@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from typing import Any, Callable, Self
+from typing import Any, Callable, Self, Sequence
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,13 @@ from drnb.embed.context import (
 from drnb.io.dataset import read_palette
 from drnb.log import log
 from drnb.neighbors.nbrinfo import NearestNeighbors
+from drnb.plot.color_helpers import (
+    FixedVectorColorBy,
+    get_ctx_from_embed_result,
+    normalize_color_values,
+)
 from drnb.plot.palette import palettize
+from drnb.plot.scale import ColorScale
 from drnb.types import EmbedResult
 
 
@@ -317,7 +323,7 @@ class PlotlyPlotter:
         y: pd.DataFrame | pd.Series | np.ndarray | range | None = None,
         ctx: EmbedContext | None = None,
         _: Axes | None = None,
-    ) -> None:
+    ) -> go.Figure | go.FigureWidget:
         """Plot the embedded data."""
         if data is None:
             if ctx is None:
@@ -419,13 +425,18 @@ class PlotlyPlotter:
             show_colorbar=show_colorbar,
         )
 
+        output_fig: go.Figure | go.FigureWidget = fig
         if self.clickable:
             click_fig = self.make_clickable(fig, ctx)
             display(click_fig)
+            output_fig = click_fig
         else:
             # if jupyterlab-plotly extension is not installed, try one of:
             #  colab, iframe, iframe-connected, sphinx-gallery
             fig.show(renderer=self.renderer)
+            output_fig = fig
+
+        return output_fig
 
     def make_clickable(
         self,
@@ -576,4 +587,39 @@ def clickable_neighbors(plot: go.Figure, nn: NearestNeighbors) -> go.FigureWidge
 
 def plotly_result_plot(embed_result: dict, **kwargs):
     """Plot the result of an embedding using Plotly."""
-    PlotlyPlotter(**kwargs).plot(embed_result["coords"], ctx=embed_result["context"])
+    return PlotlyPlotter(**kwargs).plot(
+        embed_result["coords"], ctx=embed_result["context"]
+    )
+
+
+def plot_color(
+    embed_result: EmbedResult | dict[str, Any],
+    values: np.ndarray | Sequence[float],
+    **plot_kwargs,
+) -> go.Figure | go.FigureWidget:
+    """Convenience helper to color an existing embedding with a numeric vector.
+
+    Accepts any PlotlyPlotter init kwargs (cex, alpha_scale, hover, clickable, etc.)
+    via **plot_kwargs.
+    """
+    coords = get_coords(embed_result)
+    values = normalize_color_values(values, coords.shape[0])
+    ctx = get_ctx_from_embed_result(embed_result)
+
+    plotter_kwargs: dict[str, Any] = dict(plot_kwargs)
+    label = plotter_kwargs.pop("label", None)
+
+    palette = plotter_kwargs.get("palette", "magma")
+    vmin = plotter_kwargs.get("vmin")
+    vmax = plotter_kwargs.get("vmax")
+
+    plotter_kwargs["palette"] = palette
+    plotter_kwargs.setdefault("renderer", "jupyterlab")
+    plotter_kwargs["color_by"] = FixedVectorColorBy(
+        values=values,
+        scale=ColorScale(vmin=vmin, vmax=vmax, palette=palette),
+        label=label,
+    )
+
+    plotter = PlotlyPlotter.new(**plotter_kwargs)
+    return plotter.plot(embed_result, ctx=ctx)
