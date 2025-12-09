@@ -2,7 +2,7 @@
 name = "drnb-nn-plugin-sdk-312"
 version = "0.1.0"
 description = "Shared protocol helpers for drnb nearest-neighbor plugins (Python 3.12)"
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.14,<3.15"
 dependencies = [
     "numpy>=1.22,<2.1",
 ]
