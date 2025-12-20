@@ -12,7 +12,7 @@ dependencies = [
     "httpx>=0.28.1",
     "ipykernel>=6.29.5",
     # dependency of numba 0.6.0 leaves us little room to manoeuvre with numpy
-    "numpy>=1.22,<2.1",
+    "numpy>=2.4,<3",
     "pandas>=2.2.3",
     "plotly>=5.24.1",
     "pyarrow>=18.1.0",
