@@ -96,6 +96,7 @@ def run_external_neighbors(
     ctx: NNPluginContextInfo | None = None,
     neighbor_name: str | None = None,
     quiet_failures: bool = False,
+    quiet_plugin_logs: bool = False,
 ) -> NearestNeighbors:
     keep_tmp = env_flag("DRNB_NN_PLUGIN_KEEP_TMP", False)
     use_sandbox = env_flag("DRNB_NN_PLUGIN_SANDBOX_INPUTS", False)
@@ -119,7 +120,13 @@ def run_external_neighbors(
             use_sandbox=use_sandbox,
             keep_tmp=keep_tmp,
         )
-        response = _launch_plugin(spec, workspace, req_path, stderr_level=stderr_level)
+        response = _launch_plugin(
+            spec,
+            workspace,
+            req_path,
+            stderr_level=stderr_level,
+            quiet_plugin_logs=quiet_plugin_logs,
+        )
         return _decode_result(
             workspace,
             request,
@@ -182,10 +189,12 @@ def _launch_plugin(
     workspace: NNPluginWorkspace,
     req_path: Path,
     stderr_level: int,
+    quiet_plugin_logs: bool = False,
 ) -> dict[str, Any]:
     cmd = list(spec.runner or _default_runner(spec))
     cmd += ["--method", workspace.method, "--request", str(req_path)]
-    log.info("%s launching: %s", workspace.prefix, " ".join(cmd))
+    if not quiet_plugin_logs:
+        log.info("%s launching: %s", workspace.prefix, " ".join(cmd))
     env = _build_subprocess_env()
     _run_plugin_process(
         cmd,
@@ -193,6 +202,7 @@ def _launch_plugin(
         env=env,
         workspace=workspace,
         stderr_level=stderr_level,
+        quiet_plugin_logs=quiet_plugin_logs,
     )
     return _load_response(req_path.parent / "response.json")
 
@@ -251,6 +261,7 @@ def _run_plugin_process(
     env: dict[str, str],
     workspace: NNPluginWorkspace,
     stderr_level: int = logging.WARNING,
+    quiet_plugin_logs: bool = False,
 ) -> None:
     proc = subprocess.Popen(  # noqa: S603
         cmd,
@@ -261,16 +272,26 @@ def _run_plugin_process(
         env=env,
     )
     assert proc.stdout and proc.stderr
-    stdout_logger = log.getChild(f"nn_plugin.{workspace.method}.stdout")
-    stderr_logger = log.getChild(f"nn_plugin.{workspace.method}.stderr")
+    stdout_logger = (
+        log.getChild(f"nn_plugin.{workspace.method}.stdout")
+        if not quiet_plugin_logs
+        else None
+    )
+    stderr_logger = (
+        log.getChild(f"nn_plugin.{workspace.method}.stderr")
+        if not quiet_plugin_logs
+        else None
+    )
+    stdout_level = logging.INFO if not quiet_plugin_logs else None
+    stderr_log_level = stderr_level if not quiet_plugin_logs else None
     stdout_thread = threading.Thread(
         target=_stream_pipe,
-        args=(proc.stdout, stdout_logger, logging.INFO),
+        args=(proc.stdout, stdout_logger, stdout_level),
         daemon=True,
     )
     stderr_thread = threading.Thread(
         target=_stream_pipe,
-        args=(proc.stderr, stderr_logger, stderr_level),
+        args=(proc.stderr, stderr_logger, stderr_log_level),
         daemon=True,
     )
     stdout_thread.start()
@@ -282,9 +303,10 @@ def _run_plugin_process(
         workspace.fail(f"plugin exit {code}")
 
 
-def _stream_pipe(pipe, logger, level: int) -> None:
+def _stream_pipe(pipe, logger, level: int | None) -> None:
     for line in pipe:
-        logger.log(level, line.rstrip())
+        if logger is not None and level is not None:
+            logger.log(level, line.rstrip())
     pipe.close()
 
 

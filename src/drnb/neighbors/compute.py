@@ -113,6 +113,7 @@ def _compute_neighbors_plugin(
     nn_sub_dir: str,
     experiment_name: str | None,
     quiet_failures: bool,
+    quiet_plugin_logs: bool,
 ) -> NeighborsComputationResult:
     from drnb.nnplugins.external import NNPluginContextInfo, run_external_neighbors
 
@@ -145,6 +146,7 @@ def _compute_neighbors_plugin(
         ctx=ctx,
         neighbor_name=name or None,
         quiet_failures=quiet_failures,
+        quiet_plugin_logs=quiet_plugin_logs,
     )
     idx = nn.idx
     dist = nn.dist if return_distance else None
@@ -224,6 +226,7 @@ def calculate_neighbors(
     nn_sub_dir: str = "nn",
     experiment_name: str | None = None,
     quiet_plugin_failures: bool = False,
+    quiet_plugin_logs: bool = False,
 ) -> NearestNeighbors:
     """Calculate nearest neighbors for a given data set."""
     from drnb.nnplugins.external import NNPluginWorkspaceError
@@ -287,6 +290,7 @@ def calculate_neighbors(
                     nn_sub_dir=nn_sub_dir,
                     experiment_name=experiment_name,
                     quiet_failures=quiet_plugin_failures,
+                    quiet_plugin_logs=quiet_plugin_logs,
                 )
             else:
                 computation_result = _compute_neighbors_builtin(
@@ -343,6 +347,7 @@ def get_neighbors(
     data: np.ndarray | None = None,
     method_kwds: dict | None = None,
     quiet_plugin_failures: bool = False,
+    quiet_plugin_logs: bool = False,
 ) -> NearestNeighbors:
     """Read cached neighbors or calculate them on demand."""
     if method is not None:
@@ -390,6 +395,7 @@ def get_neighbors(
         data_sub_dir="data",
         nn_sub_dir=sub_dir,
         quiet_plugin_failures=quiet_plugin_failures,
+        quiet_plugin_logs=quiet_plugin_logs,
     )
     if cache and name:
         write_neighbors(
@@ -414,6 +420,7 @@ def get_exact_neighbors(
     data: np.ndarray | None = None,
     method_kwds: dict | None = None,
     quiet_plugin_failures: bool = False,
+    quiet_plugin_logs: bool = False,
 ) -> NearestNeighbors:
     """Get exact nearest neighbors for a dataset."""
     if name is None or not name:
@@ -432,6 +439,7 @@ def get_exact_neighbors(
         data=data,
         method_kwds=method_kwds,
         quiet_plugin_failures=quiet_plugin_failures,
+        quiet_plugin_logs=quiet_plugin_logs,
     )
 
 
@@ -445,6 +453,7 @@ def calculate_exact_neighbors(
     method_kwds: dict | None = None,
     name: str = "",
     quiet_plugin_failures: bool = False,
+    quiet_plugin_logs: bool = False,
 ) -> NearestNeighbors:
     """Convenience wrapper for exact neighbors."""
     return calculate_neighbors(
@@ -458,6 +467,7 @@ def calculate_exact_neighbors(
         method_kwds=method_kwds,
         name=name,
         quiet_plugin_failures=quiet_plugin_failures,
+        quiet_plugin_logs=quiet_plugin_logs,
     )
 
 
@@ -546,6 +556,7 @@ class NeighborsRequest(FromDict):
     params: dict = field(default_factory=dict)
     verbose: bool = False
     quiet_plugin_failures: bool = False
+    quiet_plugin_logs: bool = False
 
     def create_neighbors(
         self,
@@ -579,6 +590,7 @@ class NeighborsRequest(FromDict):
                 name=nbrs_name,
                 **self.params,
                 quiet_plugin_failures=self.quiet_plugin_failures,
+                quiet_plugin_logs=self.quiet_plugin_logs,
             )
 
             for n_neighbors in self.n_neighbors:
