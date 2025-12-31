@@ -7,7 +7,7 @@ dependencies = [
     "numpy",
     "drnb-plugin-sdk-312>=0.1.0",
     "contrastive-ne>=0.4.0",
-    "torch>=2.6,<2.7",
+    "torch>=2.9,<2.10",
 ]
 
 [build-system]
