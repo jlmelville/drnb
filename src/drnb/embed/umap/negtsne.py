@@ -126,9 +126,9 @@ class NegTSNE(CustomGradientUMAP):
         if "anneal_lr" not in kwargs:
             kwargs["anneal_lr"] = False
         super().__init__(
-            custom_epoch_func=negtsne_epoch_func,
             custom_attr_func=negtsne_grad_coeff_attr,
             custom_rep_func=negtsne_grad_coeff_rep,
+            custom_epoch_func=negtsne_epoch_func,
             **kwargs,
         )
 

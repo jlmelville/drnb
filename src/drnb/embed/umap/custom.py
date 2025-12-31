@@ -1,6 +1,6 @@
 import abc
 from dataclasses import dataclass
-from typing import Any, Literal, NamedTuple
+from typing import Any, Callable, Literal, NamedTuple
 
 import numba
 import numpy as np
@@ -280,7 +280,7 @@ def epoch_func(
     epochs_per_negative_sample,
     epoch_of_next_negative_sample,
     epoch_of_next_sample,
-    iter,
+    current_epoch,
     alpha,
     grad_coeff_attr,
     grad_coeff_rep,
@@ -288,21 +288,30 @@ def epoch_func(
 ):
     """Perform a single epoch of optimization using the custom gradient functions."""
     # pylint: disable=not-an-iterable
-    for i in numba.prange(epochs_per_sample.shape[0]):
-        if epoch_of_next_sample[i] > iter:
+    for edge_idx in numba.prange(epochs_per_sample.shape[0]):
+        # Get all the sampling setup out of the way
+        if epoch_of_next_sample[edge_idx] > current_epoch:
             continue
-
-        j = head[i]
-        k = tail[i]
-
-        current = head_embedding[j]
-        other = tail_embedding[k]
-
-        dist_squared = rdist(current, other)
-
         n_neg_samples = int(
-            (iter - epoch_of_next_negative_sample[i]) / epochs_per_negative_sample[i]
+            (current_epoch - epoch_of_next_negative_sample[edge_idx])
+            / epochs_per_negative_sample[edge_idx]
         )
+        epoch_of_next_sample[edge_idx] += epochs_per_sample[edge_idx]
+        epoch_of_next_negative_sample[edge_idx] += (
+            n_neg_samples * epochs_per_negative_sample[edge_idx]
+        )
+
+        # do the attractive update
+        # get the coordinates of the positive vertices
+        # "other" is the other vertex in the edge (also a positive) but is going to
+        # be reused for the negative samples so has this less specific name
+        pos_idx = head[edge_idx]
+        other_idx = tail[edge_idx]
+
+        pos_coords = head_embedding[pos_idx]
+        other_coords = tail_embedding[other_idx]
+
+        dist_squared = rdist(pos_coords, other_coords)
 
         if dist_squared > 0.0:
             grad_coeff = grad_coeff_attr(dist_squared, grad_args)
@@ -310,20 +319,20 @@ def epoch_func(
             grad_coeff = 0.0
 
         for d in range(dim):
-            grad_d = clip(grad_coeff * (current[d] - other[d]))
-            current[d] += grad_d * alpha
+            grad_d = clip(grad_coeff * (pos_coords[d] - other_coords[d]))
+            pos_coords[d] += grad_d * alpha
             if move_other:
-                other[d] += -grad_d * alpha
+                other_coords[d] += -grad_d * alpha
 
-        epoch_of_next_sample[i] += epochs_per_sample[i]
-
+        # negative sampling
         for _ in range(n_neg_samples):
-            k = tau_rand_int(rng_state) % n_vertices
-            if j == k:
+            # other is now a negative sample
+            other_idx = tau_rand_int(rng_state) % n_vertices
+            if pos_idx == other_idx:
                 continue
-            other = tail_embedding[k]
+            other_coords = tail_embedding[other_idx]
 
-            dist_squared = rdist(current, other)
+            dist_squared = rdist(pos_coords, other_coords)
 
             if dist_squared > 0.0:
                 grad_coeff = grad_coeff_rep(dist_squared, grad_args)
@@ -332,14 +341,10 @@ def epoch_func(
 
             for d in range(dim):
                 if grad_coeff > 0.0:
-                    grad_d = clip(grad_coeff * (current[d] - other[d]))
+                    grad_d = clip(grad_coeff * (pos_coords[d] - other_coords[d]))
                 else:
                     grad_d = 4.0
-                current[d] += grad_d * alpha
-
-        epoch_of_next_negative_sample[i] += (
-            n_neg_samples * epochs_per_negative_sample[i]
-        )
+                pos_coords[d] += grad_d * alpha
 
 
 class CustomGradientUMAP(umap.UMAP, abc.ABC):
@@ -355,9 +360,9 @@ class CustomGradientUMAP(umap.UMAP, abc.ABC):
 
     def __init__(
         self,
-        custom_epoch_func,
-        custom_attr_func,
-        custom_rep_func,
+        custom_attr_func: Callable,
+        custom_rep_func: Callable,
+        custom_epoch_func: Callable = epoch_func,
         anneal_lr: bool = True,
         **kwargs,
     ):
@@ -431,11 +436,8 @@ class UMAP(CustomGradientUMAP):
     def get_gradient_args(self):
         return UmapGradientArgs(a=self._a, b=self._b, gamma=self.repulsion_strength)
 
-    def __init__(self, **kwargs):
-        if "anneal_lr" not in kwargs:
-            kwargs["anneal_lr"] = True
+    def __init__(self, anneal_lr: bool = True, **kwargs):
         super().__init__(
-            custom_epoch_func=epoch_func,
             custom_attr_func=umap_grad_coeff_attr,
             custom_rep_func=umap_grad_coeff_rep,
             **kwargs,
