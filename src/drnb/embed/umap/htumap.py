@@ -6,7 +6,7 @@ import numpy as np
 import drnb.embed.umap
 from drnb.embed import fit_transform_embed
 from drnb.embed.context import EmbedContext
-from drnb.embed.umap.custom2 import CustomGradientUMAP2, epoch_func
+from drnb.embed.umap.custom import CustomGradientUMAP, epoch_func
 from drnb.types import EmbedResult
 
 
@@ -40,7 +40,7 @@ def htumap_grad_coeff_rep(d2: float, grad_args: HTUMAPGradientArgs) -> float:
     return b2 * pow(w, a1a) / (1.001 - w)
 
 
-class HTUMAP(CustomGradientUMAP2):
+class HTUMAP(CustomGradientUMAP):
     """Heavy-Tailed UMAP implementation."""
 
     def get_gradient_args(self):
@@ -123,7 +123,7 @@ def htnegumap_grad_coeff_rep(d2: float, grad_args: HTNegUMAPGradientArgs) -> flo
     return grad_coeff
 
 
-class HTNegUMAP(CustomGradientUMAP2):
+class HTNegUMAP(CustomGradientUMAP):
     """Heavy-Tailed NegUMAP implementation."""
 
     def get_gradient_args(self):

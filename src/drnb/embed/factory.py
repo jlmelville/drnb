@@ -76,7 +76,14 @@ def create_embedder(
 
 
 # pylint: disable=import-outside-toplevel,too-many-statements
-def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
+def _str_to_ctor(method: str | Callable) -> drnb.embed.base.Embedder:
+    """In most cases, `method` is a string that is intended to be a registered
+    embedder name handled by this factory module, but due to undisiplined behavior by
+    the author, it can be a function that returns a factory function. See for example
+    `drnb.embed.umap.custom.custom_umap`."""
+    if callable(method):
+        return method
+
     method = method.lower()
 
     entry = get_registry().lookup(method)
@@ -106,7 +113,7 @@ def _str_to_ctor(method: str) -> drnb.embed.base.Embedder:
     elif method == "bgspectral":
         from drnb.embed.umap.spectral import BinaryGraphSpectral as ctor
     elif method == "umap2":
-        from drnb.embed.umap.custom2 import Umap2 as ctor
+        from drnb.embed.umap.custom import Umap as ctor
     elif method == "ivhd":
         from drnb.embed.ivhd import Ivhd as ctor
     elif method == "xvhd":

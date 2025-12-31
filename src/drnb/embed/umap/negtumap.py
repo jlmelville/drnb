@@ -6,7 +6,7 @@ import numpy as np
 import drnb.embed.umap
 from drnb.embed import fit_transform_embed
 from drnb.embed.context import EmbedContext
-from drnb.embed.umap.custom2 import CustomGradientUMAP2, epoch_func
+from drnb.embed.umap.custom import CustomGradientUMAP, epoch_func
 from drnb.types import EmbedResult
 
 
@@ -41,7 +41,7 @@ def negtumap_grad_coeff_rep(d2: float, grad_args: NegTUMAPGradientArgs) -> float
     return grad_coeff
 
 
-class NegTUMAP(CustomGradientUMAP2):
+class NegTUMAP(CustomGradientUMAP):
     """Neg-t-UMAP implementation."""
 
     def get_gradient_args(self):
