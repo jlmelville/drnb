@@ -230,7 +230,7 @@ class Adam:
         self.m = self.beta1 * self.m + self.beta11 * grads
         self.v = self.beta2 * self.v + self.beta21 * grads * grads
 
-        return Y - alpha * (self.m / (np.sqrt(self.v) + self.eps / vbcorr))
+        return Y - alpha * (self.m / (np.sqrt(self.v) + self.eps * vbcorr))
 
 
 @jitclass(
@@ -297,4 +297,4 @@ class AdaBelief:
         # self.v = self.beta2 * self.v + self.beta21 * (grads - self.m)**2 + eps
         self.v += self.beta21 * ((grads - self.m) ** 2 - self.v) + self.eps
 
-        return Y - alpha * (self.m / (np.sqrt(self.v) + self.eps / vbcorr))
+        return Y - alpha * (self.m / (np.sqrt(self.v) + self.eps * vbcorr))
