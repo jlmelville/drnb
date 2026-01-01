@@ -13,7 +13,7 @@ from drnb.embed.context import EmbedContext, get_neighbors_with_ctx
 from drnb.embed.umap.utils import clip, rdist
 from drnb.log import log
 from drnb.neighbors.hubness import nn_to_sparse
-from drnb.optim import create_opt
+from drnb.optim import OptimizerProtocol, create_opt
 from drnb.rng import setup_rngn
 from drnb.sampling import create_sample_plan
 from drnb.types import EmbedResult
@@ -144,7 +144,7 @@ def leopold(
 def _leopold(
     Y: np.ndarray,
     n_epochs: int,
-    opt: drnb.optim.OptimizerProtocol,
+    opt: OptimizerProtocol,
     samples: np.ndarray,
     rng_state: np.ndarray,
     knn_j: np.ndarray,
@@ -169,15 +169,36 @@ def _leopold(
     epoch_dof = np.flip(np.exp(np.linspace(np.log(dof), np.log(max_dof), anneal_dof)))
     epoch_dof = np.append(epoch_dof, np.repeat(dof, n_epochs - len(epoch_dof)))
 
-    for n in range(n_epochs):
-        beta = (1.0 - epoch_dens_scale[n]) + epoch_dens_scale[n] * prec
-        edof = epoch_dof[n]
+    for current_epoch in range(n_epochs):
+        beta = (1.0 - epoch_dens_scale[current_epoch]) + epoch_dens_scale[
+            current_epoch
+        ] * prec
+        edof = epoch_dof[current_epoch]
         grads = np.zeros((nobs, ndim), dtype=np.float32)
 
-        _leopold_nbrs(Y, knn_j, ptr, beta, edof, grads)
-        _leopold_non_nbrs(Y, samples[n], ptr, rng_state, beta, edof, grads)
+        _leopold_nbrs(
+            Y,
+            knn_j,
+            ptr,
+            beta,
+            edof,
+            grads,
+            ndim,
+        )
+        _leopold_non_nbrs(
+            Y,
+            samples[current_epoch],
+            ptr,
+            rng_state,
+            beta,
+            edof,
+            grads,
+            nobs,
+            ndim,
+        )
 
-        Y = opt.opt(Y, grads, n, n_epochs)
+        Y = opt.opt(Y, grads, current_epoch, n_epochs)
+        # center after each epoc
         for d in range(ndim):
             Yd = Y[:, d]
             Y[:, d] = Yd - np.mean(Yd)
@@ -190,10 +211,10 @@ def _leopold_nbrs(
     knn_j: np.ndarray,
     ptr: np.ndarray,
     prec: np.ndarray,
-    dof,
+    dof: float,
     grads: np.ndarray,
+    ndim: int,
 ):
-    ndim = Y.shape[1]
     # pylint:disable=not-an-iterable
     for i in numba.prange(len(ptr) - 1):
         Yi = Y[i]
@@ -217,8 +238,9 @@ def _leopold_non_nbrs(
     prec: np.ndarray,
     dof: float,
     grads: np.ndarray,
+    nobs: int,
+    ndim: int,
 ):
-    nobs, ndim = Y.shape
     # pylint:disable=not-an-iterable
     for i in numba.prange(nobs):
         Yi = Y[i]
@@ -263,6 +285,7 @@ class Leopold(drnb.embed.base.Embedder):
         else:
             n_neighbors = 15
 
+        # precomputed neighbors only -- remove the self neighbor
         precomputed_knn = get_neighbors_with_ctx(
             x, params.get("metric", "euclidean"), n_neighbors + 1, ctx=ctx
         )
