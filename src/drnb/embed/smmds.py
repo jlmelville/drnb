@@ -202,9 +202,9 @@ def snmds(
 
     xdfun = distance_function(metric)
 
-    Y = mmds_init(init, nobs, X, init_scale, random_state)
     if pca is not None:
         X = pca_reduce(X, n_components=pca)
+    Y = mmds_init(init, nobs, X, init_scale, random_state)
     Y = _snmds(X, Y, n_epochs, eps, xdfun, optim, n_samples, rng_state)
 
     return Y
@@ -261,7 +261,7 @@ def _snmds_epoch(
         rsum = 0.0
 
         Yi = Y[i]
-        dsum = 0.0
+        dsum = eps
 
         for k in range(n_samples):
             j = tau_rand_int(rng_state[i]) % nobs
@@ -303,7 +303,7 @@ def _snmds_epoch(
 
 @dataclass
 class Snmds(drnb.embed.base.Embedder):
-    """Stochastic Normalized MDS (SMMDS) embedding implementation.
+    """Stochastic Normalized MDS (SNMDS) embedding implementation.
 
     Attributes:
         precomputed_init (numpy.ndarray | None): Optional precomputed initial
@@ -319,7 +319,7 @@ class Snmds(drnb.embed.base.Embedder):
             log.info("Using precomputed initial coordinates")
             params["init"] = self.precomputed_init
 
-        log.info("Running SMMDS")
+        log.info("Running SNMDS")
         params["X"] = x
         embedded = snmds(**params)
         log.info("Embedding completed")
