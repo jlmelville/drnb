@@ -175,20 +175,22 @@ class ExternalEmbedder(Embedder):
             x_path="",
             neighbors=PluginNeighbors(),
         )
+        neighbors = PluginNeighbors()
 
         if use_sandbox:
             x_path = tmpdir / "x.npy"
             np.save(x_path, np.asarray(x, dtype=np.float32, order="C"))
             input_paths.x_path = str(x_path)
-            input_paths.neighbors = _prepare_neighbor_paths(
-                tmpdir,
-                use_knn=use_knn,
-                source_neighbors=source_neighbors,
-                params=params,
-                x=x,
-                ctx=ctx,
-                method=self.method,
-            )
+            if use_knn:
+                neighbors = _prepare_neighbor_paths(
+                    tmpdir,
+                    use_knn=use_knn,
+                    source_neighbors=source_neighbors,
+                    params=params,
+                    x=x,
+                    ctx=ctx,
+                    method=self.method,
+                )
             init_path = None
             if init_source is not None:
                 init_path = _prepare_init_path(tmpdir, init_source)
@@ -204,12 +206,23 @@ class ExternalEmbedder(Embedder):
                 missing = ", ".join(missing_inputs)
                 workspace.fail(f"missing source inputs for zero-copy: {missing}")
             input_paths.x_path = str(source_x)
-            input_paths.neighbors = source_neighbors or PluginNeighbors()
+            if use_knn:
+                neighbors = source_neighbors or PluginNeighbors()
             if init_source is not None:
                 input_paths.init_path = str(init_source)
             elif init_array is not None:
                 init_path = _write_init_array(tmpdir, init_array)
                 input_paths.init_path = str(init_path)
+
+        resolved_use_knn = use_knn and bool(neighbors.idx_path)
+        if use_knn and not resolved_use_knn:
+            log.info(
+                "%s requested precomputed knn but none available; disabling",
+                workspace.prefix,
+            )
+            neighbors = PluginNeighbors()
+
+        input_paths.neighbors = neighbors
 
         request = PluginRequest(
             protocol_version=PROTOCOL_VERSION,
@@ -219,7 +232,7 @@ class ExternalEmbedder(Embedder):
             input=input_paths,
             options=PluginOptions(
                 keep_temps=keep_tmp,
-                use_precomputed_knn=use_knn,
+                use_precomputed_knn=resolved_use_knn,
                 use_sandbox_copies=use_sandbox,
             ),
             output=PluginOutputPaths(

@@ -27,8 +27,9 @@ and always contains:
   - `init_path`: optional initialization path (may be `null`).
   - `neighbors`: optional precomputed KNN (`idx_path`, `dist_path`, either may be `null`).
 - `options`: flags such as `use_precomputed_knn`. Current keys:
+  - `keep_temps`: keep the temporary workspace on disk after the run.
+  - `use_precomputed_knn`: when `true` and neighbor paths are provided, plugins should load them; the host sets this to `false` when no neighbor inputs are present.
   - `use_sandbox_copies` (default: false) copies inputs into the workspace; `input.*` points at those copies.
-- `keep_temps`, `use_precomputed_knn`, `use_sandbox_copies` remain available.
 - `output.result_path`: where the plugin must write its `.npz` result.
 - `output.response_path`: where the plugin must write the final JSON response.
 
@@ -59,14 +60,14 @@ and always contains:
 ## Host expectations
 
 `ExternalEmbedder` launches each plugin using `uv run --quiet --color never` from
-the plugin directory, after stripping `VIRTUAL_ENV` so uv selects the plugin's
-`.venv`. Stdout and stderr are streamed into the host log with separate prefixes
-so users can tell where each line originated. After the process exits, the host
-reads `output.response_path` and loads the JSON payload. If the file is missing
-or invalid, the run is treated as a fatal error.
-
-The host also validates that the result `.npz` stays inside the workspace and
-loads it via `numpy.load` to build the final `EmbedResult`.
+the plugin directory by default; registry entries can override the runner. The
+host strips `VIRTUAL_ENV` so uv selects the plugin's `.venv`. Stdout and stderr
+are streamed into the host log with separate prefixes so users can tell where
+each line originated. After the process exits, the host reads
+`output.response_path` and loads the JSON payload. If the file is missing or
+invalid, the run is treated as a fatal error. The host then loads the
+`result_npz` path from the response via `numpy.load` to build the final
+`EmbedResult`.
 
 ## Recommended helpers
 
@@ -83,7 +84,7 @@ copy/pasted serialization code.
 ### Sample request (zero-copy)
 
   {
-    "protocol": 1,
+    "protocol_version": 1,
     "method": "tsne",
     "params": {
       "dof": 0.7,

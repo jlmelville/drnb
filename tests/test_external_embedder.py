@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 
+from drnb.embed.context import EmbedContext
 from drnb.plugins import external
 from drnb.plugins.external import (
     ExternalEmbedder,
@@ -102,3 +103,37 @@ def test_decode_plugin_result_captures_version(tmp_path) -> None:
     )
     assert result["version_info"]["package"] == "demo-lib"
     assert result["version_info"]["version"] == "1.0.0"
+
+
+def test_zero_copy_disables_precomputed_knn_without_neighbors(tmp_path) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    x = np.zeros((2, 2), dtype=np.float32)
+    np.save(data_dir / "demo-data.npy", x)
+
+    ctx = EmbedContext(
+        dataset_name="demo",
+        embed_method_name="demo",
+        drnb_home=tmp_path,
+        data_sub_dir="data",
+        nn_sub_dir="nn",
+    )
+
+    workspace = PluginWorkspace(
+        path=tmp_path / "workspace", remove_on_exit=True, method="demo"
+    )
+    workspace.path.mkdir()
+    embedder = ExternalEmbedder(method="demo")
+
+    request, _ = embedder.build_plugin_workspace(
+        workspace=workspace,
+        x=x,
+        params={},
+        ctx=ctx,
+        use_knn=True,
+        use_sandbox=False,
+        keep_tmp=True,
+    )
+
+    assert request.options.use_precomputed_knn is False
+    assert request.input.neighbors == PluginNeighbors()
