@@ -51,7 +51,7 @@ class StressEval(EmbeddingEval):
     metric: str = "euclidean"
 
     def evaluate(
-        self, X: np.ndarray, coords: np.ndarray, _: EmbedContext | None = None
+        self, X: np.ndarray, coords: np.ndarray, ctx: EmbedContext | None = None
     ) -> EvalResult:
         result = stress(X, coords, self.metric)
 

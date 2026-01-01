@@ -37,7 +37,7 @@ class EmbeddingEval(abc.ABC):
         return {}
 
     def evaluate(
-        self, X: np.ndarray, coords: np.ndarray, _: EmbedContext | None = None
+        self, X: np.ndarray, coords: np.ndarray, ctx: EmbedContext | None = None
     ) -> EvalResult:
         """Evaluate the embedding. Return an EvalResult object."""
         raise NotImplementedError
