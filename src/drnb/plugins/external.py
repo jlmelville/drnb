@@ -103,6 +103,7 @@ class ExternalEmbedder(Embedder):
     method: str = field(default="", kw_only=True)
     use_precomputed_knn: bool | None = None
     drnb_init: str | Path | None = None
+    precomputed_init: np.ndarray | None = None
     use_sandbox_copies: bool | None = None
 
     def embed_impl(
@@ -160,11 +161,15 @@ class ExternalEmbedder(Embedder):
         result_path = tmpdir / "result.npz"
         response_path = tmpdir / "response.json"
 
-        init_source = _init_source_path(self.drnb_init)
+        init_source = None
+        init_array = None
+        if self.drnb_init is not None:
+            init_source = _init_source_path(self.drnb_init)
+            if init_source is None:
+                workspace.fail(f"init path not found: {self.drnb_init}")
+        else:
+            init_array = self.precomputed_init
         source_neighbors = _find_source_neighbors(ctx, params) if use_knn else None
-
-        if self.drnb_init is not None and init_source is None:
-            workspace.fail(f"init path not found: {self.drnb_init}")
 
         input_paths = PluginInputPaths(
             x_path="",
@@ -184,7 +189,11 @@ class ExternalEmbedder(Embedder):
                 ctx=ctx,
                 method=self.method,
             )
-            init_path = _prepare_init_path(tmpdir, init_source)
+            init_path = None
+            if init_source is not None:
+                init_path = _prepare_init_path(tmpdir, init_source)
+            elif init_array is not None:
+                init_path = _write_init_array(tmpdir, init_array)
             input_paths.init_path = str(init_path) if init_path else None
         else:
             missing_inputs: list[str] = []
@@ -196,7 +205,11 @@ class ExternalEmbedder(Embedder):
                 workspace.fail(f"missing source inputs for zero-copy: {missing}")
             input_paths.x_path = str(source_x)
             input_paths.neighbors = source_neighbors or PluginNeighbors()
-            input_paths.init_path = str(init_source) if init_source else None
+            if init_source is not None:
+                input_paths.init_path = str(init_source)
+            elif init_array is not None:
+                init_path = _write_init_array(tmpdir, init_array)
+                input_paths.init_path = str(init_path)
 
         request = PluginRequest(
             protocol_version=PROTOCOL_VERSION,
@@ -474,6 +487,13 @@ def _prepare_init_path(tmpdir: Path, init_source: Path | None) -> Path | None:
         return None
     target = tmpdir / Path(init_source).name
     shutil.copy(init_source, target)
+    return target
+
+
+def _write_init_array(tmpdir: Path, init_array: np.ndarray) -> Path:
+    """Write precomputed initialization coordinates into the workspace."""
+    target = tmpdir / "init.npy"
+    np.save(target, np.asarray(init_array, dtype=np.float32, order="C"))
     return target
 
 
