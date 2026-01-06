@@ -549,6 +549,11 @@ class Experiment:
         exp.drnb_home = manifest_path.parent.parent.parent
         exp.datasets = manifest.get("datasets", [])
         exp.evaluations = manifest.get("evaluations", [])
+        # convert e.g. ["nnp", dict(n_neighbors=[15, 50, 150])] to a tuple
+        for i, eval in enumerate(exp.evaluations):
+            if isinstance(eval, list):
+                eval = (eval[0], eval[1])
+                exp.evaluations[i] = eval
         exp.run_info = manifest.get("run_info", {})
         exp.methods = []
         for method_entry in manifest.get("methods", []):
