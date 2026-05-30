@@ -61,16 +61,16 @@ The full install path is:
 ./scripts/install.sh
 ```
 
-`scripts/install.sh` currently runs `uv sync` in each workspace. Its contract is:
+`scripts/install.sh` syncs each selected workspace. Its contract is:
 
 - SDK and root package installs are strict and should fail loudly.
-- Embedder and NN plugin installs are best effort.
+- Syncs use `uv sync --locked` by default.
+- `--refresh-locks` runs `uv lock` in each selected workspace before syncing from the refreshed
+  lockfile.
+- Embedder and NN plugin installs are best effort and are summarized at the end of the run.
 - `--reinstall-all` reinstalls all plugins.
 - `--reinstall <name>` reinstalls a specific embedder or NN plugin.
 - `--fresh` removes each workspace `.venv` before syncing.
-
-Milestone 2 of the spring-cleaning work should align the script with the lockfile policy by making
-locked syncs the default and adding a deliberate maintenance path for lock refreshes.
 
 ## Lockfile Policy
 
@@ -90,6 +90,7 @@ Use mutating lockfile commands only as maintenance operations:
 ```bash
 uv lock
 uv lock --upgrade
+./scripts/install.sh --refresh-locks
 ```
 
 Keep lock refreshes scoped to one workspace or one dependency bucket. Do not combine Python

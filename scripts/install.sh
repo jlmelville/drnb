@@ -9,16 +9,23 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UV_BIN="${UV:-uv}"
 FRESH=0
+REFRESH_LOCKS=0
 REINSTALL_SDK=0
 REINSTALL_ALL=0
 REINSTALL_PLUGINS=()
+PLUGIN_INSTALL_ATTEMPTS=0
+FAILED_PLUGIN_INSTALLS=()
+MISSING_REQUESTED_PLUGINS=()
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/install.sh [--fresh] [--reinstall-sdk|-s] [--reinstall-all|-a] [--reinstall|-r <name>...]
+Usage: ./scripts/install.sh [--fresh] [--refresh-locks] [--reinstall-sdk|-s] [--reinstall-all|-a] [--reinstall|-r <name>...]
 
 Options:
-  --fresh, -f           Delete each project's .venv before running `uv sync`.
+  --fresh, -f           Delete each project's .venv before running sync.
+  --refresh-locks       Refresh each selected workspace lockfile with `uv lock`
+                        before syncing. This is a mutating maintenance path.
+                        The default is `uv sync --locked`.
   --reinstall-sdk, -s   Pass `--reinstall-package` flags so core/plugins pick up SDK
                         changes without bumping versions. Applies to both embedder
                         and NN SDKs. When the 3.10 SDK is present, it will also be
@@ -38,6 +45,10 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --fresh|-f)
       FRESH=1
+      shift
+      ;;
+    --refresh-locks)
+      REFRESH_LOCKS=1
       shift
       ;;
     --reinstall-sdk|-s)
@@ -82,22 +93,66 @@ if ! command -v "$UV_BIN" >/dev/null 2>&1; then
   exit 1
 fi
 
+display_dir() {
+  local dir="$1"
+  if [[ "$dir" == "$ROOT_DIR" ]]; then
+    echo "."
+  else
+    echo "${dir#"$ROOT_DIR"/}"
+  fi
+}
+
 sync_dir() {
   local dir="$1"
   local pkg="${2:-}"
   local reinstall="${3:-0}"
-  local extra_args=()
+  local sync_args=(--locked)
   if [[ $FRESH -eq 1 && -d "$dir/.venv" ]]; then
     echo "[drnb-install] Removing existing virtualenv at $dir/.venv"
-    rm -rf "$dir/.venv"
+    rm -rf "$dir/.venv" || return
+  fi
+  if [[ $REFRESH_LOCKS -eq 1 ]]; then
+    echo "[drnb-install] Refreshing lockfile in $(display_dir "$dir")"
+    (cd "$dir" && "$UV_BIN" lock) || return
   fi
   if [[ $reinstall -eq 1 && -n "$pkg" ]]; then
     for p in $pkg; do
-      extra_args+=(--reinstall-package "$p")
+      sync_args+=(--reinstall-package "$p")
     done
-    (cd "$dir" && "$UV_BIN" sync "${extra_args[@]}")
+  fi
+  (cd "$dir" && "$UV_BIN" sync "${sync_args[@]}")
+}
+
+record_plugin_failure() {
+  local name="$1"
+  FAILED_PLUGIN_INSTALLS+=("$name")
+  echo "[drnb-install] !! Failed to install $name (continuing)" >&2
+}
+
+print_summary() {
+  echo "[drnb-install] Summary:"
+  if [[ $REFRESH_LOCKS -eq 1 ]]; then
+    echo "[drnb-install]   sync mode: refresh lockfiles, then sync locked"
   else
-    (cd "$dir" && "$UV_BIN" sync)
+    echo "[drnb-install]   sync mode: locked"
+  fi
+
+  if [[ $PLUGIN_INSTALL_ATTEMPTS -eq 0 ]]; then
+    echo "[drnb-install]   plugin installs: none attempted"
+  elif [[ ${#FAILED_PLUGIN_INSTALLS[@]} -eq 0 ]]; then
+    echo "[drnb-install]   plugin installs: all attempted plugin installs succeeded"
+  else
+    echo "[drnb-install]   failed best-effort plugin installs:"
+    for name in "${FAILED_PLUGIN_INSTALLS[@]}"; do
+      echo "[drnb-install]     - $name"
+    done
+  fi
+
+  if [[ ${#MISSING_REQUESTED_PLUGINS[@]} -gt 0 ]]; then
+    echo "[drnb-install]   requested plugins not found:"
+    for name in "${MISSING_REQUESTED_PLUGINS[@]}"; do
+      echo "[drnb-install]     - $name"
+    done
   fi
 }
 
@@ -153,8 +208,9 @@ if [[ -d "$PLUGIN_ROOT" ]]; then
     fi
 
     echo "[drnb-install] -> plugins/$plugin_name"
+    PLUGIN_INSTALL_ATTEMPTS=$((PLUGIN_INSTALL_ATTEMPTS + 1))
     if ! sync_dir "$plugin_dir" "$pkg_flag" "$reinstall_plugin"; then
-      echo "[drnb-install] !! Failed to install plugins/$plugin_name (continuing)" >&2
+      record_plugin_failure "plugins/$plugin_name"
     fi
   done
 else
@@ -186,8 +242,9 @@ if [[ -d "$NN_PLUGIN_ROOT" ]]; then
     fi
 
     echo "[drnb-install] -> nn-plugins/$plugin_name"
+    PLUGIN_INSTALL_ATTEMPTS=$((PLUGIN_INSTALL_ATTEMPTS + 1))
     if ! sync_dir "$plugin_dir" "$NN_SDK_MAIN" "$reinstall_plugin"; then
-      echo "[drnb-install] !! Failed to install nn-plugins/$plugin_name (continuing)" >&2
+      record_plugin_failure "nn-plugins/$plugin_name"
     fi
   done
 else
@@ -198,8 +255,10 @@ if [[ ${#REINSTALL_PLUGINS[@]} -gt 0 ]]; then
   for name in "${!REQUESTED_PLUGINS[@]}"; do
     if [[ ${REQUESTED_PLUGINS[$name]} -eq 0 ]]; then
       echo "[drnb-install] !! Requested plugin '$name' not found under plugins/ or nn-plugins/" >&2
+      MISSING_REQUESTED_PLUGINS+=("$name")
     fi
   done
 fi
 
+print_summary
 echo "[drnb-install] Done"

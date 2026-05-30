@@ -45,13 +45,16 @@ For a full repository install, run:
 ```
 
 The script installs the SDK workspaces and core package as strict steps, then installs embedder and
-nearest-neighbor plugins as best effort. A best-effort plugin failure is reported but does not abort
-the whole install, because some plugins depend on native packages, old Python versions, GPU-specific
-PyTorch builds, or manual local setup.
+nearest-neighbor plugins as best effort. It uses checked-in lockfiles by default. A best-effort
+plugin failure is reported in the final summary but does not abort the whole install, because some
+plugins depend on native packages, old Python versions, GPU-specific PyTorch builds, or manual local
+setup.
 
 If you need to make changes to one of the plugins (e.g. adjusting the version of `pytorch`), then
 run `./scripts/install.sh --reinstall-all` to reinstall all plugin packages without requiring SDK
 version bumps. To target a single plugin, use `./scripts/install.sh --reinstall <name>`.
+
+To deliberately refresh lockfiles during maintenance, use `./scripts/install.sh --refresh-locks`.
 
 Useful development checks:
 
