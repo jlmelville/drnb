@@ -21,6 +21,7 @@ DONTCHECKMEIN/
 .cursor/rules
 AGENTS.md
 PLANS.md
-
+.agents/
+docs/agents/
 plans_pending/
 plugin-sdks/drnb-plugin-sdk-312/src/drnb_plugin_sdk_312.egg-info/SOURCES.txt
