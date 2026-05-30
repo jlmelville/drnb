@@ -27,7 +27,8 @@ The main outcome is that installing can be either a narrow core install or a ful
 ### Setup
 
 You will need [uv](https://docs.astral.sh/uv/) and Python version management through uv or
-[pyenv](https://github.com/pyenv/pyenv). The root project currently targets Python 3.12.
+[pyenv](https://github.com/pyenv/pyenv). The root project currently targets Python 3.12 while
+Python 3.13 SDK workspaces are evaluated separately.
 
 For the core package only, run:
 
@@ -36,7 +37,7 @@ uv sync --locked
 ```
 
 This installs the core package and the Python 3.12 plugin SDK packages used by the host. It does
-not install every external plugin environment.
+not install every external plugin environment or the Python 3.13 spike SDKs.
 
 For a full repository install, run:
 

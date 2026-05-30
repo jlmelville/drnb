@@ -11,8 +11,10 @@ Core and SDK workspaces:
 | --- | --- | --- | --- | --- |
 | `.` | `>=3.12,<3.13` | `uv.lock` | `drnb-plugin-sdk-312`, `drnb-nn-plugin-sdk-312` | Strict install and full root checks. |
 | `plugin-sdks/drnb-plugin-sdk-312` | `>=3.12,<3.13` | `plugin-sdks/drnb-plugin-sdk-312/uv.lock` | None | Strict install, SDK tests, lock check. |
+| `plugin-sdks/drnb-plugin-sdk-313` | `>=3.13,<3.14` | `plugin-sdks/drnb-plugin-sdk-313/uv.lock` | None | Python 3.13 spike SDK; validate directly before migrating core or plugins. |
 | `plugin-sdks/drnb-plugin-sdk-310` | `==3.10.14` | `plugin-sdks/drnb-plugin-sdk-310/uv.lock` | None | Legacy SDK for `ncvis`; lock check and targeted tests. |
 | `nn-plugin-sdks/drnb-nn-plugin-sdk-312` | `>=3.12,<3.13` | `nn-plugin-sdks/drnb-nn-plugin-sdk-312/uv.lock` | None | Strict install and lock check; add targeted tests when the NN runner contract changes. |
+| `nn-plugin-sdks/drnb-nn-plugin-sdk-313` | `>=3.13,<3.14` | `nn-plugin-sdks/drnb-nn-plugin-sdk-313/uv.lock` | None | Python 3.13 spike SDK; validate directly before migrating NN plugins. |
 
 Embedder plugin workspaces:
 
@@ -38,14 +40,17 @@ Nearest-neighbor plugin workspaces:
 
 ## Python Policy
 
-The root package currently targets Python 3.12. A future Python 3.13 migration should be treated as
-a compatibility spike first: create 3.13 SDKs, prove lockfile resolution, and migrate plugins
-selectively. Do not move `plugins/ncvis` or `plugin-sdks/drnb-plugin-sdk-310` away from Python
-3.10 during routine cleanup.
+The root package currently targets Python 3.12. Python 3.13 work starts as a compatibility spike:
+maintain 3.13 SDK workspaces, prove lockfile resolution and sync behavior there, then migrate core
+and plugins selectively. The 3.13 SDKs intentionally require NumPy 2.1+ so CPython 3.13 syncs use
+wheels instead of attempting a NumPy 2.0 source build. Do not move `plugins/ncvis` or
+`plugin-sdks/drnb-plugin-sdk-310` away from Python 3.10 during routine cleanup.
 
 The root `.python-version` is the default for Python 3.12 workspaces. Workspaces that require a
 different interpreter should carry their own `.python-version`; `ncvis` is the important legacy
-candidate.
+candidate. When the repository's default Python minor changes, update `AGENTS.md`, README setup
+guidance, this policy, SDK names, and scaffolder defaults in the same milestone so agents and
+maintainers do not silently steer the repo back to an older minor.
 
 ## Installation Policy
 
@@ -67,6 +72,8 @@ The full install path is:
 - Syncs use `uv sync --locked` by default.
 - `--refresh-locks` runs `uv lock` in each selected workspace before syncing from the refreshed
   lockfile.
+- Any caller-activated virtual environment is ignored for internal `uv` calls so each workspace
+  uses its own `.venv`.
 - Embedder and NN plugin installs are best effort and are summarized at the end of the run.
 - `--reinstall-all` reinstalls all plugins.
 - `--reinstall <name>` reinstalls a specific embedder or NN plugin.

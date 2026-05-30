@@ -102,6 +102,11 @@ display_dir() {
   fi
 }
 
+run_uv() {
+  # Ignore any caller-activated venv so each workspace uses its own project .venv.
+  env -u VIRTUAL_ENV "$UV_BIN" "$@"
+}
+
 sync_dir() {
   local dir="$1"
   local pkg="${2:-}"
@@ -113,14 +118,14 @@ sync_dir() {
   fi
   if [[ $REFRESH_LOCKS -eq 1 ]]; then
     echo "[drnb-install] Refreshing lockfile in $(display_dir "$dir")"
-    (cd "$dir" && "$UV_BIN" lock) || return
+    (cd "$dir" && run_uv lock) || return
   fi
   if [[ $reinstall -eq 1 && -n "$pkg" ]]; then
     for p in $pkg; do
       sync_args+=(--reinstall-package "$p")
     done
   fi
-  (cd "$dir" && "$UV_BIN" sync "${sync_args[@]}")
+  (cd "$dir" && run_uv sync "${sync_args[@]}")
 }
 
 record_plugin_failure() {

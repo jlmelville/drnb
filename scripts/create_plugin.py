@@ -15,13 +15,24 @@ except ModuleNotFoundError:  # pragma: no cover
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGINS_DIR = REPO_ROOT / "plugins"
 SDK_ROOT = REPO_ROOT / "plugin-sdks"
+DEFAULT_PYTHON_VERSION = "3.12.0"
+SDK_PYTHON_DEFAULTS = {
+    "310": "3.10.14",
+    "312": DEFAULT_PYTHON_VERSION,
+    "313": "3.13.0",
+}
+SDK_NAMES = {
+    "310": "drnb-plugin-sdk-310",
+    "312": "drnb-plugin-sdk-312",
+    "313": "drnb-plugin-sdk-313",
+}
 
 
 def read_repo_python_version() -> str:
     path = REPO_ROOT / ".python-version"
     if path.exists():
         return path.read_text(encoding="utf-8").strip()
-    return "3.12.0"
+    return DEFAULT_PYTHON_VERSION
 
 
 def normalize_python_version(raw: str) -> str:
@@ -35,7 +46,7 @@ def normalize_python_version(raw: str) -> str:
         return f"{major}.{minor}.0"
     if len(parts) == 1 and parts[0]:
         return f"{parts[0]}.12.0" if parts[0] == "3" else f"{parts[0]}.0.0"
-    return "3.12.0"
+    return DEFAULT_PYTHON_VERSION
 
 
 def resolve_sdk(
@@ -44,28 +55,32 @@ def resolve_sdk(
     """
     Return (sdk_name, requires_python_spec, python_version).
 
-    sdk_name: drnb-plugin-sdk-312 or drnb-plugin-sdk-310
+    sdk_name: drnb-plugin-sdk-313, drnb-plugin-sdk-312, or drnb-plugin-sdk-310
     requires_python_spec: string for pyproject requires-python
     python_version: possibly adjusted version (e.g., defaulting to 3.10.14 when SDK 310 is forced)
     """
-    sdk_name = "drnb-plugin-sdk-312"
+    sdk_name = SDK_NAMES["312"]
     requires_python = ">=3.12"
 
     if sdk_override:
-        if "310" in sdk_override:
-            sdk_name = "drnb-plugin-sdk-310"
-            if not was_python_explicit:
-                python_version = "3.10.14"
+        sdk_key = sdk_override.removeprefix("drnb-plugin-sdk-")
+        sdk_name = SDK_NAMES[sdk_key]
+        if not was_python_explicit:
+            python_version = SDK_PYTHON_DEFAULTS[sdk_key]
+        if sdk_key == "310":
             requires_python = f"=={python_version}"
         else:
-            sdk_name = "drnb-plugin-sdk-312"
-            requires_python = ">=3.12"
+            minor = sdk_key[-2:]
+            requires_python = f">=3.{int(minor)}"
         return sdk_name, requires_python, python_version
 
     parts = python_version.split(".")
     if len(parts) >= 2 and parts[0] == "3" and parts[1] == "10":
-        sdk_name = "drnb-plugin-sdk-310"
+        sdk_name = SDK_NAMES["310"]
         requires_python = f"=={python_version}"
+    elif len(parts) >= 2 and parts[0] == "3" and parts[1] == "13":
+        sdk_name = SDK_NAMES["313"]
+        requires_python = ">=3.13"
     return sdk_name, requires_python, python_version
 
 
@@ -265,11 +280,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--python-version",
         dest="python_version",
-        help="Python version to target (e.g., 3.12.8 or 3.10.14). Defaults to repo .python-version.",
+        help="Python version to target (e.g., 3.13.0, 3.12.8, or 3.10.14). Defaults to repo .python-version.",
     )
     parser.add_argument(
         "--sdk",
-        choices=["310", "312", "drnb-plugin-sdk-310", "drnb-plugin-sdk-312"],
+        choices=[
+            "310",
+            "312",
+            "313",
+            "drnb-plugin-sdk-310",
+            "drnb-plugin-sdk-312",
+            "drnb-plugin-sdk-313",
+        ],
         help="Force SDK variant regardless of Python version.",
     )
     parser.add_argument(
