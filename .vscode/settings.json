@@ -16,31 +16,27 @@
             88
         ]
     },
+    "chatgpt.commentCodeLensEnabled": false,
     "editor.bracketPairColorization.enabled": true,
     "files.watcherExclude": {
         "**/venv/**": true
     },
     "git.blame.editorDecoration.enabled": true,
     "git.blame.statusBarItem.enabled": true,
+    "jupyter.widgetScriptSources": [
+        "jsdelivr.com",
+        "unpkg.com"
+    ],
     "notebook.cellExecutionTimeVerbosity": "verbose",
     "notebook.codeActionsOnSave": {
         "notebook.source.fixAll": "explicit",
         "notebook.source.organizeImports": "explicit"
     },
     "notebook.formatOnSave.enabled": true,
-    "pylint.severity": {
-        "convention": "Information",
-        "error": "Error",
-        "fatal": "Error",
-        "info": "Information",
-        "refactor": "Information",
-        "warning": "Warning"
-    },
     "python.terminal.activateEnvInCurrentTerminal": true,
     "python.testing.promptToConfigure": false,
     "python.testing.pytestArgs": [],
     "python.testing.pytestEnabled": true,
     "python.testing.unittestEnabled": false,
-    "workbench.tree.indent": 16,
-    "chatgpt.commentCodeLensEnabled": false
+    "workbench.tree.indent": 16
 }

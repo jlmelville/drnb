@@ -8,6 +8,7 @@ authors = [{name = "James Melville", email = "jlmelville@gmail.com"}]
 license = {text = "MIT"}
 classifiers = ["License :: OSI Approved :: MIT License"]
 dependencies = [
+    "anywidget>=0.9.18",
     "glasbey>=0.3.0",
     "httpx>=0.28.1",
     "ipykernel>=7.2.0",
