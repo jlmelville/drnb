@@ -162,13 +162,18 @@ print_summary() {
 }
 
 SDK_ROOT="$ROOT_DIR/plugin-sdks"
-SDK_MAIN="drnb-plugin-sdk-312"
+SDK_MAIN="drnb-plugin-sdk-313"
 SDK_ALT="drnb-plugin-sdk-310"
 NN_SDK_ROOT="$ROOT_DIR/nn-plugin-sdks"
-NN_SDK_MAIN="drnb-nn-plugin-sdk-312"
+NN_SDK_MAIN="drnb-nn-plugin-sdk-313"
 
-echo "[drnb-install] Installing drnb-plugin-sdk-312 from $SDK_ROOT/drnb-plugin-sdk-312"
-sync_dir "$SDK_ROOT/drnb-plugin-sdk-312" "drnb-plugin-sdk-312" "$REINSTALL_SDK"
+echo "[drnb-install] Installing $SDK_MAIN from $SDK_ROOT/$SDK_MAIN"
+sync_dir "$SDK_ROOT/$SDK_MAIN" "$SDK_MAIN" "$REINSTALL_SDK"
+
+if [[ -d "$SDK_ROOT/drnb-plugin-sdk-312" ]]; then
+  echo "[drnb-install] Installing drnb-plugin-sdk-312 from $SDK_ROOT/drnb-plugin-sdk-312"
+  sync_dir "$SDK_ROOT/drnb-plugin-sdk-312" "drnb-plugin-sdk-312" "$REINSTALL_SDK"
+fi
 
 if [[ -d "$SDK_ROOT/drnb-plugin-sdk-310" ]]; then
   echo "[drnb-install] Installing drnb-plugin-sdk-310 from $SDK_ROOT/drnb-plugin-sdk-310"
@@ -178,6 +183,11 @@ fi
 if [[ -d "$NN_SDK_ROOT/$NN_SDK_MAIN" ]]; then
   echo "[drnb-install] Installing $NN_SDK_MAIN from $NN_SDK_ROOT/$NN_SDK_MAIN"
   sync_dir "$NN_SDK_ROOT/$NN_SDK_MAIN" "$NN_SDK_MAIN" "$REINSTALL_SDK"
+fi
+
+if [[ -d "$NN_SDK_ROOT/drnb-nn-plugin-sdk-312" ]]; then
+  echo "[drnb-install] Installing drnb-nn-plugin-sdk-312 from $NN_SDK_ROOT/drnb-nn-plugin-sdk-312"
+  sync_dir "$NN_SDK_ROOT/drnb-nn-plugin-sdk-312" "drnb-nn-plugin-sdk-312" "$REINSTALL_SDK"
 fi
 
 echo "[drnb-install] Installing drnb core package from $ROOT_DIR"
@@ -210,6 +220,8 @@ if [[ -d "$PLUGIN_ROOT" ]]; then
     pkg_flag="$SDK_MAIN"
     if grep -q "drnb-plugin-sdk-310" "$plugin_dir/pyproject.toml"; then
       pkg_flag="$SDK_ALT"
+    elif grep -q "drnb-plugin-sdk-312" "$plugin_dir/pyproject.toml"; then
+      pkg_flag="drnb-plugin-sdk-312"
     fi
 
     echo "[drnb-install] -> plugins/$plugin_name"
@@ -246,9 +258,14 @@ if [[ -d "$NN_PLUGIN_ROOT" ]]; then
       fi
     fi
 
+    pkg_flag="$NN_SDK_MAIN"
+    if grep -q "drnb-nn-plugin-sdk-312" "$plugin_dir/pyproject.toml"; then
+      pkg_flag="drnb-nn-plugin-sdk-312"
+    fi
+
     echo "[drnb-install] -> nn-plugins/$plugin_name"
     PLUGIN_INSTALL_ATTEMPTS=$((PLUGIN_INSTALL_ATTEMPTS + 1))
-    if ! sync_dir "$plugin_dir" "$NN_SDK_MAIN" "$reinstall_plugin"; then
+    if ! sync_dir "$plugin_dir" "$pkg_flag" "$reinstall_plugin"; then
       record_plugin_failure "nn-plugins/$plugin_name"
     fi
   done

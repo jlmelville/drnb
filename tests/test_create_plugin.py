@@ -27,11 +27,23 @@ def test_resolve_sdk_selects_python_313_sdk_from_version() -> None:
     assert py_version == "3.13.0"
 
 
+def test_resolve_sdk_defaults_to_python_313_sdk() -> None:
+    create_plugin = load_create_plugin_module()
+
+    sdk_name, requires_python, py_version = create_plugin.resolve_sdk(
+        create_plugin.DEFAULT_PYTHON_VERSION, None, was_python_explicit=False
+    )
+
+    assert sdk_name == "drnb-plugin-sdk-313"
+    assert requires_python == ">=3.13"
+    assert py_version == "3.13.0"
+
+
 def test_resolve_sdk_313_override_sets_python_default() -> None:
     create_plugin = load_create_plugin_module()
 
     sdk_name, requires_python, py_version = create_plugin.resolve_sdk(
-        "3.12.8", "313", was_python_explicit=False
+        "3.12", "313", was_python_explicit=False
     )
 
     assert sdk_name == "drnb-plugin-sdk-313"

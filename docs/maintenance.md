@@ -9,12 +9,12 @@ Core and SDK workspaces:
 
 | Workspace | Python requirement | Lockfile | SDK dependency | Install and CI intent |
 | --- | --- | --- | --- | --- |
-| `.` | `>=3.12,<3.13` | `uv.lock` | `drnb-plugin-sdk-312`, `drnb-nn-plugin-sdk-312` | Strict install and full root checks. |
-| `plugin-sdks/drnb-plugin-sdk-312` | `>=3.12,<3.13` | `plugin-sdks/drnb-plugin-sdk-312/uv.lock` | None | Strict install, SDK tests, lock check. |
-| `plugin-sdks/drnb-plugin-sdk-313` | `>=3.13,<3.14` | `plugin-sdks/drnb-plugin-sdk-313/uv.lock` | None | Python 3.13 spike SDK; validate directly before migrating core or plugins. |
+| `.` | `>=3.13,<3.14` | `uv.lock` | `drnb-plugin-sdk-313`, `drnb-nn-plugin-sdk-313` | Strict install and full root checks on Python 3.13. |
+| `plugin-sdks/drnb-plugin-sdk-312` | `>=3.12,<3.13` | `plugin-sdks/drnb-plugin-sdk-312/uv.lock` | None | SDK for plugin workspaces not yet migrated to Python 3.13. |
+| `plugin-sdks/drnb-plugin-sdk-313` | `>=3.13,<3.14` | `plugin-sdks/drnb-plugin-sdk-313/uv.lock` | None | Default SDK for new core-hosted Python 3.13 plugin work. |
 | `plugin-sdks/drnb-plugin-sdk-310` | `==3.10.14` | `plugin-sdks/drnb-plugin-sdk-310/uv.lock` | None | Legacy SDK for `ncvis`; lock check and targeted tests. |
-| `nn-plugin-sdks/drnb-nn-plugin-sdk-312` | `>=3.12,<3.13` | `nn-plugin-sdks/drnb-nn-plugin-sdk-312/uv.lock` | None | Strict install and lock check; add targeted tests when the NN runner contract changes. |
-| `nn-plugin-sdks/drnb-nn-plugin-sdk-313` | `>=3.13,<3.14` | `nn-plugin-sdks/drnb-nn-plugin-sdk-313/uv.lock` | None | Python 3.13 spike SDK; validate directly before migrating NN plugins. |
+| `nn-plugin-sdks/drnb-nn-plugin-sdk-312` | `>=3.12,<3.13` | `nn-plugin-sdks/drnb-nn-plugin-sdk-312/uv.lock` | None | SDK for NN plugin workspaces not yet migrated to Python 3.13. |
+| `nn-plugin-sdks/drnb-nn-plugin-sdk-313` | `>=3.13,<3.14` | `nn-plugin-sdks/drnb-nn-plugin-sdk-313/uv.lock` | None | Default SDK for new core-hosted Python 3.13 NN plugin work. |
 
 Embedder plugin workspaces:
 
@@ -40,17 +40,16 @@ Nearest-neighbor plugin workspaces:
 
 ## Python Policy
 
-The root package currently targets Python 3.12. Python 3.13 work starts as a compatibility spike:
-maintain 3.13 SDK workspaces, prove lockfile resolution and sync behavior there, then migrate core
-and plugins selectively. The 3.13 SDKs intentionally require NumPy 2.1+ so CPython 3.13 syncs use
-wheels instead of attempting a NumPy 2.0 source build. Do not move `plugins/ncvis` or
+The root package targets Python 3.13. The 3.13 SDKs intentionally require NumPy 2.1+ so CPython
+3.13 syncs use wheels instead of attempting a NumPy 2.0 source build. Plugins should migrate to
+Python 3.13 selectively after the core package validates. Do not move `plugins/ncvis` or
 `plugin-sdks/drnb-plugin-sdk-310` away from Python 3.10 during routine cleanup.
 
 Each workspace's `pyproject.toml` is the source of truth for Python compatibility. `.python-version`
 files are only local interpreter-selection hints for pyenv users. Prefer major/minor values such as
 `3.12`, `3.13`, or `3.10` unless a specific patch is known to be required. Keep the root
 `.python-version` as the default developer interpreter, and add local `.python-version` files only
-for true overrides such as `ncvis` or temporary spike workspaces. When the repository's default
+for true overrides such as Python 3.12 plugin workspaces or `ncvis`. When the repository's default
 Python minor changes, update `AGENTS.md`, README setup guidance, this policy, SDK names, and
 scaffolder defaults in the same milestone so agents and maintainers do not silently steer the repo
 back to an older minor.

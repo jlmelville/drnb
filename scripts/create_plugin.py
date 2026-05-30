@@ -15,7 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGINS_DIR = REPO_ROOT / "plugins"
 SDK_ROOT = REPO_ROOT / "plugin-sdks"
-DEFAULT_PYTHON_VERSION = "3.12.0"
+DEFAULT_PYTHON_VERSION = "3.13.0"
 SDK_PYTHON_DEFAULTS = {
     "310": "3.10.14",
     "312": DEFAULT_PYTHON_VERSION,
@@ -45,7 +45,7 @@ def normalize_python_version(raw: str) -> str:
             return "3.10.14"
         return f"{major}.{minor}.0"
     if len(parts) == 1 and parts[0]:
-        return f"{parts[0]}.12.0" if parts[0] == "3" else f"{parts[0]}.0.0"
+        return DEFAULT_PYTHON_VERSION if parts[0] == "3" else f"{parts[0]}.0.0"
     return DEFAULT_PYTHON_VERSION
 
 
@@ -59,8 +59,8 @@ def resolve_sdk(
     requires_python_spec: string for pyproject requires-python
     python_version: possibly adjusted version (e.g., defaulting to 3.10.14 when SDK 310 is forced)
     """
-    sdk_name = SDK_NAMES["312"]
-    requires_python = ">=3.12"
+    sdk_name = SDK_NAMES["313"]
+    requires_python = ">=3.13"
 
     if sdk_override:
         sdk_key = sdk_override.removeprefix("drnb-plugin-sdk-")
@@ -280,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--python-version",
         dest="python_version",
-        help="Python version to target (e.g., 3.13.0, 3.12.8, or 3.10.14). Defaults to repo .python-version.",
+        help="Python version to target (e.g., 3.13, 3.12, or 3.10.14). Defaults to repo .python-version.",
     )
     parser.add_argument(
         "--sdk",
