@@ -20,22 +20,22 @@ Embedder plugin workspaces:
 
 | Workspace | Python requirement | SDK dependency | Lockfile | CI intent |
 | --- | --- | --- | --- | --- |
-| `plugins/pacmap` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/pacmap/uv.lock` | Lock check and lightweight smoke install. |
+| `plugins/pacmap` | `>=3.13,<3.14` | `drnb-plugin-sdk-313` | `plugins/pacmap/uv.lock` | Lock check and host-launched smoke on Python 3.13. |
 | `plugins/cne` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/cne/uv.lock` | Lock check; GPU and PyKeOps behavior is manual. |
 | `plugins/ncvis` | `==3.10.14` | `drnb-plugin-sdk-310` | `plugins/ncvis/uv.lock` | Legacy/manual; keep Python 3.10 and NumPy <2 until proven otherwise. |
 | `plugins/pymde` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/pymde/uv.lock` | Lock check; Torch/GPU behavior is manual. |
-| `plugins/topometry` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/topometry/uv.lock` | Lock check and smoke install if dependency resolution remains stable. |
-| `plugins/trimap` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/trimap/uv.lock` | Lock check and lightweight smoke install. |
-| `plugins/tsne` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/tsne/uv.lock` | Lock check and lightweight smoke install. |
-| `plugins/umato` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/umato/uv.lock` | Lock check and lightweight smoke install. |
+| `plugins/topometry` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/topometry/uv.lock` | Deferred to dependency-upgrade review; current package upgrade is substantial. |
+| `plugins/trimap` | `>=3.13,<3.14` | `drnb-plugin-sdk-313` | `plugins/trimap/uv.lock` | Lock check and host-launched smoke on Python 3.13. |
+| `plugins/tsne` | `>=3.13,<3.14` | `drnb-plugin-sdk-313` | `plugins/tsne/uv.lock` | Lock check and host-launched smoke on Python 3.13. |
+| `plugins/umato` | `>=3.13,<3.14` | `drnb-plugin-sdk-313` | `plugins/umato/uv.lock` | Lock check and host-launched smoke on Python 3.13. |
 
 Nearest-neighbor plugin workspaces:
 
 | Workspace | Python requirement | SDK dependency | Lockfile | CI intent |
 | --- | --- | --- | --- | --- |
-| `nn-plugins/annoy` | `>=3.12` | `drnb-nn-plugin-sdk-312` | `nn-plugins/annoy/uv.lock` | Lock check and lightweight smoke install. |
+| `nn-plugins/annoy` | `>=3.13,<3.14` | `drnb-nn-plugin-sdk-313` | `nn-plugins/annoy/uv.lock` | Lock check and host-launched smoke on Python 3.13. |
 | `nn-plugins/faiss` | `>=3.12` | `drnb-nn-plugin-sdk-312` | `nn-plugins/faiss/uv.lock` | Lock check only; FAISS itself is installed manually. |
-| `nn-plugins/hnsw` | `>=3.12` | `drnb-nn-plugin-sdk-312` | `nn-plugins/hnsw/uv.lock` | Lock check and lightweight smoke install. |
+| `nn-plugins/hnsw` | `>=3.13,<3.14` | `drnb-nn-plugin-sdk-313` | `nn-plugins/hnsw/uv.lock` | Lock check and host-launched smoke on Python 3.13. |
 | `nn-plugins/torchknn` | `>=3.12` | `drnb-nn-plugin-sdk-312` | `nn-plugins/torchknn/uv.lock` | Lock check; GPU and PyTorch build behavior is manual. |
 
 ## Python Policy

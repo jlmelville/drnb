@@ -2,11 +2,11 @@
 name = "drnb-plugin-pacmap"
 version = "0.0.1"
 description = "PaCMAP/LocalMAP plugin runner for drnb"
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "numpy",
     "pacmap>=0.8.0",
-    "drnb-plugin-sdk-312>=0.1.0",
+    "drnb-plugin-sdk-313>=0.1.0",
 ]
 
 [build-system]
@@ -14,7 +14,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.uv.sources]
-drnb-plugin-sdk-312 = { path = "../../plugin-sdks/drnb-plugin-sdk-312" }
+drnb-plugin-sdk-313 = { path = "../../plugin-sdks/drnb-plugin-sdk-313" }
 
 [tool.setuptools]
 py-modules = ["neighbor_pairs", "localscale"]
