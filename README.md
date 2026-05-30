@@ -16,51 +16,54 @@ various datasets and that might be of interest to others.
 
 *November 29 2025* The Plugin Update
 
-The problem that has bedeviled this repo has been too many dependencies. I have taken the nuclear
-option and created a "plugin" architecture: instead of one project, there is now one "core"
-project that does most of the work, and then several separate projects, one for each embedding
-method and nearest neighbor package. Communication between the core and the plugins is just by IPC,
-i.e. shelling out and running a python script in each plugin folder. There are also plugin SDKs
-to provide useful helper functions for reading and writing the request and responses.
+The problem that has bedeviled this repo has been too many dependencies. The current layout uses a
+plugin architecture: one core project does most of the work, and separate plugin projects provide
+embedding methods and nearest-neighbor backends. Communication between the core and the plugins is
+by IPC, i.e. shelling out and running a Python script in each plugin folder. Plugin SDKs provide
+helper functions for reading and writing requests and responses.
 
-The main outcome is that installing is now a bit more involved because you must recursively install
-several packages in this repo.
+The main outcome is that installing can be either a narrow core install or a full repository install.
 
 ### Setup
 
-You will need [uv](https://docs.astral.sh/uv/) and [pyenv](https://github.com/pyenv/pyenv) to
-handle installation.
+You will need [uv](https://docs.astral.sh/uv/) and Python version management through uv or
+[pyenv](https://github.com/pyenv/pyenv). The root project currently targets Python 3.12.
 
-Run the script:
+For the core package only, run:
+
+```bash
+uv sync --locked
+```
+
+This installs the core package and the Python 3.12 plugin SDK packages used by the host. It does
+not install every external plugin environment.
+
+For a full repository install, run:
 
 ```bash
 ./scripts/install.sh
 ```
 
-to install everything. This will go through all the different projects and install them into
-virtual environments. Most packages should install ok but some are troublesome, so it shouldn't be
-a failure if some packages fail to install. Some may require different versions of python from the
-drnb core, which is where pyenv comes in.
+The script installs the SDK workspaces and core package as strict steps, then installs embedder and
+nearest-neighbor plugins as best effort. A best-effort plugin failure is reported but does not abort
+the whole install, because some plugins depend on native packages, old Python versions, GPU-specific
+PyTorch builds, or manual local setup.
 
 If you need to make changes to one of the plugins (e.g. adjusting the version of `pytorch`), then
-I recommend running `./scripts/install.sh -a` to reinstall all packages to avoid problems with not
-adjusting the version string.
+run `./scripts/install.sh --reinstall-all` to reinstall all plugin packages without requiring SDK
+version bumps. To target a single plugin, use `./scripts/install.sh --reinstall <name>`.
 
-After installing, you can just usually work with the core of drnb (and the notebooks) with:
+Useful development checks:
 
 ```bash
-uv venv
-source .venv/bin/activate
-uv sync
-# or if you want:
-# uv sync --dev
+uv lock --check
+uv run ruff check .
+uv run pytest
 ```
 
-The `dev` extra identifier just installs some linting tools for use when developing `drnb` . If you
-are using VSCode then the `.vscode/settings.json` sets those tools up. I am trying to see how far
-I can get with just [ruff](https://docs.astral.sh/ruff/).
-
-See the `docs` folder for more details on the different plugins and the SDK they follow.
+See `docs/maintenance.md` for the workspace matrix, lockfile policy, dependency upgrade buckets,
+and planned CI scope. See `docs/plugin-protocol.md` and `docs/nn-plugin-protocol.md` for the plugin
+runner contracts.
 
 ### Optional packages
 
@@ -73,7 +76,8 @@ without it.
 
 #### ncvis
 
-Currently does not work on ARM Macs. It shouldn't be a failure to fail to install this.
+Currently does not work on ARM Macs. It is intentionally isolated on Python 3.10 with NumPy <2, so
+it should not be treated as a required install on every machine.
 
 ## Data setup
 

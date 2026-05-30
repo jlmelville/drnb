@@ -11,6 +11,7 @@ protocol for sharing data between a plugin and the drnb core is in `plugin-sdks`
 SDK per python version, so as and when I decide to migrate to newer versions of python new SDKs
 will appear with the python version at the end e.g. `drnb-plugin-sdk-312` is for Python 3.12.
 This allows both the drnb core and the plugins to vary the version of python they support.
+See `docs/maintenance.md` for the current workspace matrix, Python policy, and lockfile policy.
 
 ## Request layout
 
