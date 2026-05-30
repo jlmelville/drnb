@@ -15,16 +15,21 @@ except ModuleNotFoundError:  # pragma: no cover
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PLUGINS_DIR = REPO_ROOT / "plugins"
 SDK_ROOT = REPO_ROOT / "plugin-sdks"
-DEFAULT_PYTHON_VERSION = "3.13.0"
+DEFAULT_PYTHON_VERSION = "3.13"
 SDK_PYTHON_DEFAULTS = {
-    "310": "3.10.14",
-    "312": DEFAULT_PYTHON_VERSION,
-    "313": "3.13.0",
+    "310": "3.10",
+    "312": "3.12",
+    "313": DEFAULT_PYTHON_VERSION,
 }
 SDK_NAMES = {
     "310": "drnb-plugin-sdk-310",
     "312": "drnb-plugin-sdk-312",
     "313": "drnb-plugin-sdk-313",
+}
+SDK_REQUIRES_PYTHON = {
+    "310": "==3.10.14",
+    "312": ">=3.12,<3.13",
+    "313": ">=3.13,<3.14",
 }
 
 
@@ -40,12 +45,9 @@ def normalize_python_version(raw: str) -> str:
     if len(parts) >= 3:
         return ".".join(parts[:3])
     if len(parts) == 2:
-        major, minor = parts
-        if major == "3" and minor == "10":
-            return "3.10.14"
-        return f"{major}.{minor}.0"
+        return ".".join(parts)
     if len(parts) == 1 and parts[0]:
-        return DEFAULT_PYTHON_VERSION if parts[0] == "3" else f"{parts[0]}.0.0"
+        return DEFAULT_PYTHON_VERSION if parts[0] == "3" else f"{parts[0]}.0"
     return DEFAULT_PYTHON_VERSION
 
 
@@ -57,10 +59,10 @@ def resolve_sdk(
 
     sdk_name: drnb-plugin-sdk-313, drnb-plugin-sdk-312, or drnb-plugin-sdk-310
     requires_python_spec: string for pyproject requires-python
-    python_version: possibly adjusted version (e.g., defaulting to 3.10.14 when SDK 310 is forced)
+    python_version: possibly adjusted interpreter hint (e.g., 3.12 when SDK 312 is forced)
     """
     sdk_name = SDK_NAMES["313"]
-    requires_python = ">=3.13"
+    requires_python = SDK_REQUIRES_PYTHON["313"]
 
     if sdk_override:
         sdk_key = sdk_override.removeprefix("drnb-plugin-sdk-")
@@ -68,19 +70,26 @@ def resolve_sdk(
         if not was_python_explicit:
             python_version = SDK_PYTHON_DEFAULTS[sdk_key]
         if sdk_key == "310":
-            requires_python = f"=={python_version}"
+            requires_python = (
+                SDK_REQUIRES_PYTHON["310"]
+                if python_version == SDK_PYTHON_DEFAULTS["310"]
+                else f"=={python_version}"
+            )
         else:
-            minor = sdk_key[-2:]
-            requires_python = f">=3.{int(minor)}"
+            requires_python = SDK_REQUIRES_PYTHON[sdk_key]
         return sdk_name, requires_python, python_version
 
     parts = python_version.split(".")
     if len(parts) >= 2 and parts[0] == "3" and parts[1] == "10":
         sdk_name = SDK_NAMES["310"]
-        requires_python = f"=={python_version}"
+        requires_python = (
+            SDK_REQUIRES_PYTHON["310"]
+            if python_version == SDK_PYTHON_DEFAULTS["310"]
+            else f"=={python_version}"
+        )
     elif len(parts) >= 2 and parts[0] == "3" and parts[1] == "13":
         sdk_name = SDK_NAMES["313"]
-        requires_python = ">=3.13"
+        requires_python = SDK_REQUIRES_PYTHON["313"]
     return sdk_name, requires_python, python_version
 
 
@@ -280,7 +289,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--python-version",
         dest="python_version",
-        help="Python version to target (e.g., 3.13, 3.12, or 3.10.14). Defaults to repo .python-version.",
+        help=(
+            "Python version to target (e.g., 3.13, 3.12, or 3.10.14). "
+            "Defaults to repo .python-version, or to the SDK minor when --sdk is forced."
+        ),
     )
     parser.add_argument(
         "--sdk",

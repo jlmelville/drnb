@@ -7,11 +7,10 @@ plugin runner. All plugins must follow these rules so
 ## Location
 
 The embedder plugins all live under the `plugins` folder. The SDK that supports the
-protocol for sharing data between a plugin and the drnb core is in `plugin-sdks`. There is one
-SDK per python version, so as and when I decide to migrate to newer versions of python new SDKs
-will appear with the python version at the end e.g. `drnb-plugin-sdk-312` is for Python 3.12 and
-`drnb-plugin-sdk-313` is for Python 3.13.
-This allows both the drnb core and the plugins to vary the version of python they support.
+protocol for sharing data between a plugin and the drnb core is in `plugin-sdks`. SDK package names
+carry the supported Python minor version, e.g. `drnb-plugin-sdk-312` is for Python 3.12 and
+`drnb-plugin-sdk-313` is for Python 3.13. This allows the drnb core and the plugins to vary the
+version of Python they support.
 See `docs/maintenance.md` for the current workspace matrix, Python policy, and lockfile policy.
 
 ## Request layout

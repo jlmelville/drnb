@@ -66,8 +66,8 @@ uv run pytest
 ```
 
 See `docs/maintenance.md` for the workspace matrix, lockfile policy, dependency upgrade buckets,
-and planned CI scope. See `docs/plugin-protocol.md` and `docs/nn-plugin-protocol.md` for the plugin
-runner contracts.
+and CI scope. See `docs/plugin-protocol.md` and `docs/nn-plugin-protocol.md` for the plugin runner
+contracts.
 
 ### Optional packages
 

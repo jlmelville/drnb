@@ -5,11 +5,10 @@ This document describes the contract between `drnb` (the host) and every nearest
 ## Location
 
 The nearest neighbor plugins all live under the `nn-plugins` folder. The SDK that supports the
-protocol for sharing data between a plugin and the drnb core is in `nn-plugin-sdks`. There is one
-SDK per python version, so as and when I decide to migrate to newer versions of python new SDKs
-will appear with the python version at the end e.g. `drnb-nn-plugin-sdk-312` is for Python 3.12 and
-`drnb-nn-plugin-sdk-313` is for Python 3.13.
-This allows both the drnb core and the plugins to vary the version of python they support.
+protocol for sharing data between a plugin and the drnb core is in `nn-plugin-sdks`. SDK package
+names carry the supported Python minor version, e.g. `drnb-nn-plugin-sdk-312` is for Python 3.12
+and `drnb-nn-plugin-sdk-313` is for Python 3.13. This allows the drnb core and the plugins to vary
+the version of Python they support.
 See `docs/maintenance.md` for the current workspace matrix, Python policy, and lockfile policy.
 
 ## Request layout
