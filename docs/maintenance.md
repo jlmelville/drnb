@@ -46,11 +46,14 @@ and plugins selectively. The 3.13 SDKs intentionally require NumPy 2.1+ so CPyth
 wheels instead of attempting a NumPy 2.0 source build. Do not move `plugins/ncvis` or
 `plugin-sdks/drnb-plugin-sdk-310` away from Python 3.10 during routine cleanup.
 
-The root `.python-version` is the default for Python 3.12 workspaces. Workspaces that require a
-different interpreter should carry their own `.python-version`; `ncvis` is the important legacy
-candidate. When the repository's default Python minor changes, update `AGENTS.md`, README setup
-guidance, this policy, SDK names, and scaffolder defaults in the same milestone so agents and
-maintainers do not silently steer the repo back to an older minor.
+Each workspace's `pyproject.toml` is the source of truth for Python compatibility. `.python-version`
+files are only local interpreter-selection hints for pyenv users. Prefer major/minor values such as
+`3.12`, `3.13`, or `3.10` unless a specific patch is known to be required. Keep the root
+`.python-version` as the default developer interpreter, and add local `.python-version` files only
+for true overrides such as `ncvis` or temporary spike workspaces. When the repository's default
+Python minor changes, update `AGENTS.md`, README setup guidance, this policy, SDK names, and
+scaffolder defaults in the same milestone so agents and maintainers do not silently steer the repo
+back to an older minor.
 
 ## Installation Policy
 
