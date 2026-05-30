@@ -141,19 +141,38 @@ Known spring-cleaning PRs:
 
 ## CI Scope
 
-There are currently no checked-in GitHub Actions workflows. Initial CI should cover what the repo
-can guarantee on hosted runners:
+The checked-in GitHub Actions workflow is `.github/workflows/ci.yml`. It covers what the repo can
+currently guarantee on hosted Ubuntu runners:
 
-- Root `uv sync --locked`, `uv run ruff check .`, and `uv run pytest`.
-- Lock checks for the root, SDKs, and selected plugin workspaces.
-- Lightweight plugin smoke installs where dependencies are reliable.
-- `actionlint .github/workflows/*.yml` and `uvx zizmor .github/workflows` once workflows exist.
+- Root Python 3.13.13 checks: `uv sync --locked`, `uv lock --check`,
+  `uv run --locked ruff check .`, and `uv run --locked pytest`.
+- SDK checks for `plugin-sdks/drnb-plugin-sdk-310`,
+  `plugin-sdks/drnb-plugin-sdk-312`, `plugin-sdks/drnb-plugin-sdk-313`,
+  `nn-plugin-sdks/drnb-nn-plugin-sdk-312`, and
+  `nn-plugin-sdks/drnb-nn-plugin-sdk-313`.
+- Selected lightweight plugin checks for `plugins/pacmap`, `plugins/trimap`, `plugins/tsne`,
+  `plugins/umato`, `nn-plugins/annoy`, and `nn-plugins/hnsw`.
+- Plugin checks run `uv lock --check`, `uv sync --locked`, and a runner import smoke through
+  `drnb-plugin-run.py --help` or `drnb-nn-plugin-run.py --help`. The PaCMAP workspace also runs
+  its focused pytest suite.
 
-Initial CI should explicitly exclude or document:
+Initial CI intentionally excludes:
 
-- Manual FAISS GPU installation.
-- Torch GPU validation.
-- Full `ncvis` native build/run checks if hosted runners prove slow or brittle.
+- `nn-plugins/faiss`, because FAISS installation is manual/local and not representative of hosted
+  runners.
+- Torch-backed paths, including `plugins/pymde`, `plugins/cne`, and `nn-plugins/torchknn`, because
+  CPU, CUDA, MPS, and old-GPU support need a separate policy.
+- `plugins/ncvis`, because it remains a legacy Python 3.10 / NumPy <2 native build.
+- `plugins/topometry`, because its package upgrade is deferred to a separate algorithm-plugin
+  review.
 
-Pin third-party GitHub Actions by immutable commit SHA where practical, and let Renovate handle
-intentional pin updates.
+Validate workflow changes locally before merging:
+
+```bash
+actionlint .github/workflows/*.yml
+uvx zizmor .github/workflows
+```
+
+Third-party GitHub Actions are pinned by immutable commit SHA with the source tag in a comment.
+When updating those pins, use `git ls-remote --tags` to resolve the intended tag to a commit SHA,
+then rerun the workflow validation commands above.

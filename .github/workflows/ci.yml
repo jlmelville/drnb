@@ -1,0 +1,194 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_313: "3.13.13"
+  UV_VERSION: "0.11.17"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  root:
+    name: Root package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install Python
+        run: uv python install "${PYTHON_313}"
+
+      - name: Sync root environment
+        run: uv sync --locked --python "${PYTHON_313}"
+
+      - name: Check root lockfile
+        run: uv lock --check
+
+      - name: Ruff
+        run: uv run --locked ruff check .
+
+      - name: Tests
+        run: uv run --locked pytest
+
+  sdk-workspaces:
+    name: SDK / ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: embedder 3.10
+            workspace: plugin-sdks/drnb-plugin-sdk-310
+            python: "3.10.14"
+            kind: embedder
+          - name: embedder 3.12
+            workspace: plugin-sdks/drnb-plugin-sdk-312
+            python: "3.12.8"
+            kind: embedder
+          - name: embedder 3.13
+            workspace: plugin-sdks/drnb-plugin-sdk-313
+            python: "3.13.13"
+            kind: embedder
+          - name: nearest-neighbor 3.12
+            workspace: nn-plugin-sdks/drnb-nn-plugin-sdk-312
+            python: "3.12.8"
+            kind: nearest-neighbor
+          - name: nearest-neighbor 3.13
+            workspace: nn-plugin-sdks/drnb-nn-plugin-sdk-313
+            python: "3.13.13"
+            kind: nearest-neighbor
+
+    env:
+      PYTHON_VERSION: ${{ matrix.python }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install Python
+        run: uv python install "${PYTHON_VERSION}"
+
+      - name: Check lockfile
+        working-directory: ${{ matrix.workspace }}
+        run: uv lock --check
+
+      - name: Sync SDK environment
+        working-directory: ${{ matrix.workspace }}
+        run: uv sync --locked --extra dev --python "${PYTHON_VERSION}"
+
+      - name: Embedder SDK tests
+        if: matrix.kind == 'embedder'
+        working-directory: ${{ matrix.workspace }}
+        run: uv run --locked --extra dev pytest
+
+      - name: Nearest-neighbor SDK import smoke
+        if: matrix.kind == 'nearest-neighbor'
+        working-directory: ${{ matrix.workspace }}
+        run: uv run --locked --extra dev python -c "import drnb_nn_plugin_sdk; print(drnb_nn_plugin_sdk.NN_PLUGIN_PROTOCOL_VERSION)"
+
+  plugin-workspaces:
+    name: Plugin / ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: pacmap
+            workspace: plugins/pacmap
+            python: "3.13.13"
+            kind: embedder
+          - name: trimap
+            workspace: plugins/trimap
+            python: "3.13.13"
+            kind: embedder
+          - name: tsne
+            workspace: plugins/tsne
+            python: "3.13.13"
+            kind: embedder
+          - name: umato
+            workspace: plugins/umato
+            python: "3.13.13"
+            kind: embedder
+          - name: annoy
+            workspace: nn-plugins/annoy
+            python: "3.13.13"
+            kind: nearest-neighbor
+          - name: hnsw
+            workspace: nn-plugins/hnsw
+            python: "3.13.13"
+            kind: nearest-neighbor
+
+    env:
+      PYTHON_VERSION: ${{ matrix.python }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install Python
+        run: uv python install "${PYTHON_VERSION}"
+
+      - name: Check lockfile
+        working-directory: ${{ matrix.workspace }}
+        run: uv lock --check
+
+      - name: Sync plugin environment
+        working-directory: ${{ matrix.workspace }}
+        run: uv sync --locked --python "${PYTHON_VERSION}"
+
+      - name: Embedder runner import smoke
+        if: matrix.kind == 'embedder'
+        working-directory: ${{ matrix.workspace }}
+        run: uv run --locked python drnb-plugin-run.py --help
+
+      - name: Nearest-neighbor runner import smoke
+        if: matrix.kind == 'nearest-neighbor'
+        working-directory: ${{ matrix.workspace }}
+        run: uv run --locked python drnb-nn-plugin-run.py --help
+
+      - name: PaCMAP plugin tests
+        if: matrix.name == 'pacmap'
+        working-directory: ${{ matrix.workspace }}
+        run: uv run --locked --group dev pytest
