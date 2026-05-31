@@ -29,6 +29,19 @@ Using `uv run` is optional for the current stored-output render, but it makes
 Quarto see the repository `.venv` first if a future notebook or `.qmd` render
 does need Python/Jupyter execution.
 
+Optimize rendered PNG images before publishing:
+
+```bash
+uv run --with pillow==11.1.0 --no-project python scripts/optimize_site_images.py notebooks/_site --max-edge 3200
+```
+
+The optimizer only touches rendered site images. It keeps notebook output images
+unchanged, strips PNG metadata, recompresses PNGs, and downsamples images whose
+width or height is larger than `--max-edge`.
+
+The GitHub Pages workflow runs this optimizer after Quarto renders the site and
+before uploading the Pages artifact.
+
 ## Publishing an article
 
 Move or copy the notebook into `notebooks/articles/`.

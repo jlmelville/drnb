@@ -35,6 +35,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2
 
@@ -62,6 +65,9 @@ jobs:
 
       - name: Render notebook site
         run: quarto render notebooks
+
+      - name: Optimize rendered images
+        run: uv run --with pillow==11.1.0 --no-project python scripts/optimize_site_images.py notebooks/_site --max-edge 3200
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
