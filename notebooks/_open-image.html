@@ -1,4 +1,8 @@
 <style>
+  :root {
+    --drnb-sidebar-width: 20rem;
+  }
+
   .drnb-fullsize-image-link {
     cursor: zoom-in;
     display: inline-block;
@@ -20,10 +24,82 @@
   .drnb-log-output .cell-output {
     margin: 0;
   }
+
+  @media (min-width: 992px) {
+    body.docked .page-columns {
+      grid-template-columns:
+        [screen-start screen-start-inset page-start page-start-inset body-start-outset]
+        var(--drnb-sidebar-width)
+        [body-start] 1.5em
+        [body-content-start] minmax(500px, calc(1000px - 3em))
+        [body-content-end] 1.5em
+        [body-end] 50px
+        [body-end-outset] minmax(50px, 100px)
+        [page-end-inset] 50px
+        [page-end] 5fr
+        [screen-end-inset] 1.5em
+        [screen-end];
+    }
+
+    #quarto-sidebar {
+      position: sticky;
+    }
+
+    #quarto-sidebar .sidebar-menu-container {
+      min-width: 0;
+      white-space: normal;
+    }
+
+    #quarto-sidebar .sidebar-link {
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+      padding-right: 1rem;
+      white-space: normal;
+    }
+
+    #quarto-sidebar .menu-text {
+      white-space: normal;
+    }
+
+    .drnb-sidebar-resizer {
+      bottom: 0;
+      cursor: col-resize;
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 0.5rem;
+      z-index: 2;
+    }
+
+    .drnb-sidebar-resizer::after {
+      background: transparent;
+      bottom: 0;
+      content: "";
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 2px;
+    }
+
+    .drnb-sidebar-resizer:hover::after,
+    .drnb-sidebar-resizer:focus-visible::after,
+    body.drnb-sidebar-resizing .drnb-sidebar-resizer::after {
+      background: var(--bs-primary);
+    }
+
+    body.drnb-sidebar-resizing {
+      cursor: col-resize;
+      user-select: none;
+    }
+  }
 </style>
 
 <script>
   (() => {
+    const sidebarStorageKey = "drnb-sidebar-width";
+    const sidebarMinWidth = 240;
+    const sidebarDefaultWidth = 320;
+    const sidebarMaxWidth = 560;
     const logLevelPattern =
       /^\s*(?:\[[0-2]?\d:[0-5]\d:[0-5]\d\]\s*)?(?:TRACE|DEBUG|INFO|WARNING|WARN|ERROR|CRITICAL|FATAL)\b/m;
 
@@ -87,7 +163,114 @@
       });
     }
 
+    function clampSidebarWidth(width) {
+      const viewportMax = Math.floor(window.innerWidth * 0.45);
+      return Math.max(
+        sidebarMinWidth,
+        Math.min(width, sidebarMaxWidth, viewportMax),
+      );
+    }
+
+    function setSidebarWidth(width) {
+      const clampedWidth = clampSidebarWidth(width);
+      document.documentElement.style.setProperty(
+        "--drnb-sidebar-width",
+        `${clampedWidth}px`,
+      );
+      return clampedWidth;
+    }
+
+    function readStoredSidebarWidth() {
+      try {
+        const savedWidth = Number(localStorage.getItem(sidebarStorageKey));
+        return Number.isFinite(savedWidth) && savedWidth > 0 ? savedWidth : null;
+      } catch {
+        return null;
+      }
+    }
+
+    function storeSidebarWidth(width) {
+      try {
+        localStorage.setItem(sidebarStorageKey, String(width));
+      } catch {
+        return;
+      }
+    }
+
+    function setupSidebarResizer() {
+      const sidebar = document.getElementById("quarto-sidebar");
+      if (!sidebar || !window.matchMedia("(min-width: 992px)").matches) {
+        return;
+      }
+
+      const savedWidth = readStoredSidebarWidth();
+      if (savedWidth) {
+        setSidebarWidth(savedWidth);
+      }
+
+      const resizer = document.createElement("div");
+      resizer.className = "drnb-sidebar-resizer";
+      resizer.setAttribute("role", "separator");
+      resizer.setAttribute("aria-label", "Resize sidebar");
+      resizer.setAttribute("aria-orientation", "vertical");
+      resizer.setAttribute("aria-valuemin", String(sidebarMinWidth));
+      resizer.setAttribute("aria-valuemax", String(sidebarMaxWidth));
+      resizer.tabIndex = 0;
+      sidebar.appendChild(resizer);
+
+      function updateWidth(width) {
+        const clampedWidth = setSidebarWidth(width);
+        storeSidebarWidth(clampedWidth);
+        resizer.setAttribute("aria-valuenow", String(clampedWidth));
+      }
+
+      updateWidth(savedWidth || sidebarDefaultWidth);
+
+      resizer.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) {
+          return;
+        }
+
+        event.preventDefault();
+        document.body.classList.add("drnb-sidebar-resizing");
+        resizer.setPointerCapture(event.pointerId);
+
+        const sidebarLeft = sidebar.getBoundingClientRect().left;
+
+        function onPointerMove(moveEvent) {
+          updateWidth(moveEvent.clientX - sidebarLeft);
+        }
+
+        function onPointerUp(upEvent) {
+          document.body.classList.remove("drnb-sidebar-resizing");
+          resizer.releasePointerCapture(upEvent.pointerId);
+          resizer.removeEventListener("pointermove", onPointerMove);
+          resizer.removeEventListener("pointerup", onPointerUp);
+        }
+
+        resizer.addEventListener("pointermove", onPointerMove);
+        resizer.addEventListener("pointerup", onPointerUp);
+      });
+
+      resizer.addEventListener("keydown", (event) => {
+        const currentWidth =
+          readStoredSidebarWidth() || sidebar.getBoundingClientRect().width;
+
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          updateWidth(currentWidth - 16);
+        }
+
+        if (event.key === "ArrowRight") {
+          event.preventDefault();
+          updateWidth(currentWidth + 16);
+        }
+      });
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
+      setupSidebarResizer();
+
       document
         .querySelectorAll("main.content img.figure-img")
         .forEach((img) => {

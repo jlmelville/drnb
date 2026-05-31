@@ -81,6 +81,8 @@ outputs:
 
 - figure images open in a new tab at their published image size when clicked;
 - Rich-style logging output is collapsed into "Log output" disclosure blocks.
+- on desktop, the sidebar is wider, long sidebar titles wrap, and the sidebar
+  can be resized by dragging its right edge.
 
 ## Publishing an article
 
