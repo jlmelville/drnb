@@ -52,7 +52,11 @@ jobs:
         run: uv run --locked ruff check .
 
       - name: Tests
-        run: uv run --locked pytest
+        env:
+          DRNB_HOME: ${{ runner.temp }}/drnb-home
+        run: |
+          mkdir -p "${DRNB_HOME}"
+          uv run --locked pytest
 
   sdk-workspaces:
     name: SDK / ${{ matrix.name }}
