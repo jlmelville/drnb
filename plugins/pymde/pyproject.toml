@@ -2,13 +2,13 @@
 name = "drnb-plugin-pymde"
 version = "0.0.1"
 description = "PyMDE plugin runner for drnb"
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "numpy",
-    "pymde>=0.2.3",
+    "pymde>=0.3.0",
     "torch>=2.6,<2.7",
     "scipy",
-    "drnb-plugin-sdk-312>=0.1.0",
+    "drnb-plugin-sdk-313>=0.1.0",
 ]
 
 [build-system]
@@ -16,4 +16,4 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.uv.sources]
-drnb-plugin-sdk-312 = { path = "../../plugin-sdks/drnb-plugin-sdk-312" }
+drnb-plugin-sdk-313 = { path = "../../plugin-sdks/drnb-plugin-sdk-313" }
