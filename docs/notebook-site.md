@@ -88,6 +88,11 @@ outputs:
 
 Move or copy the notebook into `notebooks/articles/`.
 
+Private helper notebooks can also live in `notebooks/articles/`, but their
+filenames must start with `_`, such as `_tfidf-renorm-prep.ipynb`. Those
+notebooks are excluded from Quarto rendering and from the sidebar consistency
+check.
+
 Then add a sidebar entry to `notebooks/_quarto.yml`:
 
 ```yaml

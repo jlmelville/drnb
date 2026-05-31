@@ -47,7 +47,9 @@ jobs:
           import re
           from pathlib import Path
 
-          articles = {path.name for path in Path("notebooks/articles").glob("*.ipynb")}
+          article_paths = sorted(Path("notebooks/articles").glob("*.ipynb"))
+          articles = {path.name for path in article_paths if not path.name.startswith("_")}
+          private_articles = [path.name for path in article_paths if path.name.startswith("_")]
           config = Path("notebooks/_quarto.yml").read_text(encoding="utf-8")
           hrefs = set(re.findall(r"href: articles/([^\n]+\.ipynb)", config))
 
@@ -60,6 +62,8 @@ jobs:
                   print("Stale sidebar entries:", ", ".join(stale))
               raise SystemExit(1)
 
+          if private_articles:
+              print("Ignoring private article notebooks:", ", ".join(private_articles))
           print(f"Article sidebar is in sync ({len(articles)} notebooks).")
           PY
 

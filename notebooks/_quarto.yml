@@ -4,6 +4,7 @@ project:
   render:
     - index.qmd
     - "articles/*.ipynb"
+    - "!articles/_*.ipynb"
 
 website:
   title: "drnb notebooks"
