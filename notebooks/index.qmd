@@ -1,10 +1,23 @@
 ---
-title: "drnb notebook reports"
+title: "Experiments in Dimensionality Reduction"
 ---
 
-This site renders the notebooks in this directory as static HTML reports. The
-Quarto project is configured to use stored notebook outputs, so normal site
-builds do not rerun embedding experiments.
+This site presents some HTML renderings of python notebooks which make use of the `drnb` repo, 
+which was created entirely for this purpose. I wanted to:
 
-Published articles live in `notebooks/articles/`. Move or copy a notebook there
-when it is ready to publish, then add it to the sidebar in `_quarto.yml`.
+- wrap existing -- or create new -- dimensionality reduction methods or related techniques.
+- preprocess a large number of datasets of various subject matters of interest or amusement to me,
+including real-world and synthetic data.
+- precalculate nearest neighbors for those datasets to speed up methods which take external
+neighbor graphs and remove a source of variability.
+- run those different embedding methods on those datasets, controlling as much of the process as
+possible.
+- produce standardized plots and metrics for me to look at.
+- having removed as much frustrating sources of variability as possible, maybe learn something?
+
+My usual strategy is to throw a bunch of stuff at the wall, stare at it for a bit, cluck my tongue
+in disappointment and then move on with my life. I don't promise the most scintillating
+narratives within.
+
+Built with [quarto](https://quarto.org/), it does its best to make these articles look attractive,
+but they do betray their origins as python notebooks.
