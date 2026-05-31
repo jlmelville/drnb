@@ -22,49 +22,45 @@ website:
       - index.qmd
       - section: "Articles"
         contents:
-          - text: do-hubs-hurt
+          - text: Do Hubs Hurt?
             href: articles/do-hubs-hurt.ipynb
-          - text: embed-distances
+          - text: How Does Dimensionality Reduction Transform Distances?
             href: articles/embed-distances.ipynb
-          - text: hubness
+          - text: Hubness
             href: articles/hubness.ipynb
-          - text: htumap
+          - text: Heavy-tailed UMAP
             href: articles/htumap.ipynb
-          - text: leopold
+          - text: Leopold: Lightweight Estimate of Preservation of Local Density
             href: articles/leopold.ipynb
-          - text: mediabias
+          - text: Measuring Media Bias
             href: articles/mediabias.ipynb
-          - text: ncd-newsgroups
+          - text: Normalized Compression Distance with 20 Newsgroups
             href: articles/ncd-newsgroups.ipynb
-          - text: pacmap-local-scaling
+          - text: PaCMAP: local scaling vs. k-nearest neighbors
             href: articles/pacmap-local-scaling.ipynb
-          - text: pacmap-repeats
+          - text: PaCMAP Repeats
             href: articles/pacmap-repeats.ipynb
-          - text: pca-nn-overlap
+          - text: Neighbor Overlap and PCA
             href: articles/pca-nn-overlap.ipynb
-          - text: recall
+          - text: Neighbor Recall: UMAP vs t-SNE
             href: articles/recall.ipynb
-          - text: sikmmds
+          - text: Approximating Isomap with k-Nearest Neighbors and Stochastic Metric Multidimensional Scaling
             href: articles/sikmmds.ipynb
-          - text: smmds
+          - text: Stochastic Metric Multidimensional Scaling
             href: articles/smmds.ipynb
-          - text: tfidf-renorm-prep
-            href: articles/tfidf-renorm-prep.ipynb
-          - text: tfidf-renorm
+          - text: Renormalizing after TF-IDF + SVD
             href: articles/tfidf-renorm.ipynb
-          - text: tsne-repeats
+          - text: t-SNE Consistency with Random Initialization
             href: articles/tsne-repeats.ipynb
-          - text: umap-annealed-neighbors-01
+          - text: UMAP with Annealed Neighbors. 1: Defaults
             href: articles/umap-annealed-neighbors-01.ipynb
-          - text: umap-annealed-neighbors-02-tumap
+          - text: UMAP with Annealed Neighbors. 2: t-UMAP
             href: articles/umap-annealed-neighbors-02-tumap.ipynb
-          - text: umap-annealed-neighbors-03-pca
+          - text: UMAP with Annealed Neighbors. 3: PCA Initialization
             href: articles/umap-annealed-neighbors-03-pca.ipynb
-          - text: umap-tsne-exp
-            href: articles/umap-tsne-exp.ipynb
-          - text: umapspectral
+          - text: Spectral Embedding
             href: articles/umapspectral.ipynb
-          - text: umato-eval
+          - text: UMATO Evaluation
             href: articles/umato-eval.ipynb
 
 execute:
