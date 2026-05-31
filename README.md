@@ -94,6 +94,11 @@ export DRNB_HOME=~/dev/drnbhome
 
 ## Documentation
 
+### Rendered notebooks
+
+The notebooks can be rendered as a Quarto site and published with GitHub Pages. See
+`docs/notebook-site.md` for local render commands and repository setup.
+
 ### Importing data
 
 See the notebooks in `notebooks/data-pipeline` for how to get data processed and into a place where

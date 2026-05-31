@@ -1,0 +1,10 @@
+---
+title: "drnb notebook reports"
+---
+
+This site renders the notebooks in this directory as static HTML reports. The
+Quarto project is configured to use stored notebook outputs, so normal site
+builds do not rerun embedding experiments.
+
+Use the sidebar to browse top-level notebooks, embedding pipeline examples, and
+data pipeline examples.

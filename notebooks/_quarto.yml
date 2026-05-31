@@ -1,0 +1,43 @@
+project:
+  type: website
+  output-dir: _site
+  render:
+    - index.qmd
+    - "*.ipynb"
+    - "embed-pipeline/*.ipynb"
+    - "data-pipeline/*.ipynb"
+
+website:
+  title: "drnb notebooks"
+  site-url: "https://jlmelville.github.io/drnb/"
+  repo-url: "https://github.com/jlmelville/drnb"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Notebooks
+      - href: https://github.com/jlmelville/drnb
+        text: GitHub
+  sidebar:
+    style: docked
+    contents:
+      - index.qmd
+      - section: "Embedding pipeline"
+        contents:
+          - "embed-pipeline/*.ipynb"
+      - section: "Data pipeline"
+        contents:
+          - "data-pipeline/*.ipynb"
+      - section: "Top-level notebooks"
+        contents:
+          - "*.ipynb"
+
+execute:
+  enabled: false
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    code-fold: true
+    code-tools: true
+    page-layout: full
