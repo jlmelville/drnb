@@ -42,6 +42,15 @@ width or height is larger than `--max-edge`.
 The GitHub Pages workflow runs this optimizer after Quarto renders the site and
 before uploading the Pages artifact.
 
+## Rendered HTML tweaks
+
+Quarto includes `notebooks/_open-image.html` after the body of each rendered
+HTML page. That include adds small client-side behavior for stored notebook
+outputs:
+
+- figure images open in a new tab at their published image size when clicked;
+- Rich-style logging output is collapsed into "Log output" disclosure blocks.
+
 ## Publishing an article
 
 Move or copy the notebook into `notebooks/articles/`.

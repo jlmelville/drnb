@@ -1,0 +1,118 @@
+<style>
+  .drnb-fullsize-image-link {
+    cursor: zoom-in;
+    display: inline-block;
+  }
+
+  .drnb-fullsize-image-link:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 4px;
+  }
+
+  .drnb-log-output {
+    margin: 0.5rem 0;
+  }
+
+  .drnb-log-output > summary {
+    cursor: pointer;
+  }
+
+  .drnb-log-output .cell-output {
+    margin: 0;
+  }
+</style>
+
+<script>
+  (() => {
+    const logLevelPattern =
+      /^\s*(?:\[[0-2]?\d:[0-5]\d:[0-5]\d\]\s*)?(?:TRACE|DEBUG|INFO|WARNING|WARN|ERROR|CRITICAL|FATAL)\b/m;
+
+    function fullsizeUrl(img) {
+      const src = img.currentSrc || img.getAttribute("src");
+      if (!src || src.startsWith("data:")) {
+        return null;
+      }
+      return new URL(src, window.location.href).href;
+    }
+
+    function isRichLogOutput(element) {
+      if (
+        !element.matches(".cell-output.cell-output-display") ||
+        element.children.length !== 1
+      ) {
+        return false;
+      }
+
+      const pre = element.firstElementChild;
+      if (pre.tagName !== "PRE") {
+        return false;
+      }
+
+      return logLevelPattern.test(pre.textContent || "");
+    }
+
+    function collapseLogRun(outputs) {
+      const details = document.createElement("details");
+      const summary = document.createElement("summary");
+      const logCount = outputs.length;
+
+      details.className = "drnb-log-output code-fold";
+      summary.textContent =
+        logCount === 1 ? "Log output" : `Log output (${logCount} entries)`;
+
+      outputs[0].parentNode.insertBefore(details, outputs[0]);
+      details.appendChild(summary);
+      outputs.forEach((output) => details.appendChild(output));
+    }
+
+    function collapseLogOutputs() {
+      document.querySelectorAll("main.content .cell").forEach((cell) => {
+        let run = [];
+
+        Array.from(cell.children).forEach((child) => {
+          if (isRichLogOutput(child)) {
+            run.push(child);
+            return;
+          }
+
+          if (run.length > 0) {
+            collapseLogRun(run);
+            run = [];
+          }
+        });
+
+        if (run.length > 0) {
+          collapseLogRun(run);
+        }
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document
+        .querySelectorAll("main.content img.figure-img")
+        .forEach((img) => {
+          if (img.closest("a")) {
+            return;
+          }
+
+          const href = fullsizeUrl(img);
+          if (!href) {
+            return;
+          }
+
+          const link = document.createElement("a");
+          link.href = href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.className = "drnb-fullsize-image-link";
+          link.title = "Open image at full size";
+          link.setAttribute("aria-label", "Open image at full size");
+
+          img.parentNode.insertBefore(link, img);
+          link.appendChild(img);
+        });
+
+      collapseLogOutputs();
+    });
+  })();
+</script>
