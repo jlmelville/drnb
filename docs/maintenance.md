@@ -23,8 +23,8 @@ Embedder plugin workspaces:
 | `plugins/pacmap` | `>=3.13,<3.14` | `drnb-plugin-sdk-313` | `plugins/pacmap/uv.lock` | Lock check and host-launched smoke on Python 3.13. |
 | `plugins/cne` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/cne/uv.lock` | Lock check; GPU and PyKeOps behavior is manual. |
 | `plugins/ncvis` | `==3.10.14` | `drnb-plugin-sdk-310` | `plugins/ncvis/uv.lock` | Legacy/manual; keep Python 3.10 and NumPy <2 until proven otherwise. |
-| `plugins/pymde` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/pymde/uv.lock` | Lock check; Torch/GPU behavior is manual. |
-| `plugins/topometry` | `>=3.12` | `drnb-plugin-sdk-312` | `plugins/topometry/uv.lock` | Deferred to dependency-upgrade review; current package upgrade is substantial. |
+| `plugins/pymde` | `>=3.13,<3.14` | `drnb-plugin-sdk-313` | `plugins/pymde/uv.lock` | Lock check; Torch/GPU behavior is manual. |
+| `plugins/topometry` | `>=3.13,<3.14` | `drnb-plugin-sdk-313` | `plugins/topometry/uv.lock` | Lock check and manual host-launched smoke; heavier than selected CI plugin checks. |
 | `plugins/trimap` | `>=3.13,<3.14` | `drnb-plugin-sdk-313` | `plugins/trimap/uv.lock` | Lock check and host-launched smoke on Python 3.13. |
 | `plugins/tsne` | `>=3.13,<3.14` | `drnb-plugin-sdk-313` | `plugins/tsne/uv.lock` | Lock check and host-launched smoke on Python 3.13. |
 | `plugins/umato` | `>=3.13,<3.14` | `drnb-plugin-sdk-313` | `plugins/umato/uv.lock` | Lock check and host-launched smoke on Python 3.13. |
@@ -164,8 +164,7 @@ Initial CI intentionally excludes:
 - Torch-backed paths, including `plugins/pymde`, `plugins/cne`, and `nn-plugins/torchknn`, because
   CPU, CUDA, MPS, and old-GPU support need a separate policy.
 - `plugins/ncvis`, because it remains a legacy Python 3.10 / NumPy <2 native build.
-- `plugins/topometry`, because its package upgrade is deferred to a separate algorithm-plugin
-  review.
+- `plugins/topometry`, because its host-launched smoke is heavier and remains a manual check.
 
 Validate workflow changes locally before merging:
 

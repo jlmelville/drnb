@@ -19,21 +19,33 @@ VERSION_INFO = build_version_payload(package="topometry")
 
 def run_topometry(req: sdk_protocol.PluginRequest) -> dict[str, Any]:
     x = np.load(resolve_x_path(req), allow_pickle=False)
-    params = dict(req.params or {})
+    params = dict(req.params or {}) | {
+        "projection_methods": None,
+        "cache": False,
+        "multiscale": True,
+    }
 
-    log(f"Running topometry with params={summarize_params(params)}")
+    if "min_eigs" not in params:
+        # TopOMetry 1.1 requires this to be strictly below min(X.shape).
+        min_eigs = max(1, min(min(x.shape) - 1, 128))
+        log(f"Setting min_eigs to {min_eigs}")
+        params["min_eigs"] = min_eigs
 
-    if "n_eigs" not in params:
-        # the minimum of the shape of x
-        n_eigs = min(list(x.shape) + [100])
-        log(f"Setting n_eigs to {n_eigs}")
-        params["n_eigs"] = n_eigs
-    if "cache" not in params:
-        params["cache"] = False
+    projection_method = params.pop("projection_method", "MAP")
+    multiscale = params.pop("multiscale", False)
+
+    log(
+        f"Running topometry with params={summarize_params(params)}"
+        + f", projection method={projection_method}"
+        + f", multiscale={multiscale}"
+    )
 
     embedder = tp.TopOGraph(**params)
-    embedder.fit_transform(x)
-    result = embedder.project(projection_method="MAP")
+    embedder.fit(x)
+    result = embedder.project(
+        projection_method=projection_method,
+        multiscale=multiscale,
+    )
     coords = result.astype(np.float32, copy=False)
     return save_result_npz(req.output.result_path, coords, version=VERSION_INFO)
 
