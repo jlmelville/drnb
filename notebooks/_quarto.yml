@@ -30,19 +30,19 @@ website:
             href: articles/hubness.ipynb
           - text: Heavy-tailed UMAP
             href: articles/htumap.ipynb
-          - text: Leopold: Lightweight Estimate of Preservation of Local Density
+          - text: "Leopold: Lightweight Estimate of Preservation of Local Density"
             href: articles/leopold.ipynb
           - text: Measuring Media Bias
             href: articles/mediabias.ipynb
           - text: Normalized Compression Distance with 20 Newsgroups
             href: articles/ncd-newsgroups.ipynb
-          - text: PaCMAP: local scaling vs. k-nearest neighbors
+          - text: "PaCMAP: local scaling vs. k-nearest neighbors"
             href: articles/pacmap-local-scaling.ipynb
           - text: PaCMAP Repeats
             href: articles/pacmap-repeats.ipynb
           - text: Neighbor Overlap and PCA
             href: articles/pca-nn-overlap.ipynb
-          - text: Neighbor Recall: UMAP vs t-SNE
+          - text: "Neighbor Recall: UMAP vs t-SNE"
             href: articles/recall.ipynb
           - text: Approximating Isomap with k-Nearest Neighbors and Stochastic Metric Multidimensional Scaling
             href: articles/sikmmds.ipynb
@@ -52,11 +52,11 @@ website:
             href: articles/tfidf-renorm.ipynb
           - text: t-SNE Consistency with Random Initialization
             href: articles/tsne-repeats.ipynb
-          - text: UMAP with Annealed Neighbors. 1: Defaults
+          - text: "UMAP with Annealed Neighbors. 1: Defaults"
             href: articles/umap-annealed-neighbors-01.ipynb
-          - text: UMAP with Annealed Neighbors. 2: t-UMAP
+          - text: "UMAP with Annealed Neighbors. 2: t-UMAP"
             href: articles/umap-annealed-neighbors-02-tumap.ipynb
-          - text: UMAP with Annealed Neighbors. 3: PCA Initialization
+          - text: "UMAP with Annealed Neighbors. 3: PCA Initialization"
             href: articles/umap-annealed-neighbors-03-pca.ipynb
           - text: Spectral Embedding
             href: articles/umapspectral.ipynb

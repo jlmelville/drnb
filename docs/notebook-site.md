@@ -17,10 +17,41 @@ Render the site:
 uv run --locked quarto render notebooks
 ```
 
-Preview the site locally:
+Quarto has its own local preview server, which is useful while editing Quarto
+configuration or article contents:
 
 ```bash
 uv run --locked quarto preview notebooks
+```
+
+That server watches files and re-renders as needed. It does not run the
+post-render PNG optimizer used by GitHub Pages.
+
+For a preview that matches the GitHub Pages workflow more closely, run:
+
+```bash
+uv run --locked python scripts/preview_notebook_site.py
+```
+
+That script runs `quarto render notebooks`, optimizes rendered PNGs, and serves
+`notebooks/_site/` with a local static HTTP server. It prints the preview URL,
+using `http://127.0.0.1:4202/` by default or the next available port if that
+port is already in use. Stop it with `Ctrl-C`.
+
+To keep the static preview server running and rebuild when site inputs change:
+
+```bash
+uv run --locked python scripts/preview_notebook_site.py --watch
+```
+
+Watch mode rebuilds when files such as `notebooks/_quarto.yml`,
+`notebooks/index.qmd`, `notebooks/_open-image.html`, or notebooks under
+`notebooks/articles/` change. Refresh the browser after a rebuild completes.
+
+To serve an already-rendered site without re-rendering:
+
+```bash
+uv run --locked python scripts/preview_notebook_site.py --no-render --no-optimize
 ```
 
 Rendered output is written to `notebooks/_site/`, which is ignored by Git.
