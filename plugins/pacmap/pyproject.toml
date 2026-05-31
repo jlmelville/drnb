@@ -5,7 +5,7 @@ description = "PaCMAP/LocalMAP plugin runner for drnb"
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "numpy",
-    "pacmap>=0.8.0",
+    "pacmap>=0.9.1",
     "drnb-plugin-sdk-313>=0.1.0",
 ]
 
