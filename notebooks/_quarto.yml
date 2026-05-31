@@ -3,9 +3,7 @@ project:
   output-dir: _site
   render:
     - index.qmd
-    - "*.ipynb"
-    - "embed-pipeline/*.ipynb"
-    - "data-pipeline/*.ipynb"
+    - "articles/*.ipynb"
 
 website:
   title: "drnb notebooks"
@@ -22,178 +20,52 @@ website:
     search: true
     contents:
       - index.qmd
-      - section: "Embedding pipeline"
-        contents:
-          - text: chaining-methods
-            href: embed-pipeline/chaining-methods.ipynb
-          - text: cne
-            href: embed-pipeline/cne.ipynb
-          - text: custom-umap
-            href: embed-pipeline/custom-umap.ipynb
-          - text: htumap
-            href: embed-pipeline/htumap.ipynb
-          - text: leopold
-            href: embed-pipeline/leopold.ipynb
-          - text: localmap
-            href: embed-pipeline/localmap.ipynb
-          - text: ncvis
-            href: embed-pipeline/ncvis.ipynb
-          - text: negumap
-            href: embed-pipeline/negumap.ipynb
-          - text: pacmap-local-scaling
-            href: embed-pipeline/pacmap-local-scaling.ipynb
-          - text: pacmap-repeats
-            href: embed-pipeline/pacmap-repeats.ipynb
-          - text: pacmap
-            href: embed-pipeline/pacmap.ipynb
-          - text: pca
-            href: embed-pipeline/pca.ipynb
-          - text: pymde
-            href: embed-pipeline/pymde.ipynb
-          - text: randproj
-            href: embed-pipeline/randproj.ipynb
-          - text: sikmmds
-            href: embed-pipeline/sikmmds.ipynb
-          - text: smmds
-            href: embed-pipeline/smmds.ipynb
-          - text: spacemap
-            href: embed-pipeline/spacemap.ipynb
-          - text: topometry
-            href: embed-pipeline/topometry.ipynb
-          - text: trimap
-            href: embed-pipeline/trimap.ipynb
-          - text: tsne-repeats
-            href: embed-pipeline/tsne-repeats.ipynb
-          - text: tsne
-            href: embed-pipeline/tsne.ipynb
-          - text: umap-annealed-neighbors-01
-            href: embed-pipeline/umap-annealed-neighbors-01.ipynb
-          - text: umap-annealed-neighbors-02-tumap
-            href: embed-pipeline/umap-annealed-neighbors-02-tumap.ipynb
-          - text: umap-annealed-neighbors-03-pca
-            href: embed-pipeline/umap-annealed-neighbors-03-pca.ipynb
-          - text: umap
-            href: embed-pipeline/umap.ipynb
-          - text: umapspectral
-            href: embed-pipeline/umapspectral.ipynb
-          - text: umato-eval
-            href: embed-pipeline/umato-eval.ipynb
-          - text: umato
-            href: embed-pipeline/umato.ipynb
-      - section: "Data pipeline"
-        contents:
-          - text: ZZZ_list-data
-            href: data-pipeline/ZZZ_list-data.ipynb
-          - text: airfoil
-            href: data-pipeline/airfoil.ipynb
-          - text: avonet
-            href: data-pipeline/avonet.ipynb
-          - text: cifar10
-            href: data-pipeline/cifar10.ipynb
-          - text: cifar10act
-            href: data-pipeline/cifar10act.ipynb
-          - text: coil100
-            href: data-pipeline/coil100.ipynb
-          - text: coil20
-            href: data-pipeline/coil20.ipynb
-          - text: curve2d
-            href: data-pipeline/curve2d.ipynb
-          - text: cytometry
-            href: data-pipeline/cytometry.ipynb
-          - text: embdensity
-            href: data-pipeline/embdensity.ipynb
-          - text: fashion
-            href: data-pipeline/fashion.ipynb
-          - text: frey
-            href: data-pipeline/frey.ipynb
-          - text: galaxy10sdss
-            href: data-pipeline/galaxy10sdss.ipynb
-          - text: grid2d
-            href: data-pipeline/grid2d.ipynb
-          - text: iclr
-            href: data-pipeline/iclr.ipynb
-          - text: ijcnn
-            href: data-pipeline/ijcnn.ipynb
-          - text: iris
-            href: data-pipeline/iris.ipynb
-          - text: isofaces
-            href: data-pipeline/isofaces.ipynb
-          - text: isoswiss
-            href: data-pipeline/isoswiss.ipynb
-          - text: kuzushiji
-            href: data-pipeline/kuzushiji.ipynb
-          - text: lamanno2020
-            href: data-pipeline/lamanno2020.ipynb
-          - text: macosko2015
-            href: data-pipeline/macosko2015.ipynb
-          - text: mammoth
-            href: data-pipeline/mammoth.ipynb
-          - text: mediabias
-            href: data-pipeline/mediabias.ipynb
-          - text: mnist
-            href: data-pipeline/mnist.ipynb
-          - text: mnist1d
-            href: data-pipeline/mnist1d.ipynb
-          - text: ng20
-            href: data-pipeline/ng20.ipynb
-          - text: ng20pacmap
-            href: data-pipeline/ng20pacmap.ipynb
-          - text: norb
-            href: data-pipeline/norb.ipynb
-          - text: oeis
-            href: data-pipeline/oeis.ipynb
-          - text: olivetti
-            href: data-pipeline/olivetti.ipynb
-          - text: olivetti92x112
-            href: data-pipeline/olivetti92x112.ipynb
-          - text: onet
-            href: data-pipeline/onet.ipynb
-          - text: penguins
-            href: data-pipeline/penguins.ipynb
-          - text: randomwalks
-            href: data-pipeline/randomwalks.ipynb
-          - text: s1k
-            href: data-pipeline/s1k.ipynb
-          - text: scrna-dr2020
-            href: data-pipeline/scrna-dr2020.ipynb
-          - text: scurvehole
-            href: data-pipeline/scurvehole.ipynb
-          - text: shuttle
-            href: data-pipeline/shuttle.ipynb
-          - text: spheres
-            href: data-pipeline/spheres.ipynb
-          - text: synthetic-hierarchical
-            href: data-pipeline/synthetic-hierarchical.ipynb
-          - text: tasic2018
-            href: data-pipeline/tasic2018.ipynb
-          - text: tomoradar
-            href: data-pipeline/tomoradar.ipynb
-          - text: vocation-map
-            href: data-pipeline/vocation-map.ipynb
-      - section: "Top-level notebooks"
+      - section: "Articles"
         contents:
           - text: do-hubs-hurt
-            href: do-hubs-hurt.ipynb
+            href: articles/do-hubs-hurt.ipynb
           - text: embed-distances
-            href: embed-distances.ipynb
-          - text: experiments
-            href: experiments.ipynb
+            href: articles/embed-distances.ipynb
           - text: hubness
-            href: hubness.ipynb
+            href: articles/hubness.ipynb
+          - text: htumap
+            href: articles/htumap.ipynb
+          - text: leopold
+            href: articles/leopold.ipynb
+          - text: mediabias
+            href: articles/mediabias.ipynb
           - text: ncd-newsgroups
-            href: ncd-newsgroups.ipynb
+            href: articles/ncd-newsgroups.ipynb
+          - text: pacmap-local-scaling
+            href: articles/pacmap-local-scaling.ipynb
+          - text: pacmap-repeats
+            href: articles/pacmap-repeats.ipynb
           - text: pca-nn-overlap
-            href: pca-nn-overlap.ipynb
-          - text: plot-options
-            href: plot-options.ipynb
+            href: articles/pca-nn-overlap.ipynb
           - text: recall
-            href: recall.ipynb
+            href: articles/recall.ipynb
+          - text: sikmmds
+            href: articles/sikmmds.ipynb
+          - text: smmds
+            href: articles/smmds.ipynb
           - text: tfidf-renorm-prep
-            href: tfidf-renorm-prep.ipynb
+            href: articles/tfidf-renorm-prep.ipynb
           - text: tfidf-renorm
-            href: tfidf-renorm.ipynb
+            href: articles/tfidf-renorm.ipynb
+          - text: tsne-repeats
+            href: articles/tsne-repeats.ipynb
+          - text: umap-annealed-neighbors-01
+            href: articles/umap-annealed-neighbors-01.ipynb
+          - text: umap-annealed-neighbors-02-tumap
+            href: articles/umap-annealed-neighbors-02-tumap.ipynb
+          - text: umap-annealed-neighbors-03-pca
+            href: articles/umap-annealed-neighbors-03-pca.ipynb
           - text: umap-tsne-exp
-            href: umap-tsne-exp.ipynb
+            href: articles/umap-tsne-exp.ipynb
+          - text: umapspectral
+            href: articles/umapspectral.ipynb
+          - text: umato-eval
+            href: articles/umato-eval.ipynb
 
 execute:
   enabled: false

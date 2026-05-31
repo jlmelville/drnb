@@ -18,6 +18,7 @@ wheels/
 # Quarto notebook site build outputs
 notebooks/.quarto/
 notebooks/_site/
+notebooks/site_libs/
 
 DONTCHECKMEIN/
 

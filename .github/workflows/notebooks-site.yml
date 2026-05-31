@@ -6,7 +6,9 @@ on:
     branches:
       - main
     paths:
-      - notebooks/**
+      - notebooks/_quarto.yml
+      - notebooks/index.qmd
+      - notebooks/articles/**
       - docs/notebook-site.md
       - .github/workflows/notebooks-site.yml
 
@@ -35,6 +37,28 @@ jobs:
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2
+
+      - name: Check article sidebar
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          articles = {path.name for path in Path("notebooks/articles").glob("*.ipynb")}
+          config = Path("notebooks/_quarto.yml").read_text(encoding="utf-8")
+          hrefs = set(re.findall(r"href: articles/([^\n]+\.ipynb)", config))
+
+          missing = sorted(articles - hrefs)
+          stale = sorted(hrefs - articles)
+          if missing or stale:
+              if missing:
+                  print("Missing sidebar entries:", ", ".join(missing))
+              if stale:
+                  print("Stale sidebar entries:", ", ".join(stale))
+              raise SystemExit(1)
+
+          print(f"Article sidebar is in sync ({len(articles)} notebooks).")
+          PY
 
       - name: Render notebook site
         run: quarto render notebooks

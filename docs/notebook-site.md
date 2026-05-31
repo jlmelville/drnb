@@ -1,8 +1,11 @@
 # Notebook site
 
-The `notebooks/` directory is a Quarto website project. It renders checked-in
-Jupyter notebooks to static HTML so they can be served by GitHub Pages instead
-of relying on GitHub's repository notebook preview.
+The `notebooks/` directory is a Quarto website project. It renders selected
+checked-in Jupyter notebooks to static HTML so they can be served by GitHub
+Pages instead of relying on GitHub's repository notebook preview.
+
+Only notebooks under `notebooks/articles/` are published. The rest of
+`notebooks/` remains an archive of working notebooks and examples.
 
 ## Local setup
 
@@ -25,6 +28,26 @@ Rendered output is written to `notebooks/_site/`, which is ignored by Git.
 Using `uv run` is optional for the current stored-output render, but it makes
 Quarto see the repository `.venv` first if a future notebook or `.qmd` render
 does need Python/Jupyter execution.
+
+## Publishing an article
+
+Move or copy the notebook into `notebooks/articles/`.
+
+Then add a sidebar entry to `notebooks/_quarto.yml`:
+
+```yaml
+website:
+  sidebar:
+    contents:
+      - index.qmd
+      - section: "Articles"
+        contents:
+          - text: my-article
+            href: articles/my-article.ipynb
+```
+
+Using explicit `text` keeps sidebar labels based on notebook filenames rather
+than Quarto's inferred titles or first markdown headings.
 
 ## Execution model
 
