@@ -228,6 +228,7 @@ def _build_affinities(req: sdk_protocol.PluginRequest, x: np.ndarray) -> Any:
     params = req.params or {}
     neighbors = resolve_neighbors(req)
     knn_index: tsnenn.PrecomputedNeighbors | None = None
+    n_neighbors = params.get("n_neighbors")
     if neighbors and neighbors.idx_path:
         try:
             idx = np.load(neighbors.idx_path, allow_pickle=False)
@@ -240,6 +241,9 @@ def _build_affinities(req: sdk_protocol.PluginRequest, x: np.ndarray) -> Any:
             )
             if dist is not None and dist.shape[1] > 1:
                 dist = dist[:, 1:]
+
+            idx = idx[:, :n_neighbors]
+            dist = dist[:, :n_neighbors]
             knn_index = tsnenn.PrecomputedNeighbors(idx, dist)
         except Exception as exc:  # noqa: BLE001
             log(f"Failed to load precomputed neighbors: {exc}")
@@ -248,7 +252,7 @@ def _build_affinities(req: sdk_protocol.PluginRequest, x: np.ndarray) -> Any:
     return get_tsne_affinities(
         affinity_type=params.get("affinity", "perplexity"),
         perplexity=params.get("perplexity", 30.0),
-        n_neighbors=params.get("n_neighbors"),
+        n_neighbors=n_neighbors,
         x=x,
         metric=params.get("metric", "euclidean"),
         symmetrize=params.get("symmetrize", "mean"),
