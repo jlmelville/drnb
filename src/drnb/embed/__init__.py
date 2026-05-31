@@ -1,3 +1,4 @@
+from copy import replace
 from typing import Any
 
 import numpy as np
@@ -50,10 +51,9 @@ def _normalize_to_embed_config(
     if isinstance(method, EmbedConfig):
         # Already an EmbedConfig, merge params if provided
         if params is not None:
-            method = EmbedConfig(
-                name=method.name,
+            method = replace(
+                method,
                 params=method.params | params,  # params argument overrides
-                wrapper_kwds=method.wrapper_kwds,
             )
         return method
 

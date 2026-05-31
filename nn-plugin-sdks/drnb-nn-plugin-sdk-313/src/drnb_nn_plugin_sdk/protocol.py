@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeIs
 
 import numpy as np
 
@@ -112,8 +112,12 @@ def request_to_dict(req: NNPluginRequest) -> dict[str, Any]:
     return payload
 
 
+def _is_json_scalar(value: Any) -> TypeIs[JSONScalar]:
+    return value is None or isinstance(value, (bool, int, float, str))
+
+
 def _convert_json_value(value: Any, path: str | None = None) -> JSONValue:
-    if value is None or isinstance(value, (bool, int, float, str)):
+    if _is_json_scalar(value):
         return value
     if isinstance(value, np.generic):
         return _convert_json_value(value.item(), path=path)
