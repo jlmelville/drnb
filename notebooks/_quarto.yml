@@ -63,6 +63,8 @@ website:
             href: articles/umapspectral.ipynb
           - text: UMATO Evaluation
             href: articles/umato-eval.ipynb
+          - text: "t-SNE Affinity: Gaussian vs. Uniform"
+            href: articles/tsne-affinity.ipynb
 
 execute:
   enabled: false
