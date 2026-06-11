@@ -2,7 +2,7 @@
 name = "drnb-plugin-umato"
 version = "0.0.1"
 description = "UMATO plugin runner for drnb"
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.14,<3.15"
 dependencies = [
     "numpy",
     "umato>=0.1.3",
