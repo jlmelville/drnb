@@ -2,7 +2,7 @@
 name = "drnb-nn-plugin-hnsw"
 version = "0.0.1"
 description = "HNSW nearest-neighbor plugin runner for drnb"
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.14,<3.15"
 dependencies = [
     "numpy",
     "hnswlib>=0.8.0",
