@@ -19,6 +19,9 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+env:
+  UV_VERSION: "0.11.17"
+
 defaults:
   run:
     shell: bash
@@ -37,6 +40,8 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: ${{ env.UV_VERSION }}
 
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@8a96df13519ee81fd526f2dfca5962811136661b # v2.2.0
