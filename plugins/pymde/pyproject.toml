@@ -6,7 +6,7 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "numpy",
     "pymde>=0.3.0",
-    "torch>=2.6,<2.7",
+    "torch>=2.12,<2.13",
     "scipy",
     "drnb-plugin-sdk-313>=0.1.0",
 ]
