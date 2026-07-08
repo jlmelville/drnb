@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from drnb.embed.context import EmbedContext, read_neighbors_with_ctx
 
 

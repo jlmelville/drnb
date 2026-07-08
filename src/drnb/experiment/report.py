@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
-
-import numpy as np
+from typing import TYPE_CHECKING, Any
 
 from drnb.experiment.common import (
     RUN_STATUS_PARTIAL_EVALS,
@@ -11,6 +9,9 @@ from drnb.experiment.common import (
     short_col,
 )
 from drnb.experiment.persistence import LazyResult
+
+if TYPE_CHECKING:
+    from drnb.experiment import Experiment
 
 
 def status(experiment: "Experiment"):

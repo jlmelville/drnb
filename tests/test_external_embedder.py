@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 from drnb.embed.context import EmbedContext
-from drnb.plugins import external
 from drnb.plugins.external import (
     ExternalEmbedder,
     PluginNeighbors,

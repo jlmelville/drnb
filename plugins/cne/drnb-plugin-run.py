@@ -8,8 +8,6 @@ import numpy as np
 from drnb_plugin_sdk import protocol as sdk_protocol
 from drnb_plugin_sdk.helpers.logging import log, summarize_params
 from drnb_plugin_sdk.helpers.paths import (
-    resolve_init_path,
-    resolve_neighbors,
     resolve_x_path,
 )
 from drnb_plugin_sdk.helpers.results import save_result_npz

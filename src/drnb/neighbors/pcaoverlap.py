@@ -208,7 +208,7 @@ def plot_overlap_curve(
         )
 
     plt.xlabel("PCA components")
-    plt.ylabel(f"Neighbor overlap")
+    plt.ylabel("Neighbor overlap")
     plt.legend()
     if dataset_name is not None:
         title_prefix = f"{dataset_name}: "

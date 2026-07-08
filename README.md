@@ -62,6 +62,7 @@ Useful development checks:
 ```bash
 uv lock --check
 uv run ruff check .
+uv run ruff format --check .
 uv run pytest
 ```
 

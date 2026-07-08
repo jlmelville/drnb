@@ -85,12 +85,12 @@ def context_from_payload(data: dict[str, Any] | None) -> PluginContext | None:
     if not data:
         return None
     kwargs: dict[str, Any] = {}
-    for field in _CONTEXT_FIELDS:
-        value = data.get(field)
-        if field == "drnb_home" and value:
-            kwargs[field] = Path(value)
+    for field_name in _CONTEXT_FIELDS:
+        value = data.get(field_name)
+        if field_name == "drnb_home" and value:
+            kwargs[field_name] = Path(value)
         else:
-            kwargs[field] = value
+            kwargs[field_name] = value
     if not kwargs.get("dataset_name"):
         raise ValueError("Serialized context missing dataset_name")
     if not kwargs.get("embed_method_name"):
@@ -135,12 +135,12 @@ def context_to_payload(ctx: PluginContext | None) -> dict[str, JSONValue] | None
     if ctx is None:
         return None
     payload: dict[str, JSONValue] = {}
-    for field in _CONTEXT_FIELDS:
-        value = getattr(ctx, field, None)
+    for field_name in _CONTEXT_FIELDS:
+        value = getattr(ctx, field_name, None)
         if isinstance(value, Path):
-            payload[field] = str(value)
+            payload[field_name] = str(value)
         else:
-            payload[field] = value
+            payload[field_name] = value
     return payload
 
 

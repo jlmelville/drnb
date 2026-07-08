@@ -49,6 +49,7 @@ __all__ = [
     "Experiment",
     "read_experiment",
     "merge_experiments",
+    "short_col",
 ]
 
 UNKNOWN_VERSION_INFO = {"package": "unknown", "version": "unknown"}
@@ -368,7 +369,7 @@ class Experiment:
             log.info("Renaming experiment to %s", self.name)
         self.name = ensure_experiment_name(self.name)
         self._ensure_unique()
-        exp_dir = experiment_dir(self.name, self.drnb_home, create=True)
+        experiment_dir(self.name, self.drnb_home, create=True)
         run_info_updates: dict[str, dict[str, dict[str, Any]]] = {}
         for method, method_name in self.methods:
             method_results = self.results.get(method_name, {})

@@ -127,7 +127,7 @@ def _compute_locally_scaled_distances(
 def locally_scaled_neighbors(
     indices: np.ndarray,
     distances: np.ndarray,
-    l: int,
+    l: int,  # noqa: E741
     m: int | None = None,
     scale_from: int = 4,
     scale_to: int = 6,

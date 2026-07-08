@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import numpy as np
 
 from drnb.embed.pca import Pca
-from drnb.embed.version import UNKNOWN_VALUE, get_embedder_version_info
+from drnb.embed.version import get_embedder_version_info
 from drnb.experiment import Experiment
 
 

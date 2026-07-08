@@ -15,8 +15,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PYTHON_313: "3.13.13"
-  UV_VERSION: "0.11.17"
+  PYTHON_313: "3.13.14"
+  UV_VERSION: "0.11.28"
 
 defaults:
   run:
@@ -48,8 +48,11 @@ jobs:
       - name: Check root lockfile
         run: uv lock --check
 
-      - name: Ruff
+      - name: Ruff lint
         run: uv run --locked ruff check .
+
+      - name: Ruff format
+        run: uv run --locked ruff format --check .
 
       - name: Tests
         env:
@@ -77,7 +80,7 @@ jobs:
             kind: embedder
           - name: embedder 3.13
             workspace: plugin-sdks/drnb-plugin-sdk-313
-            python: "3.13.13"
+            python: "3.13.14"
             kind: embedder
           - name: nearest-neighbor 3.12
             workspace: nn-plugin-sdks/drnb-nn-plugin-sdk-312
@@ -85,7 +88,7 @@ jobs:
             kind: nearest-neighbor
           - name: nearest-neighbor 3.13
             workspace: nn-plugin-sdks/drnb-nn-plugin-sdk-313
-            python: "3.13.13"
+            python: "3.13.14"
             kind: nearest-neighbor
 
     env:
@@ -134,27 +137,27 @@ jobs:
         include:
           - name: pacmap
             workspace: plugins/pacmap
-            python: "3.13.13"
+            python: "3.13.14"
             kind: embedder
           - name: trimap
             workspace: plugins/trimap
-            python: "3.13.13"
+            python: "3.13.14"
             kind: embedder
           - name: tsne
             workspace: plugins/tsne
-            python: "3.13.13"
+            python: "3.13.14"
             kind: embedder
           - name: umato
             workspace: plugins/umato
-            python: "3.13.13"
+            python: "3.13.14"
             kind: embedder
           - name: annoy
             workspace: nn-plugins/annoy
-            python: "3.13.13"
+            python: "3.13.14"
             kind: nearest-neighbor
           - name: hnsw
             workspace: nn-plugins/hnsw
-            python: "3.13.13"
+            python: "3.13.14"
             kind: nearest-neighbor
 
     env:

@@ -203,7 +203,7 @@ def test_warn_on_existing_in_post_init(monkeypatch, tmp_path, caplog):
     assert calls == ["ds1"]
 
     caplog.clear()
-    exp2 = Experiment(name="exp-warn")
+    Experiment(name="exp-warn")
     assert any(
         "Experiment directory already exists" in rec.message for rec in caplog.records
     )

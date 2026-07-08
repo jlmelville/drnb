@@ -7,7 +7,7 @@ import os
 import pickle
 from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Any, Iterable, Literal, cast
+from typing import Any, Iterable, Literal
 
 import numpy as np
 import pandas as pd
@@ -100,7 +100,7 @@ def ensure_suffix(
         return suffix
     if isinstance(suffix, (list, tuple)):
         return "".join(s if s[0] in (".", "-", "_") else f"-{s}" for s in suffix)
-    if not suffix[0] in (".", "-", "_"):
+    if suffix[0] not in (".", "-", "_"):
         suffix = f"-{suffix}"
     return suffix
 

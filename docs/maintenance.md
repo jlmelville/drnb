@@ -144,9 +144,9 @@ Known spring-cleaning PRs:
 The checked-in GitHub Actions workflow is `.github/workflows/ci.yml`. It covers what the repo can
 currently guarantee on hosted Ubuntu runners:
 
-- Root Python 3.13.13 checks: `uv sync --locked`, `uv lock --check`,
-  `uv run --locked ruff check .`, and `uv run --locked pytest` with `DRNB_HOME`
-  set to a temporary runner directory.
+- Root Python 3.13.14 checks: `uv sync --locked`, `uv lock --check`,
+  `uv run --locked ruff check .`, `uv run --locked ruff format --check .`, and
+  `uv run --locked pytest` with `DRNB_HOME` set to a temporary runner directory.
 - SDK checks for `plugin-sdks/drnb-plugin-sdk-310`,
   `plugin-sdks/drnb-plugin-sdk-312`, `plugin-sdks/drnb-plugin-sdk-313`,
   `nn-plugin-sdks/drnb-nn-plugin-sdk-312`, and

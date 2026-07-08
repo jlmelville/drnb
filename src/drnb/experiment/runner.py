@@ -8,7 +8,6 @@ from drnb.experiment.common import (
     RUN_STATUS_MISSING,
     RUN_STATUS_PARTIAL_EVALS,
     eval_label_set,
-    expected_eval_labels,
     labels_for_evaluator,
     merge_eval_results_by_label,
 )
