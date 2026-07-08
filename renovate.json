@@ -2,5 +2,71 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "constraintsFiltering": "strict",
+  "rangeStrategy": "in-range-only",
+  "packageRules": [
+    {
+      "description": "Do not update Python runtime constraints; drnb intentionally maintains separate 3.10, 3.12, and 3.13 workspaces.",
+      "matchManagers": [
+        "pep621",
+        "pyenv"
+      ],
+      "matchPackageNames": [
+        "python"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Require manual dashboard approval for plugin and SDK Python dependency updates.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchFileNames": [
+        "plugin-sdks/**/pyproject.toml",
+        "nn-plugin-sdks/**/pyproject.toml",
+        "plugins/**/pyproject.toml",
+        "nn-plugins/**/pyproject.toml"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Keep PyTorch pinned for the local GTX 1080 CUDA profile.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchPackageNames": [
+        "torch"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Keep NumPy below 2.1 in 3.10/3.12 SDK compatibility workspaces.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchPackageNames": [
+        "numpy"
+      ],
+      "matchFileNames": [
+        "plugin-sdks/drnb-plugin-sdk-310/pyproject.toml",
+        "plugin-sdks/drnb-plugin-sdk-312/pyproject.toml",
+        "nn-plugin-sdks/drnb-nn-plugin-sdk-312/pyproject.toml"
+      ],
+      "allowedVersions": "<2.1"
+    },
+    {
+      "description": "Keep ncvis on its legacy NumPy 1.x native-build profile.",
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchPackageNames": [
+        "numpy"
+      ],
+      "matchFileNames": [
+        "plugins/ncvis/pyproject.toml"
+      ],
+      "allowedVersions": "<2"
+    }
   ]
 }
