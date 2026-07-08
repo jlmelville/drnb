@@ -12,5 +12,8 @@ dependencies = [
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.uv]
+exclude-newer = "7 days"
+
 [tool.uv.sources]
 drnb-nn-plugin-sdk-312 = { path = "../../nn-plugin-sdks/drnb-nn-plugin-sdk-312" }

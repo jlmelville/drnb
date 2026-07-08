@@ -102,6 +102,10 @@ uv lock --upgrade
 ./scripts/install.sh --refresh-locks
 ```
 
+Each uv-managed workspace sets `exclude-newer = "7 days"` so routine lock refreshes avoid package
+files uploaded in the last week. Use `--exclude-newer false` for urgent package updates that should
+bypass the cooldown.
+
 Keep lock refreshes scoped to one workspace or one dependency bucket. Do not combine Python
 migration, NumPy migration, Torch migration, and plugin package upgrades in a single blind lockfile
 change.
